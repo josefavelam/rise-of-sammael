@@ -10,3 +10,6 @@ Deployed via Netlify. See the live site for the latest build.
 
 ## Development
 Built iteratively with Claude. Each session produces an updated `index.html` pushed directly to this repo, which triggers an automatic Netlify redeploy.
+
+## Pipeline
+`Claude session` → `GitHub push` → `Netlify auto-deploy` ✅
