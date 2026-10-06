@@ -3446,6 +3446,348 @@ function fc(c,x,y,r,col){c.fillStyle=col;c.beginPath();c.arc(x,y,r,0,Math.PI*2);
 
 const SPR={};
 
+// ═══════════════════════════════════════════════════════
+//  SPRITE MANAGER — PNG sprite loader with chroma key removal
+// ═══════════════════════════════════════════════════════
+const SpriteManager=(()=>{
+  const _loaded={};   // spriteKey → transparent ImageBitmap/canvas
+  const _loading={};  // spriteKey → Promise
+  let _ready=false;
+  let _loadedCount=0;
+  let _totalCount=0;
+
+  // ── Sprite key → relative path mapping ──
+  // Every PNG in sprites/ mapped to the SPR key(s) that use it
+  const _PATH_MAP={
+    // === MINIONS: Skeletal ===
+    skeleton:'sprites/minions/skeletal/skeleton.png',
+    skel_archer:'sprites/minions/skeletal/skel_archer.png',
+    skel_armored:'sprites/minions/skeletal/skel_armored.png',
+    skel_bat:'sprites/minions/skeletal/skel_bat.png',
+    skel_colossus:'sprites/minions/skeletal/skel_colossus.png',
+    skel_dragon:'sprites/minions/skeletal/skel_dragon.png',
+    skel_dread_lord:'sprites/minions/skeletal/skel_dread_lord.png',
+    skel_giant:'sprites/minions/skeletal/skel_giant.png',
+    skel_leviathan:'sprites/minions/skeletal/skel_leviathan.png',
+    skel_mage:'sprites/minions/skeletal/skel_mage.png',
+    skel_rat:'sprites/minions/skeletal/skel_rat.png',
+    skel_warrior:'sprites/minions/skeletal/skel_warrior.png',
+    skel_wolf:'sprites/minions/skeletal/skel_wolf.png',
+    bone_ancient:'sprites/minions/skeletal/bone_ancient.png',
+    bone_crawler:'sprites/minions/skeletal/bone_crawler.png',
+    bone_golem:'sprites/minions/skeletal/bone_golem.png',
+    bone_hound:'sprites/minions/skeletal/bone_hound.png',
+    bone_hydra:'sprites/minions/skeletal/bone_hydra.png',
+    bone_titan:'sprites/minions/skeletal/bone_titan.png',
+    bone_wyrm:'sprites/minions/skeletal/bone_wyrm.png',
+    // === MINIONS: Flesh ===
+    zombie:'sprites/minions/flesh/zombie.png',
+    ghoul:'sprites/minions/flesh/ghoul.png',
+    mummy:'sprites/minions/flesh/mummy.png',
+    mummy_lord:'sprites/minions/flesh/mummy_lord.png',
+    wight:'sprites/minions/flesh/wight.png',
+    revenant:'sprites/minions/flesh/revenant.png',
+    bloated_dead:'sprites/minions/flesh/bloated_dead.png',
+    crawling_dead:'sprites/minions/flesh/crawling_dead.png',
+    death_giant:'sprites/minions/flesh/death_giant.png',
+    flesh_abomination:'sprites/minions/flesh/flesh_abomination.png',
+    flesh_golem:'sprites/minions/flesh/flesh_golem.png',
+    flesh_hound:'sprites/minions/flesh/flesh_hound.png',
+    flesh_titan:'sprites/minions/flesh/flesh_titan.png',
+    plague_bearer:'sprites/minions/flesh/plague_bearer.png',
+    plague_knight:'sprites/minions/flesh/plague_knight.png',
+    plague_rat:'sprites/minions/flesh/plague_rat.png',
+    rot_colossus:'sprites/minions/flesh/rot_colossus.png',
+    the_rotting:'sprites/minions/flesh/the_rotting.png',
+    undead_behemoth:'sprites/minions/flesh/undead_behemoth.png',
+    zombie_dragon:'sprites/minions/flesh/zombie_dragon.png',
+    // === MINIONS: Spiritual ===
+    ghost:'sprites/minions/spiritual/ghost.png',
+    wraith:'sprites/minions/spiritual/wraith.png',
+    shadow:'sprites/minions/spiritual/shadow.png',
+    phantom:'sprites/minions/spiritual/phantom.png',
+    specter:'sprites/minions/spiritual/specter.png',
+    banshee_s:'sprites/minions/spiritual/banshee_s.png',
+    poltergeist:'sprites/minions/spiritual/poltergeist.png',
+    will_o_wisp:'sprites/minions/spiritual/will_o_wisp.png',
+    nightwraith:'sprites/minions/spiritual/nightwraith.png',
+    night_shade:'sprites/minions/spiritual/night_shade.png',
+    dread_shade:'sprites/minions/spiritual/dread_shade.png',
+    shadow_lord:'sprites/minions/spiritual/shadow_lord.png',
+    soul_eater:'sprites/minions/spiritual/soul_eater.png',
+    void_walker:'sprites/minions/spiritual/void_walker.png',
+    void_stalker:'sprites/minions/spiritual/void_stalker.png',
+    void_titan:'sprites/minions/spiritual/void_titan.png',
+    the_void_ancient:'sprites/minions/spiritual/the_void_ancient.png',
+    astral_horror:'sprites/minions/spiritual/astral_horror.png',
+    lich_lesser:'sprites/minions/spiritual/lich_lesser.png',
+    lich_elder:'sprites/minions/spiritual/lich_elder.png',
+    // === ENEMIES: Middle-earth ===
+    skeleton_e:'sprites/enemies/middle-earth/skeleton_e.png',
+    zombie_e:'sprites/enemies/middle-earth/zombie_e.png',
+    ghoul_e:'sprites/enemies/middle-earth/ghoul_e.png',
+    wight_e:'sprites/enemies/middle-earth/wight_e.png',
+    wraith_e:'sprites/enemies/middle-earth/wraith_e.png',
+    banshee:'sprites/enemies/middle-earth/banshee.png',
+    cultist:'sprites/enemies/middle-earth/cultist.png',
+    death_knight:'sprites/enemies/middle-earth/death_knight.png',
+    forest_witch:'sprites/enemies/middle-earth/forest_witch.png',
+    forest_wolf:'sprites/enemies/middle-earth/forest_wolf.png',
+    gravedigger:'sprites/enemies/middle-earth/gravedigger.png',
+    lich_acolyte:'sprites/enemies/middle-earth/lich_acolyte.png',
+    orc_archer:'sprites/enemies/middle-earth/orc_archer.png',
+    orc_captain:'sprites/enemies/middle-earth/orc_captain.png',
+    orc_scout:'sprites/enemies/middle-earth/orc_scout.png',
+    orc_warrior:'sprites/enemies/middle-earth/orc_warrior.png',
+    shadow_demon:'sprites/enemies/middle-earth/shadow_demon.png',
+    treant:'sprites/enemies/middle-earth/treant.png',
+    // === ENEMIES: Star Wars ===
+    sw_stormtrooper:'sprites/enemies/star-wars/sw_stormtrooper.png',
+    sw_darth_maul:'sprites/enemies/star-wars/sw_darth_maul.png',
+    sw_darth_vader:'sprites/enemies/star-wars/sw_darth_vader.png',
+    sw_emperor_palpatine:'sprites/enemies/star-wars/sw_emperor_palpatine.png',
+    sw_gen_grievous:'sprites/enemies/star-wars/sw_gen_grievous.png',
+    sw_count_dooku:'sprites/enemies/star-wars/sw_count_dooku.png',
+    sw_asajj_ventress:'sprites/enemies/star-wars/sw_asajj_ventress.png',
+    sw_dark_acolyte:'sprites/enemies/star-wars/sw_dark_acolyte.png',
+    sw_dark_jedi:'sprites/enemies/star-wars/sw_dark_jedi.png',
+    sw_darth_nihilus:'sprites/enemies/star-wars/sw_darth_nihilus.png',
+    sw_death_trooper:'sprites/enemies/star-wars/sw_death_trooper.png',
+    sw_bounty_hunter:'sprites/enemies/star-wars/sw_bounty_hunter.png',
+    sw_inquisitor_trooper:'sprites/enemies/star-wars/sw_inquisitor_trooper.png',
+    sw_mandalorian:'sprites/enemies/star-wars/sw_mandalorian.png',
+    sw_nightsister:'sprites/enemies/star-wars/sw_nightsister.png',
+    sw_purge_trooper:'sprites/enemies/star-wars/sw_purge_trooper.png',
+    sw_scout_trooper:'sprites/enemies/star-wars/sw_scout_trooper.png',
+    sw_shadow_guard:'sprites/enemies/star-wars/sw_shadow_guard.png',
+    sw_sith_assassin:'sprites/enemies/star-wars/sw_sith_assassin.png',
+    sw_sith_sorcerer:'sprites/enemies/star-wars/sw_sith_sorcerer.png',
+    sw_sith_warrior:'sprites/enemies/star-wars/sw_sith_warrior.png',
+    sw_tie_pilot:'sprites/enemies/star-wars/sw_tie_pilot.png',
+    // === ENEMIES: Fallen ===
+    fallen_archer:'sprites/enemies/fallen/fallen_archer.png',
+    fallen_bat:'sprites/enemies/fallen/fallen_bat.png',
+    fallen_crawler:'sprites/enemies/fallen/fallen_crawler.png',
+    fallen_dragon:'sprites/enemies/fallen/fallen_dragon.png',
+    fallen_giant:'sprites/enemies/fallen/fallen_giant.png',
+    fallen_golem:'sprites/enemies/fallen/fallen_golem.png',
+    fallen_hound:'sprites/enemies/fallen/fallen_hound.png',
+    fallen_hydra:'sprites/enemies/fallen/fallen_hydra.png',
+    fallen_knight:'sprites/enemies/fallen/fallen_knight.png',
+    fallen_mage:'sprites/enemies/fallen/fallen_mage.png',
+    fallen_merged_cr16:'sprites/enemies/fallen/fallen_merged_cr16.png',
+    fallen_rat:'sprites/enemies/fallen/fallen_rat.png',
+    fallen_skeleton:'sprites/enemies/fallen/fallen_skeleton.png',
+    fallen_titan:'sprites/enemies/fallen/fallen_titan.png',
+    fallen_warrior:'sprites/enemies/fallen/fallen_warrior.png',
+    fallen_wolf:'sprites/enemies/fallen/fallen_wolf.png',
+    // === BOSSES: Base ===
+    lich:'sprites/bosses/base/lich.png',
+    forest_hag:'sprites/bosses/base/forest_hag.png',
+    wight_lord:'sprites/bosses/base/wight_lord.png',
+    // === BOSSES: Middle-earth ===
+    ancient_barrow:'sprites/bosses/middle-earth/ancient_barrow.png',
+    ash_daemon:'sprites/bosses/middle-earth/ash_daemon.png',
+    barrow_elder:'sprites/bosses/middle-earth/barrow_elder.png',
+    barrow_king:'sprites/bosses/middle-earth/barrow_king.png',
+    barrow_specter:'sprites/bosses/middle-earth/barrow_specter.png',
+    bone_merchant:'sprites/bosses/middle-earth/bone_merchant.png',
+    cave_drake:'sprites/bosses/middle-earth/cave_drake.png',
+    citadel_guardian:'sprites/bosses/middle-earth/citadel_guardian.png',
+    corrupted_ancient:'sprites/bosses/middle-earth/corrupted_ancient.png',
+    corrupted_guardian:'sprites/bosses/middle-earth/corrupted_guardian.png',
+    crowned_shade:'sprites/bosses/middle-earth/crowned_shade.png',
+    dark_commander:'sprites/bosses/middle-earth/dark_commander.png',
+    dark_councillor:'sprites/bosses/middle-earth/dark_councillor.png',
+    dark_echo:'sprites/bosses/middle-earth/dark_echo.png',
+    dark_lord:'sprites/bosses/middle-earth/dark_lord.png',
+    dark_rider:'sprites/bosses/middle-earth/dark_rider.png',
+    dark_tower_lord:'sprites/bosses/middle-earth/dark_tower_lord.png',
+    dead_marshal:'sprites/bosses/middle-earth/dead_marshal.png',
+    elder_tree:'sprites/bosses/middle-earth/elder_tree.png',
+    eyes_servant:'sprites/bosses/middle-earth/eyes_servant.png',
+    fallen_sage:'sprites/bosses/middle-earth/fallen_sage.png',
+    fell_rider:'sprites/bosses/middle-earth/fell_rider.png',
+    flame_warden:'sprites/bosses/middle-earth/flame_warden.png',
+    forest_revenant:'sprites/bosses/middle-earth/forest_revenant.png',
+    gate_guardian:'sprites/bosses/middle-earth/gate_guardian.png',
+    goblin_king:'sprites/bosses/middle-earth/goblin_king.png',
+    gorgoroth_warden:'sprites/bosses/middle-earth/gorgoroth_warden.png',
+    great_troll:'sprites/bosses/middle-earth/great_troll.png',
+    great_weaver:'sprites/bosses/middle-earth/great_weaver.png',
+    inn_revenant:'sprites/bosses/middle-earth/inn_revenant.png',
+    king_of_dead:'sprites/bosses/middle-earth/king_of_dead.png',
+    mill_ghost:'sprites/bosses/middle-earth/mill_ghost.png',
+    mirror_phantom:'sprites/bosses/middle-earth/mirror_phantom.png',
+    morgul_captain:'sprites/bosses/middle-earth/morgul_captain.png',
+    mountain_warden:'sprites/bosses/middle-earth/mountain_warden.png',
+    nazgul_herald:'sprites/bosses/middle-earth/nazgul_herald.png',
+    necro_herald:'sprites/bosses/middle-earth/necro_herald.png',
+    oathbreaker_lord:'sprites/bosses/middle-earth/oathbreaker_lord.png',
+    orc_colonel:'sprites/bosses/middle-earth/orc_colonel.png',
+    osgi_overlord:'sprites/bosses/middle-earth/osgi_overlord.png',
+    ranger_captain:'sprites/bosses/middle-earth/ranger_captain.png',
+    ring_servant:'sprites/bosses/middle-earth/ring_servant.png',
+    river_daemon:'sprites/bosses/middle-earth/river_daemon.png',
+    river_spirit:'sprites/bosses/middle-earth/river_spirit.png',
+    road_wraith:'sprites/bosses/middle-earth/road_wraith.png',
+    shadow_ithilien:'sprites/bosses/middle-earth/shadow_ithilien.png',
+    shadowfax_bane:'sprites/bosses/middle-earth/shadowfax_bane.png',
+    siege_lord:'sprites/bosses/middle-earth/siege_lord.png',
+    siege_revenant:'sprites/bosses/middle-earth/siege_revenant.png',
+    spider_brood:'sprites/bosses/middle-earth/spider_brood.png',
+    steward_shadow:'sprites/bosses/middle-earth/steward_shadow.png',
+    stone_revenant:'sprites/bosses/middle-earth/stone_revenant.png',
+    stone_shepherd:'sprites/bosses/middle-earth/stone_shepherd.png',
+    stone_warden:'sprites/bosses/middle-earth/stone_warden.png',
+    tavern_keeper:'sprites/bosses/middle-earth/tavern_keeper.png',
+    tower_lord:'sprites/bosses/middle-earth/tower_lord.png',
+    treebeard_bane:'sprites/bosses/middle-earth/treebeard_bane.png',
+    troll_hag:'sprites/bosses/middle-earth/troll_hag.png',
+    uruk_overseer:'sprites/bosses/middle-earth/uruk_overseer.png',
+    volcano_lord:'sprites/bosses/middle-earth/volcano_lord.png',
+    wandering_collector:'sprites/bosses/middle-earth/wandering_collector.png',
+    war_machine:'sprites/bosses/middle-earth/war_machine.png',
+    white_hand:'sprites/bosses/middle-earth/white_hand.png',
+    witchking_shadow:'sprites/bosses/middle-earth/witchking_shadow.png',
+    // === BOSSES: Star Wars ===
+    sw_battle_droid:'sprites/bosses/star-wars/sw_battle_droid.png',
+    sw_boba_fett:'sprites/bosses/star-wars/sw_boba_fett.png',
+    sw_clone_trooper:'sprites/bosses/star-wars/sw_clone_trooper.png',
+    sw_emperor:'sprites/bosses/star-wars/sw_emperor.png',
+    sw_ewok:'sprites/bosses/star-wars/sw_ewok.png',
+    sw_geonosian:'sprites/bosses/star-wars/sw_geonosian.png',
+    sw_grievous:'sprites/bosses/star-wars/sw_grievous.png',
+    sw_gungan:'sprites/bosses/star-wars/sw_gungan.png',
+    sw_imperial_guard:'sprites/bosses/star-wars/sw_imperial_guard.png',
+    sw_imperial_officer:'sprites/bosses/star-wars/sw_imperial_officer.png',
+    sw_jango_fett:'sprites/bosses/star-wars/sw_jango_fett.png',
+    sw_kaminoan:'sprites/bosses/star-wars/sw_kaminoan.png',
+    sw_naboo_guard:'sprites/bosses/star-wars/sw_naboo_guard.png',
+    sw_rebel_soldier:'sprites/bosses/star-wars/sw_rebel_soldier.png',
+    sw_sith_acolyte:'sprites/bosses/star-wars/sw_sith_acolyte.png',
+    sw_snowtrooper:'sprites/bosses/star-wars/sw_snowtrooper.png',
+    sw_tusken:'sprites/bosses/star-wars/sw_tusken.png',
+    sw_ugnaught:'sprites/bosses/star-wars/sw_ugnaught.png',
+    sw_vader:'sprites/bosses/star-wars/sw_vader.png',
+    sw_wookiee:'sprites/bosses/star-wars/sw_wookiee.png',
+    // === PETS ===
+    bat_familiar:'sprites/pets/bat_familiar.png',
+    skull_seer:'sprites/pets/skull_seer.png',
+    shadow_hound:'sprites/pets/shadow_hound.png',
+    fire_salamander:'sprites/pets/fire_salamander.png',
+    hedgehog:'sprites/pets/hedgehog.png',
+    dragon_firework:'sprites/pets/dragon_firework.png',
+    // === NPCs ===
+    gandalf_npc:'sprites/npcs/gandalf_npc.png',
+    hobbit_npc:'sprites/npcs/hobbit_npc.png',
+    ranger_npc:'sprites/npcs/ranger_npc.png',
+    scholar_npc:'sprites/npcs/scholar_npc.png',
+    dwarf_npc:'sprites/npcs/dwarf_npc.png',
+    caretaker:'sprites/npcs/caretaker.png',
+  };
+
+  // Keys that MUST stay procedural (heroes, necromancer, special variants)
+  const _PROCEDURAL_ONLY=new Set([
+    'necromancer','necromancer_coop','sammaels',
+    'hero_meruem','hero_esoj','hero_melting','hero_rikker','hero_zephyr',
+    'meruem_hero_of_time','melting_thor','rikker_seraph','esoj_ent',
+    'charizard','charmeleon','hobbit',
+    'pumpkin_merchant_stall',
+    'sw_emperor_boss','sw_grievous_boss','sw_maul_boss','sw_vader_boss',
+    'sw_probe_droid','sw_sandtrooper','sw_shadow_trooper',
+  ]);
+
+  // Remove magenta (#FF00FF) chroma key → transparent
+  function _chromaKey(img){
+    const w=img.naturalWidth||img.width;
+    const h=img.naturalHeight||img.height;
+    const oc=document.createElement('canvas');
+    oc.width=w;oc.height=h;
+    const ox=oc.getContext('2d');
+    ox.drawImage(img,0,0);
+    const id=ox.getImageData(0,0,w,h);
+    const d=id.data;
+    for(let i=0;i<d.length;i+=4){
+      // Magenta: R>240, G<20, B>240
+      if(d[i]>240&&d[i+1]<20&&d[i+2]>240){
+        d[i+3]=0; // set alpha to 0
+      }
+    }
+    ox.putImageData(id,0,0);
+    return oc; // return canvas as drawable image
+  }
+
+  function _loadOne(key){
+    const path=_PATH_MAP[key];
+    if(!path)return Promise.resolve(null);
+    if(_loaded[key])return Promise.resolve(_loaded[key]);
+    if(_loading[key])return _loading[key];
+    _loading[key]=new Promise(res=>{
+      const img=new Image();
+      img.crossOrigin='anonymous';
+      img.onload=()=>{
+        try{
+          _loaded[key]=_chromaKey(img);
+        }catch(e){
+          console.warn('[SpriteManager] chroma-key failed for',key,e);
+          _loaded[key]=img; // use raw image as fallback
+        }
+        _loadedCount++;
+        delete _loading[key];
+        res(_loaded[key]);
+      };
+      img.onerror=()=>{
+        console.warn('[SpriteManager] failed to load',path);
+        delete _loading[key];
+        _loadedCount++;
+        res(null);
+      };
+      img.src=path;
+    });
+    return _loading[key];
+  }
+
+  function preloadAll(){
+    const keys=Object.keys(_PATH_MAP);
+    _totalCount=keys.length;
+    console.log(`[SpriteManager] Preloading ${_totalCount} sprites...`);
+    return Promise.all(keys.map(k=>_loadOne(k))).then(()=>{
+      _ready=true;
+      console.log(`[SpriteManager] Ready! ${_loadedCount}/${_totalCount} sprites loaded.`);
+    });
+  }
+
+  // Draw a sprite image centered at current transform origin
+  // drawSize: pixel size to draw at (before entity scale)
+  function draw(ctx,key,drawSize){
+    const img=_loaded[key];
+    if(!img)return false; // no image loaded — fall back to procedural
+    const half=drawSize/2;
+    ctx.drawImage(img,-half,-half,drawSize,drawSize);
+    return true; // successfully drew
+  }
+
+  function has(key){
+    return !!_loaded[key]&&!_PROCEDURAL_ONLY.has(key);
+  }
+
+  function isProceduralOnly(key){
+    return _PROCEDURAL_ONLY.has(key);
+  }
+
+  function progress(){
+    return _totalCount?(_loadedCount/_totalCount):0;
+  }
+
+  function isReady(){return _ready;}
+
+  return {preloadAll,draw,has,isProceduralOnly,progress,isReady,_PATH_MAP,_PROCEDURAL_ONLY};
+})();
+
+// Start preloading sprites immediately
+SpriteManager.preloadAll();
+
 SPR.necromancer=(c,t,w=0)=>{
   // Read cosmetics from co-op override or player's GS
   const cosm=(window._mpCosm)||((typeof GS!=='undefined')?GS.cosmetics:null)||{};
@@ -6680,15 +7022,30 @@ SPR.gravedigger=(c,t=0,w=0)=>{
 
 
 function drawSprite(c,type,x,y,scale,alpha,t,w,anim,hurtUntil){
-  const sprFn=SPR[type]||SPR[_sprFallback(type)];
-  if(!sprFn)return;
   c.save();c.globalAlpha=alpha||1;c.translate(x,y);c.scale(scale||1,scale||1);
   // Idle breathing — subtle vertical pulse
   const idleBob=anim==='attack'?0:Math.sin((t||0)*1.8)*.8;
   if(idleBob)c.translate(0,idleBob);
-  // Walk override for attack stance
-  const effectiveW = anim==='attack' ? (w>0?.4:w<0?-.4:0.4) : (w||0);
-  sprFn(c,t||0,effectiveW,anim||'idle');
+
+  // Try PNG sprite first (skip procedural-only keys like heroes/necromancer)
+  const sprKey=type||'skeleton';
+  const fallbackKey=_sprFallback(sprKey);
+  let drewPNG=false;
+  if(!SpriteManager.isProceduralOnly(sprKey)){
+    // Flip horizontally based on walk direction
+    if(w&&w<0)c.scale(-1,1);
+    drewPNG=SpriteManager.draw(c,sprKey,48)||SpriteManager.draw(c,fallbackKey,48);
+    if(w&&w<0)c.scale(-1,1); // restore flip for overlays
+  }
+
+  if(!drewPNG){
+    // Fall back to procedural sprite
+    const sprFn=SPR[sprKey]||SPR[fallbackKey];
+    if(!sprFn){c.restore();return;}
+    const effectiveW = anim==='attack' ? (w>0?.4:w<0?-.4:0.4) : (w||0);
+    sprFn(c,t||0,effectiveW,anim||'idle');
+  }
+
   // Hurt flash — red overlay
   if(hurtUntil && Date.now()<hurtUntil){
     c.globalAlpha=0.45;c.fillStyle='#ff2222';
@@ -13763,7 +14120,17 @@ function drawMinion(mk,t){
     }catch(e){}
     ctx.save();ctx.translate(mk.x,mk.y);ctx.scale(sz,sz);
     const sprK=mk.type||'lich';
-    if(SPR[sprK])SPR[sprK](ctx,t,Math.sin(mk._wp||0));else SPR.lich(ctx,t,Math.sin(mk._wp||0));
+    // Try PNG sprite for boss minion
+    let _bmDrew=false;
+    if(!SpriteManager.isProceduralOnly(sprK)){
+      const _bmW=Math.sin(mk._wp||0);
+      if(_bmW<0)ctx.scale(-1,1);
+      _bmDrew=SpriteManager.draw(ctx,sprK,48);
+      if(_bmW<0)ctx.scale(-1,1);
+    }
+    if(!_bmDrew){
+      if(SPR[sprK])SPR[sprK](ctx,t,Math.sin(mk._wp||0));else SPR.lich(ctx,t,Math.sin(mk._wp||0));
+    }
     ctx.restore();
     hpBar(mk.x,mk.y-40*sz,34,5,mk.hp/mk.maxHP,'#c084fc');
     // Name tag
@@ -14008,7 +14375,14 @@ function drawBoss(t){
   } catch(e) { /* gradient failed, skip aura */ }
   ctx.save();ctx.translate(b.x,b.y);ctx.scale(sz,sz);
   const spriteKey=bd._swBossVisual||b.type;
-  if(SPR[spriteKey])SPR[spriteKey](ctx,t);else SPR.lich(ctx,t);
+  // Try PNG sprite for boss (use larger draw size for bosses)
+  let _bDrew=false;
+  if(!SpriteManager.isProceduralOnly(spriteKey)){
+    _bDrew=SpriteManager.draw(ctx,spriteKey,48);
+  }
+  if(!_bDrew){
+    if(SPR[spriteKey])SPR[spriteKey](ctx,t);else SPR.lich(ctx,t);
+  }
   ctx.restore();
   hpBar(b.x,b.y-52*sz,42,6,b.hp/bd.maxHP,'#ef4444');
 }
