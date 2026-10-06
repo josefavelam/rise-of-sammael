@@ -3822,38 +3822,61 @@ SPR.necromancer=(c,t,w=0)=>{
   // ── Robe colors by variant ──────────────────
   let rT,rM,rB,rTrim,rTrim2,rFeet;
   if(isRikkerSet){
-    // Rikker's Paladin Armor — gleaming white plate with silver highlights
     rT='#f8f8ff';rM='#e8ecf8';rB='#d0d8f0';
     rTrim='rgba(255,255,200,.7)';rTrim2='rgba(220,200,160,.5)';rFeet='#c0c8e0';
   } else if(isMeltingSet){
-    // Melting's Unarmored — grey-stone Goliath skin tones
     rT='#8b8b8b';rM='#7a7a7a';rB='#6b6b6b';
     rTrim='rgba(140,120,100,.3)';rTrim2='rgba(100,80,60,.2)';rFeet='#5a5040';
   } else if(isEsojSet){
-    // Esoj's Yggdrassil Bark — grey bark with green trim
     rT='#6b7280';rM='#5a6070';rB='#4b5563';
     rTrim='rgba(74,222,128,.4)';rTrim2='rgba(34,197,94,.3)';rFeet='#5c4033';
   } else if(isZephyrSet){
-    // Zephyr's Shadow Cloak — deep purple-black leather
     rT='#2a1f35';rM='#1e1528';rB='#140e1c';
     rTrim='rgba(192,132,252,.35)';rTrim2='rgba(168,85,247,.25)';rFeet='#1a1025';
   } else if(isMeruemSet||isMeruemCoat){
-    // Doctor's Lab Coat — clean white with subtle blue-grey shadow
     rT='#f8fafc';rM='#f1f5f9';rB='#e2e8f0';
     rTrim='rgba(148,163,184,.5)';rTrim2='rgba(100,116,139,.3)';rFeet='#cbd5e1';
   } else if(isWhiteRobe){
     rT='#e8e8f4';rM='#f0f0f8';rB='#d4d4ec';
     rTrim='rgba(200,200,240,.45)';rTrim2='rgba(180,180,220,.3)';rFeet='#c0c0dc';
   } else if(isDarkRobe){
-    // Dark Acolyte — deep charcoal with silver trim
     rT='#1a1a2e';rM='#12122a';rB='#0a0a1a';
     rTrim='rgba(148,163,184,.4)';rTrim2='rgba(100,116,139,.25)';rFeet='#1e1e30';
   } else if(isLichRobe){
-    // Lich's Raiment — void black with gold trim
     rT='#0a0010';rM='#070008';rB='#030004';
     rTrim='rgba(212,160,23,.55)';rTrim2='rgba(180,120,10,.35)';rFeet='#0e0018';
+  // ── Loot armor colors (dropped gear) ──────
+  } else if(activeRobe==='armor_sammael'){
+    // Mantle of the Fallen — deep void black with sickly green veins
+    rT='#050008';rM='#030005';rB='#010002';
+    rTrim='rgba(74,222,128,.6)';rTrim2='rgba(34,197,94,.4)';rFeet='#080010';
+  } else if(activeRobe==='armor_death'){
+    // Deathweave Plate — gunmetal dark with crimson trim
+    rT='#1a1520';rM='#120e18';rB='#0a0810';
+    rTrim='rgba(220,38,38,.5)';rTrim2='rgba(185,28,28,.35)';rFeet='#0e0a14';
+  } else if(activeRobe==='armor_spectre'){
+    // Spectral Mantle — translucent grey-blue, ghostly
+    rT='rgba(100,130,160,.7)';rM='rgba(80,110,140,.6)';rB='rgba(60,90,120,.5)';
+    rTrim='rgba(200,220,240,.4)';rTrim2='rgba(180,200,220,.3)';rFeet='rgba(70,100,130,.5)';
+  } else if(activeRobe==='armor_crypt'){
+    // Cryptkeeper's Vestment — mouldy dark green
+    rT='#1a2818';rM='#122010';rB='#0a1808';
+    rTrim='rgba(120,160,100,.35)';rTrim2='rgba(100,140,80,.25)';rFeet='#0e1a0c';
+  } else if(activeRobe==='armor_tattered'){
+    // Tattered Shroud — worn brown-grey
+    rT='#2a2420';rM='#221c18';rB='#1a1410';
+    rTrim='rgba(140,120,100,.25)';rTrim2='rgba(120,100,80,.18)';rFeet='#1e1812';
+  // ── Tau'ri loot armor ──────
+  } else if(activeRobe==='armor_tiamat'){
+    // Tiamat's Scales — iridescent dark teal with gold
+    rT='#0a2028';rM='#081820';rB='#061018';
+    rTrim='rgba(252,211,77,.5)';rTrim2='rgba(0,200,180,.4)';rFeet='#040e14';
+  } else if(activeRobe==='armor_lamassu'){
+    // Lamassu Guard — warm bronze-brown
+    rT='#2a1e10';rM='#221808';rB='#1a1204';
+    rTrim='rgba(200,160,80,.4)';rTrim2='rgba(180,140,60,.3)';rFeet='#160e04';
   } else {
-    // Default starter robe — dark purple
+    // Default starter robe — dark purple/black
     rT='#150028';rM='#1e003a';rB='#0d001e';
     rTrim='rgba(168,85,247,.25)';rTrim2='rgba(168,85,247,.18)';rFeet='#1a0a2a';
   }
@@ -3870,6 +3893,29 @@ SPR.necromancer=(c,t,w=0)=>{
   } else if(isLichStaff){
     // Lich's Phylactery — bone-white shaft, twin-toned teal+gold skull orb
     sOrb0='#00eedd';sOrbShadow='#00ffcc';sOrbFill='rgba(0,220,200,.7)';sOrbHigh='#fcd34d';sStick='#d4c8a0';
+  // ── Loot staff colors (dropped gear) ──────
+  } else if(activeStaff==='staff_sammael'){
+    // Sammael's Finger — bone white shaft, sickly green orb with skull
+    sOrb0='#4ade80';sOrbShadow='#16a34a';sOrbFill='rgba(74,222,128,.85)';sOrbHigh='#dcfce7';sStick='#d4c8a0';
+  } else if(activeStaff==='staff_void'){
+    // Voidcaller — obsidian shaft, deep purple void orb
+    sOrb0='#1a0030';sOrbShadow='#7c3aed';sOrbFill='rgba(88,28,135,.9)';sOrbHigh='#a78bfa';sStick='#0a0a14';
+  } else if(activeStaff==='staff_wraith'){
+    // Wraithbone Scepter — pale bone, ghostly blue-white orb
+    sOrb0='#c0d8f0';sOrbShadow='#60a0d0';sOrbFill='rgba(140,180,220,.7)';sOrbHigh='#e8f0ff';sStick='#c8b8a0';
+  } else if(activeStaff==='staff_grave'){
+    // Gravedigger's Spade — dark iron, dull amber glow
+    sOrb0='#d97706';sOrbShadow='#b45309';sOrbFill='rgba(217,119,6,.6)';sOrbHigh='#fbbf24';sStick='#3a3a3a';
+  } else if(activeStaff==='staff_worm'){
+    // Wormwood Staff — gnarled wood, sickly yellow-green
+    sOrb0='#a3e635';sOrbShadow='#65a30d';sOrbFill='rgba(163,230,53,.6)';sOrbHigh='#ecfccb';sStick='#5c4033';
+  // ── Tau'ri loot staffs ──────
+  } else if(activeStaff==='staff_marduk'){
+    // Staff of Marduk — gold and lapis lazuli
+    sOrb0='#fcd34d';sOrbShadow='#f59e0b';sOrbFill='rgba(252,211,77,.8)';sOrbHigh='#fefce8';sStick='#1e3a5f';
+  } else if(activeStaff==='staff_enki'){
+    // Staff of Enki — aqua-teal with silver
+    sOrb0='#22d3ee';sOrbShadow='#06b6d4';sOrbFill='rgba(34,211,238,.7)';sOrbHigh='#cffafe';sStick='#94a3b8';
   } else {
     // Bone Staff — default
     sOrb0='#e879f9';sOrbShadow='#a855f7';sOrbFill='rgba(168,85,247,.7)';sOrbHigh='#e0d8c0';sStick='#4a2810';
@@ -3949,12 +3995,99 @@ SPR.necromancer=(c,t,w=0)=>{
     // Slim boots
     c.fillStyle='#1a1025';c.fillRect((-4+w*5)-2,14,4,4);c.fillRect((2-w*5)-2,14,4,4);
   } else {
-  const robeGrad=c.createLinearGradient(-9,-8,9,16);
+  // ══ SAMMA'EL — Skeletal Tiefling Lich Necromancer ══════════════════
+  const _st=typeof t==='number'?t:0;
+  const _wingFlap=Math.sin(_st*1.8)*0.12;
+  const _tailSway=Math.sin(_st*1.2)*4;
+  // ── Tattered Bat Wings (behind body) ──────
+  c.save();c.translate(lean*0.3,-bob*0.6);
+  // Left wing
+  c.save();c.translate(-8,-6);c.rotate(-0.35-_wingFlap);
+  c.fillStyle='rgba(80,20,20,.55)';
+  c.beginPath();c.moveTo(0,0);c.lineTo(-22,-18);c.lineTo(-28,-8);c.lineTo(-24,2);c.lineTo(-16,8);c.lineTo(-8,6);c.closePath();c.fill();
+  // Wing bones (skeletal struts)
+  c.strokeStyle='rgba(140,50,50,.7)';c.lineWidth=1.2;c.lineCap='round';
+  c.beginPath();c.moveTo(0,0);c.lineTo(-22,-18);c.stroke();
+  c.beginPath();c.moveTo(0,0);c.lineTo(-26,-6);c.stroke();
+  c.beginPath();c.moveTo(0,0);c.lineTo(-20,4);c.stroke();
+  // Tattered membrane holes
+  c.fillStyle='rgba(0,0,0,.3)';
+  c.beginPath();c.ellipse(-16,-6,3,2,0.4,0,Math.PI*2);c.fill();
+  c.beginPath();c.ellipse(-12,2,2,1.5,-0.3,0,Math.PI*2);c.fill();
+  c.restore();
+  // Right wing
+  c.save();c.translate(8,-6);c.rotate(0.35+_wingFlap);
+  c.fillStyle='rgba(80,20,20,.55)';
+  c.beginPath();c.moveTo(0,0);c.lineTo(22,-18);c.lineTo(28,-8);c.lineTo(24,2);c.lineTo(16,8);c.lineTo(8,6);c.closePath();c.fill();
+  c.strokeStyle='rgba(140,50,50,.7)';c.lineWidth=1.2;c.lineCap='round';
+  c.beginPath();c.moveTo(0,0);c.lineTo(22,-18);c.stroke();
+  c.beginPath();c.moveTo(0,0);c.lineTo(26,-6);c.stroke();
+  c.beginPath();c.moveTo(0,0);c.lineTo(20,4);c.stroke();
+  c.fillStyle='rgba(0,0,0,.3)';
+  c.beginPath();c.ellipse(16,-6,3,2,-0.4,0,Math.PI*2);c.fill();
+  c.beginPath();c.ellipse(12,2,2,1.5,0.3,0,Math.PI*2);c.fill();
+  c.restore();
+  c.restore();
+  // ── Demon Tail (behind body, curving down-right) ──────
+  c.save();c.translate(lean*0.3,-bob*0.3);
+  c.strokeStyle='#6b1a1a';c.lineWidth=2.5;c.lineCap='round';
+  c.beginPath();c.moveTo(0,12);
+  c.bezierCurveTo(8+_tailSway,18, 14+_tailSway*0.5,22, 18+_tailSway*0.3,16);c.stroke();
+  // Tail segments
+  c.strokeStyle='rgba(100,30,30,.5)';c.lineWidth=0.8;
+  for(let si=0;si<4;si++){
+    const sx2=4+si*3.5+_tailSway*(0.8-si*0.15);
+    const sy2=14+si*2;
+    c.beginPath();c.moveTo(sx2-1.5,sy2);c.lineTo(sx2+1.5,sy2);c.stroke();
+  }
+  // Spade tip
+  c.fillStyle='#8b1a1a';
+  c.beginPath();
+  const tipX=18+_tailSway*0.3,tipY=16;
+  c.moveTo(tipX,tipY-3);c.lineTo(tipX+5,tipY);c.lineTo(tipX,tipY+3);c.closePath();c.fill();
+  c.restore();
+  // ── Robes (full-length, covering legs to ground) ──────
+  const robeGrad=c.createLinearGradient(-9,-4,9,16);
   robeGrad.addColorStop(0,rT);robeGrad.addColorStop(.5,rM);robeGrad.addColorStop(1,rB);
   c.fillStyle=robeGrad;
-  c.beginPath();c.moveTo(-9+w*1,-8);c.lineTo(9+w*1,-8);c.lineTo(13+w*2,16);c.lineTo(-13+w*2,16);c.closePath();c.fill();
-  px(c,-9,-8,2,24,rTrim);px(c,7,-8,2,24,rTrim2);
-  c.fillStyle=rFeet;c.fillRect((-5+w*5)-2,14,4,4);c.fillRect((3-w*5)-2,14,4,4);
+  // Robe starts at mid-torso (-4), leaving upper chest/ribcage exposed
+  c.beginPath();c.moveTo(-10+w*1,-4);c.lineTo(10+w*1,-4);c.lineTo(14+w*2,16);c.lineTo(-14+w*2,16);c.closePath();c.fill();
+  // Robe trim edges
+  px(c,-10,-4,2,20,rTrim);px(c,8,-4,2,20,rTrim2);
+  // Robe bottom frayed edge
+  c.strokeStyle=rTrim;c.lineWidth=0.6;
+  for(let fi=-12;fi<=12;fi+=3){c.beginPath();c.moveTo(fi+w*2,16);c.lineTo(fi+w*2+1,18+Math.sin(fi+_st)*1);c.stroke();}
+  // ── Exposed Skeletal Ribcage (above robe line) ──────
+  c.save();c.translate(lean*0.3,-bob*0.8);
+  // Desiccated dark red skin over bones
+  const skinG2=c.createLinearGradient(-8,-8,8,-2);
+  skinG2.addColorStop(0,'#4a1515');skinG2.addColorStop(1,'#3a0e0e');
+  c.fillStyle=skinG2;
+  c.beginPath();c.moveTo(-8,-8);c.lineTo(8,-8);c.lineTo(10,-4);c.lineTo(-10,-4);c.closePath();c.fill();
+  // Rib bones
+  c.strokeStyle='rgba(200,180,150,.7)';c.lineWidth=1;c.lineCap='round';
+  for(let ri=0;ri<4;ri++){
+    const ry=-7.5+ri*1.2;
+    c.beginPath();c.moveTo(-1,ry);c.quadraticCurveTo(-5,ry-0.4,-7,ry+0.3);c.stroke();
+    c.beginPath();c.moveTo(1,ry);c.quadraticCurveTo(5,ry-0.4,7,ry+0.3);c.stroke();
+  }
+  // Sternum (center bone)
+  c.strokeStyle='rgba(200,180,150,.8)';c.lineWidth=1.2;
+  c.beginPath();c.moveTo(0,-8);c.lineTo(0,-3);c.stroke();
+  c.restore();
+  // ── Green Amulet on chest ──────
+  c.save();c.translate(lean*0.3,-bob*0.6);
+  const _aGlow=Math.sin(_st*3)*0.3+0.7;
+  c.fillStyle=`rgba(74,222,128,${_aGlow})`;c.shadowColor='#22c55e';c.shadowBlur=6;
+  c.beginPath();
+  // Diamond-shaped amulet
+  c.moveTo(0,-5);c.lineTo(2.5,-3);c.lineTo(0,-1);c.lineTo(-2.5,-3);c.closePath();c.fill();
+  c.shadowBlur=0;
+  // Amulet chain
+  c.strokeStyle='rgba(160,140,100,.5)';c.lineWidth=0.6;
+  c.beginPath();c.moveTo(-5,-8);c.quadraticCurveTo(0,-4,5,-8);c.stroke();
+  c.restore();
+  // Robe bottom — no feet visible (robes cover to ground)
   }
   c.restore();
   // Head
@@ -4001,13 +4134,77 @@ SPR.necromancer=(c,t,w=0)=>{
     c.fillStyle=`rgba(192,132,252,${0.7+_zPulse*0.3})`;c.shadowColor='#c084fc';c.shadowBlur=5;
     fc(c,-2.5,-17,1.6,'');fc(c,2.5,-17,1.6,'');c.shadowBlur=0;
   } else {
-  c.fillStyle='#0d001e';c.beginPath();c.arc(0,-17,8.5,Math.PI,0);c.lineTo(9,-17);c.lineTo(-9,-17);c.closePath();c.fill();
-  fc(c,0,-17,7,'#c8b8a0');
-  const eyeCol=(typeof GS!=='undefined'&&GS.prestige>0)?'#fbbf24':isWhiteRobe?'#ffe066':'#e879f9';
-  ['#9d44ff','#7c3aed'].forEach((col,i)=>{
-    c.fillStyle=col;c.shadowColor=col;c.shadowBlur=5;fc(c,-2.5+i*5,-19,2,'');c.shadowBlur=0;
-  });
-  fc(c,-2.5,-19,2,eyeCol);fc(c,2.5,-19,2,eyeCol);
+  // ── Samma'el Default Head — Skeletal Tiefling Lich ──
+  const _st=t||0;
+
+  // Curved red segmented demon horns (behind head)
+  c.save();
+  // Left horn
+  c.strokeStyle='#8b1a1a';c.lineWidth=2.5;c.lineCap='round';
+  c.beginPath();c.moveTo(-5,-23);c.quadraticCurveTo(-12,-30,-9,-38);c.stroke();
+  // Left horn segments
+  c.strokeStyle='rgba(60,10,10,.6)';c.lineWidth=0.7;
+  for(let hs=0;hs<4;hs++){const ht=0.2+hs*0.2;const hx=-5+(-12-(-5))*ht*0.7;const hy=-23+(-30-(-23))*ht+(-38-2*(-30)+(-23))*ht*ht*0.3;c.beginPath();c.moveTo(hx-1.5,hy);c.lineTo(hx+1.5,hy);c.stroke();}
+  // Right horn
+  c.strokeStyle='#8b1a1a';c.lineWidth=2.5;
+  c.beginPath();c.moveTo(5,-23);c.quadraticCurveTo(12,-30,9,-38);c.stroke();
+  // Right horn segments
+  c.strokeStyle='rgba(60,10,10,.6)';c.lineWidth=0.7;
+  for(let hs=0;hs<4;hs++){const ht=0.2+hs*0.2;const hx=5+(12-5)*ht*0.7;const hy=-23+(-30-(-23))*ht+(-38-2*(-30)+(-23))*ht*ht*0.3;c.beginPath();c.moveTo(hx-1.5,hy);c.lineTo(hx+1.5,hy);c.stroke();}
+  c.restore();
+
+  // Skull shape — dark red desiccated skin over bone
+  const skullGrad=c.createRadialGradient(0,-19,2,0,-18,8);
+  skullGrad.addColorStop(0,'#5a1e1e');skullGrad.addColorStop(0.6,'#4a1515');skullGrad.addColorStop(1,'#3a0e0e');
+  c.fillStyle=skullGrad;
+  // Cranium
+  c.beginPath();c.arc(0,-20,7.5,Math.PI,0);c.lineTo(6,-15);c.lineTo(-6,-15);c.closePath();c.fill();
+  // Cheekbones and jaw
+  c.beginPath();c.moveTo(-6,-15);c.lineTo(-5,-11);c.lineTo(-2,-9);c.lineTo(2,-9);c.lineTo(5,-11);c.lineTo(6,-15);c.closePath();c.fill();
+
+  // Sunken temporal hollows
+  c.fillStyle='rgba(20,5,5,.5)';
+  c.beginPath();c.ellipse(-5,-17,1.5,2.5,0.2,0,Math.PI*2);c.fill();
+  c.beginPath();c.ellipse(5,-17,1.5,2.5,-0.2,0,Math.PI*2);c.fill();
+
+  // Bone structure highlights — cheekbones, brow ridge
+  c.strokeStyle='rgba(200,180,150,.25)';c.lineWidth=0.6;
+  // Brow ridge
+  c.beginPath();c.moveTo(-6,-19);c.quadraticCurveTo(0,-21,6,-19);c.stroke();
+  // Cheekbone lines
+  c.beginPath();c.moveTo(-6,-15);c.lineTo(-4,-14);c.stroke();
+  c.beginPath();c.moveTo(6,-15);c.lineTo(4,-14);c.stroke();
+
+  // Nasal cavity (dark triangle)
+  c.fillStyle='#1a0505';
+  c.beginPath();c.moveTo(-1,-15);c.lineTo(1,-15);c.lineTo(0.5,-12.5);c.lineTo(-0.5,-12.5);c.closePath();c.fill();
+
+  // Glowing green eye sockets
+  const _eyePulse=Math.sin(_st*3)*0.3+0.7;
+  // Deep socket shadows
+  c.fillStyle='#0a0202';
+  c.beginPath();c.ellipse(-3,-17.5,2.5,2,0,0,Math.PI*2);c.fill();
+  c.beginPath();c.ellipse(3,-17.5,2.5,2,0,0,Math.PI*2);c.fill();
+  // Green glow
+  c.shadowColor='#22c55e';c.shadowBlur=8*_eyePulse;
+  c.fillStyle=`rgba(74,222,128,${0.6+_eyePulse*0.4})`;
+  fc(c,-3,-17.5,1.5,'');fc(c,3,-17.5,1.5,'');
+  // Bright pupil cores
+  c.fillStyle=`rgba(220,252,220,${_eyePulse*0.8})`;
+  fc(c,-3,-17.5,0.6,'');fc(c,3,-17.5,0.6,'');
+  c.shadowBlur=0;
+
+  // Skeletal jaw with fangs
+  c.strokeStyle='rgba(200,180,150,.3)';c.lineWidth=0.5;
+  // Jaw line
+  c.beginPath();c.moveTo(-4,-11);c.lineTo(-2,-9);c.lineTo(2,-9);c.lineTo(4,-11);c.stroke();
+  // Teeth row
+  c.fillStyle='rgba(200,190,170,.6)';
+  for(let ti=-2;ti<=2;ti++){c.fillRect(ti*1.2-0.3,-11.5,0.6,1);}
+  // Fangs (longer canines)
+  c.fillStyle='rgba(220,210,190,.8)';
+  c.beginPath();c.moveTo(-2.5,-11.5);c.lineTo(-2,-9.5);c.lineTo(-1.5,-11.5);c.closePath();c.fill();
+  c.beginPath();c.moveTo(1.5,-11.5);c.lineTo(2,-9.5);c.lineTo(2.5,-11.5);c.closePath();c.fill();
   }
   // Wizard hat (drawn over head)
   if(hasWizardHat){
@@ -4290,6 +4487,46 @@ SPR.necromancer=(c,t,w=0)=>{
     c.fillStyle='#a78bfa';c.fillRect(-0.5,-1,1,2);
     c.strokeStyle='#d4d4d8';c.lineWidth=1.5;c.beginPath();c.moveTo(0,0);c.lineTo(0,-12);c.stroke();
     c.fillStyle=`rgba(192,132,252,${_zPulse2*0.5})`;fc(c,0,-12,1.5,'');
+    c.restore();
+  }
+
+  // ── Green necromantic vapor & floating skulls (default Samma'el only) ──
+  if(!isRikkerSet&&!isMeltingSet&&!isEsojSet&&!isZephyrSet&&!isMeruemSet){
+    const _vt=typeof t==='number'?t:0;
+    c.save();
+    // Ghostly green vapor wisps rising from base
+    for(let vi=0;vi<5;vi++){
+      const vx=Math.sin(_vt*1.5+vi*1.26)*8;
+      const vy=10-(_vt*8+vi*40)%50;
+      const vAlpha=Math.max(0,(1-(_vt*0.16+vi*0.8)%1)*0.25);
+      const vSize=1.5+Math.sin(_vt+vi)*0.8;
+      if(vAlpha>0.02){
+        c.fillStyle=`rgba(74,222,128,${vAlpha})`;
+        c.beginPath();c.ellipse(vx,vy,vSize*2,vSize,0,0,Math.PI*2);c.fill();
+      }
+    }
+    // Floating mini skulls orbiting
+    for(let si=0;si<3;si++){
+      const sAngle=_vt*0.8+si*2.094;
+      const sRad=12+Math.sin(_vt*1.5+si)*3;
+      const sx=Math.cos(sAngle)*sRad;
+      const sy=-10+Math.sin(sAngle)*sRad*0.4+Math.sin(_vt*2+si)*2;
+      const sAlpha=0.3+Math.sin(_vt*2+si*1.5)*0.15;
+      c.save();c.translate(sx,sy);c.scale(0.35,0.35);
+      // Tiny skull
+      c.fillStyle=`rgba(200,190,170,${sAlpha})`;
+      c.beginPath();c.arc(0,0,5,Math.PI,0);c.lineTo(4,3);c.lineTo(-4,3);c.closePath();c.fill();
+      // Eye sockets
+      c.fillStyle=`rgba(74,222,128,${sAlpha*1.5})`;
+      c.shadowColor='#22c55e';c.shadowBlur=3;
+      fc(c,-2,-1,1,'');fc(c,2,-1,1,'');
+      c.shadowBlur=0;
+      c.restore();
+    }
+    // Ambient green glow around character
+    const _gPulse=Math.sin(_vt*2)*0.08+0.12;
+    c.fillStyle=`rgba(34,197,94,${_gPulse})`;
+    c.beginPath();c.ellipse(0,0,14,6,0,0,Math.PI*2);c.fill();
     c.restore();
   }
 };
@@ -13980,6 +14217,10 @@ function draw(t,dt){
   updateActiveSpells(t);
 }
 
+// ── Deterministic tile hash for procedural variation (no per-tile storage) ──
+function _tileHash(r,c,seed){let h=(r*374761+c*668265+seed*982451)&0x7fffffff;h=((h>>16)^h)*0x45d9f3b;h=((h>>16)^h)*0x45d9f3b;return((h>>16)^h)&0x7fffffff;}
+function _tileF(r,c,seed){return(_tileHash(r,c,seed)%10000)/10000;}// 0..1 float
+
 function drawMap(t){
   if(!RS||!RS.grid)return;
   const cfg=RS.cfg||RAID_CONFIGS.cemetery;
@@ -13993,27 +14234,117 @@ function drawMap(t){
       if(wy+TILE_SIZE<RS.camY||wy>RS.camY+RS.VH+TILE_SIZE)continue;
 
       if(tile===T_WALL){
-        // Wall — two-tone brick
+        // ── Enhanced Wall Tile ──
+        // Base fill with per-tile shade variation
+        const _wv=_tileF(row,col,1)*0.12-0.06; // ±6% brightness shift
         ctx.fillStyle=cfg.wallCol;ctx.fillRect(wx,wy,TILE_SIZE,TILE_SIZE);
-        ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1;
-        // Brick pattern (pixel-art)
+        // Per-tile brightness variation overlay
+        if(_wv>0){ctx.fillStyle=`rgba(255,255,255,${_wv})`;ctx.fillRect(wx,wy,TILE_SIZE,TILE_SIZE);}
+        else{ctx.fillStyle=`rgba(0,0,0,${-_wv})`;ctx.fillRect(wx,wy,TILE_SIZE,TILE_SIZE);}
+
+        // Brick pattern — alternating rows, varied width
+        ctx.fillStyle='rgba(0,0,0,.22)';
         if(row%2===0){
-          ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(wx,wy,TILE_SIZE/2,2); // mortar
-          ctx.fillRect(wx+TILE_SIZE/2,wy,TILE_SIZE/2,2);
+          const brickOff=(_tileHash(row,col,2)%6)-3;
+          ctx.fillRect(wx,wy,TILE_SIZE,1.5);// top mortar
+          ctx.fillRect(wx+TILE_SIZE/2+brickOff,wy,1.5,TILE_SIZE);// vertical mortar
         }else{
-          ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(wx+TILE_SIZE/4,wy,TILE_SIZE/2,2);
+          const brickOff=(_tileHash(row,col,3)%6)-3;
+          ctx.fillRect(wx,wy,TILE_SIZE,1.5);
+          ctx.fillRect(wx+TILE_SIZE/4+brickOff,wy,1.5,TILE_SIZE);
+          ctx.fillRect(wx+3*TILE_SIZE/4+brickOff,wy,1.5,TILE_SIZE);
         }
+
+        // Cracks (15% of wall tiles)
+        if(_tileF(row,col,10)<0.15){
+          ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=0.6;
+          const cx1=wx+8+_tileHash(row,col,11)%16;
+          const cy1=wy+4+_tileHash(row,col,12)%8;
+          const cx2=cx1+(_tileHash(row,col,13)%10)-5;
+          const cy2=cy1+8+_tileHash(row,col,14)%12;
+          ctx.beginPath();ctx.moveTo(cx1,cy1);ctx.lineTo(cx2,cy2);
+          // Branch crack
+          const cx3=cx2+(_tileHash(row,col,15)%8)-4;
+          const cy3=cy2+(_tileHash(row,col,16)%6);
+          ctx.lineTo(cx3,cy3);ctx.stroke();
+        }
+
+        // Moss/grime patches (10% of tiles, uses accent color)
+        if(_tileF(row,col,20)<0.10){
+          const mx=wx+4+_tileHash(row,col,21)%20;
+          const my=wy+TILE_SIZE-6+_tileHash(row,col,22)%4;
+          ctx.fillStyle=`${cfg.accentCol}18`;// very faint accent tint
+          ctx.beginPath();ctx.ellipse(mx,my,4+_tileHash(row,col,23)%4,2,0,0,Math.PI*2);ctx.fill();
+        }
+
         // Top/left edge lighting
-        ctx.fillStyle='rgba(255,255,255,.05)';ctx.fillRect(wx,wy,TILE_SIZE,2);ctx.fillRect(wx,wy,2,TILE_SIZE);
+        ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(wx,wy,TILE_SIZE,2);ctx.fillRect(wx,wy,2,TILE_SIZE);
+        // Bottom/right shadow
+        ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(wx,wy+TILE_SIZE-1,TILE_SIZE,1);ctx.fillRect(wx+TILE_SIZE-1,wy,1,TILE_SIZE);
+
       } else if(tile===T_FLOOR){
-        // Floor — subtle textured
+        // ── Enhanced Floor Tile ──
         ctx.fillStyle=cfg.floorCol;ctx.fillRect(wx,wy,TILE_SIZE,TILE_SIZE);
-        // Floor pattern — dim grid lines
-        ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+
+        // Per-tile shade variation
+        const _fv=_tileF(row,col,30)*0.08-0.04;
+        if(_fv>0){ctx.fillStyle=`rgba(255,255,255,${_fv})`;ctx.fillRect(wx,wy,TILE_SIZE,TILE_SIZE);}
+        else{ctx.fillStyle=`rgba(0,0,0,${-_fv})`;ctx.fillRect(wx,wy,TILE_SIZE,TILE_SIZE);}
+
+        // Floor pattern — stone slab joints
+        ctx.strokeStyle='rgba(255,255,255,.035)';ctx.lineWidth=0.8;
         ctx.strokeRect(wx+.5,wy+.5,TILE_SIZE-1,TILE_SIZE-1);
-        // Subtle floor noise
-        if((row+col)%7===0){ctx.fillStyle='rgba(255,255,255,.025)';ctx.fillRect(wx+4,wy+4,8,8);}
-        if((row*3+col*2)%11===0){ctx.fillStyle='rgba(0,0,0,.08)';ctx.fillRect(wx+8,wy+12,6,6);}
+        // Cross joint for slab feel
+        if((row+col)%3===0){
+          ctx.beginPath();ctx.moveTo(wx+TILE_SIZE/2,wy);ctx.lineTo(wx+TILE_SIZE/2,wy+TILE_SIZE);ctx.stroke();
+        }
+        if((row+col)%3===1){
+          ctx.beginPath();ctx.moveTo(wx,wy+TILE_SIZE/2);ctx.lineTo(wx+TILE_SIZE,wy+TILE_SIZE/2);ctx.stroke();
+        }
+
+        // Worn/scuffed areas (20% of tiles)
+        if(_tileF(row,col,31)<0.20){
+          const sx=wx+4+_tileHash(row,col,32)%18;
+          const sy=wy+4+_tileHash(row,col,33)%18;
+          ctx.fillStyle='rgba(0,0,0,.06)';
+          ctx.beginPath();ctx.ellipse(sx,sy,3+_tileHash(row,col,34)%4,2+_tileHash(row,col,35)%3,_tileHash(row,col,36)*0.01,0,Math.PI*2);ctx.fill();
+        }
+
+        // Bone debris (5% of floor tiles)
+        if(_tileF(row,col,40)<0.05){
+          ctx.strokeStyle='rgba(200,190,170,.18)';ctx.lineWidth=1;ctx.lineCap='round';
+          const bx=wx+6+_tileHash(row,col,41)%20;
+          const by=wy+8+_tileHash(row,col,42)%16;
+          const ba=(_tileHash(row,col,43)%628)/100;
+          ctx.save();ctx.translate(bx,by);ctx.rotate(ba);
+          ctx.beginPath();ctx.moveTo(-4,0);ctx.lineTo(4,0);ctx.stroke();// bone shaft
+          ctx.beginPath();ctx.arc(-4,0,1.2,0,Math.PI*2);ctx.stroke();// knob
+          ctx.restore();
+        }
+
+        // Bloodstains (3% of floor tiles)
+        if(_tileF(row,col,50)<0.03){
+          const bsx=wx+8+_tileHash(row,col,51)%16;
+          const bsy=wy+8+_tileHash(row,col,52)%16;
+          ctx.fillStyle='rgba(80,10,10,.12)';
+          ctx.beginPath();ctx.ellipse(bsx,bsy,3+_tileHash(row,col,53)%3,2+_tileHash(row,col,54)%2,0,0,Math.PI*2);ctx.fill();
+          // Splatter dots
+          for(let sd=0;sd<3;sd++){
+            const dx=bsx+(_tileHash(row,col,55+sd)%10)-5;
+            const dy=bsy+(_tileHash(row,col,58+sd)%10)-5;
+            ctx.beginPath();ctx.arc(dx,dy,0.8,0,Math.PI*2);ctx.fill();
+          }
+        }
+
+        // Small pebbles/rubble (8% of tiles)
+        if(_tileF(row,col,60)<0.08){
+          ctx.fillStyle='rgba(255,255,255,.04)';
+          for(let pi=0;pi<3;pi++){
+            const px2=wx+4+_tileHash(row,col,61+pi)%24;
+            const py2=wy+4+_tileHash(row,col,64+pi)%24;
+            ctx.beginPath();ctx.arc(px2,py2,0.5+_tileHash(row,col,67+pi)%2*0.5,0,Math.PI*2);ctx.fill();
+          }
+        }
       } else if(tile===T_STAIR){
         ctx.fillStyle=cfg.floorCol;ctx.fillRect(wx,wy,TILE_SIZE,TILE_SIZE);
         const cx2=wx+TILE_SIZE/2, cy2=wy+TILE_SIZE/2;
@@ -14086,16 +14417,35 @@ function drawMap(t){
       }
     }
   }
-  // Draw biome decorations in rooms
+  // Draw biome decorations in rooms + ambient torch glow
   if(RS.rooms){
-    ctx.font='16px serif';ctx.globalAlpha=.4;
     RS.rooms.forEach((rm,i)=>{
       if(i===0)return; // skip start room
+      const rcx=rm.cx*TILE_SIZE, rcy=rm.cy*TILE_SIZE;
+      // Frustum cull room center
+      if(rcx+80<RS.camX||rcx-80>RS.camX+RS.VW)return;
+      if(rcy+80<RS.camY||rcy-80>RS.camY+RS.VH)return;
+
+      // Ambient accent glow at room center
+      const glowR=40+_tileHash(i,0,90)%20;
+      const glowPulse=0.04+Math.sin(t*1.5+i*2.1)*0.015;
+      const grd=ctx.createRadialGradient(rcx,rcy,4,rcx,rcy,glowR);
+      grd.addColorStop(0,`${cfg.accentCol}${Math.floor(glowPulse*255).toString(16).padStart(2,'0')}`);
+      grd.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grd;ctx.beginPath();ctx.arc(rcx,rcy,glowR,0,Math.PI*2);ctx.fill();
+
+      // Scattered deco emojis (2-3 per room, deterministic positions)
       const deco=cfg.deco;
-      const d=deco[i%deco.length];
-      ctx.fillText(d,rm.cx*TILE_SIZE-6,rm.cy*TILE_SIZE+8);
+      const numDeco=2+_tileHash(i,0,91)%2;
+      ctx.font='12px serif';ctx.globalAlpha=0.3;
+      for(let di=0;di<numDeco;di++){
+        const d=deco[_tileHash(i,di,92)%deco.length];
+        const dx=rcx+(_tileHash(i,di,93)%48)-24;
+        const dy=rcy+(_tileHash(i,di,94)%48)-24;
+        ctx.fillText(d,dx,dy);
+      }
+      ctx.globalAlpha=1;
     });
-    ctx.globalAlpha=1;
   }
   // Boss lair indicator on final floor before boss spawns
   if(RS.isFinalFloor&&!RS.bossReady&&RS.rooms&&RS.rooms.length){
