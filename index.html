@@ -1374,8 +1374,8 @@ const TILE_SIZE=32;
 const COLS=56,ROWS=56;
 const MAP=COLS*TILE_SIZE; // 1792 — keeps compatibility
 // Camera zoom — GBA RPG feel (Pokémon Silver / KH:CoM scale)
-// Responsive: always shows ~20 tiles across regardless of screen size
-const TARGET_TILES_ACROSS=20;
+// Responsive: always shows ~25 tiles across regardless of screen size
+const TARGET_TILES_ACROSS=25;
 function calcZoom(screenW){
   const z=screenW/(TARGET_TILES_ACROSS*TILE_SIZE);
   return Math.max(z,1); // never zoom below 1× on tiny screens
@@ -19100,6 +19100,7 @@ let CR = null;  // Castle Room state
 let _crAnimId = null;
 let _castleSpawnAtExit = false;
 let _crBgCanvas = null; // offscreen cache for static background
+let _crCamX = 0, _crCamY = 0; // castle camera (world coords)
 
 // Castle rooms — each object is the CENTER of its room
 // Layout: 3 columns × 3 rows of rooms separated by corridors
@@ -19215,6 +19216,7 @@ function openCastle_fromHub() {
     const W=gameW(),H=gameH()-42;
     const pos=crObjWorld(exitObj,W,H);
     CR.px=pos.x;CR.py=pos.y;CR.tx=pos.x;CR.ty=pos.y;
+    if(GAME_ZOOM>1){const vw=W/GAME_ZOOM,vh=H/GAME_ZOOM;_crCamX=clamp(pos.x-vw/2,0,W-vw);_crCamY=clamp(pos.y-vh/2,0,H-vh);}
   }else if(!CR){
     // will be initialized in startCastleRoom, then we override position after
     CR=null;
@@ -19248,6 +19250,12 @@ function startCastleRoom() {
       _waypoints: [], _waypointIdx: 0,
       _W: W, _H: H,
     };
+    // Snap castle camera to spawn
+    if(GAME_ZOOM>1){
+      const vw=W/GAME_ZOOM, vh=H/GAME_ZOOM;
+      _crCamX=clamp(spawnPos.x-vw/2,0,W-vw);
+      _crCamY=clamp(spawnPos.y-vh/2,0,H-vh);
+    }
   } else {
     // Returning from a menu — stay at last position, just rescale if needed
     if(CR._W && CR._W !== W) {
@@ -19367,7 +19375,10 @@ function crTap(e) {
   const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
   const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
   const W = parseInt(cv.style.width)||cv.width, H = parseInt(cv.style.height)||cv.height;
-  const tx = cx * (W / rect.width), ty = cy * (H / rect.height);
+  // Convert screen coords → world coords (through zoom + camera)
+  const sx = cx * (W / rect.width), sy = cy * (H / rect.height);
+  const tx = GAME_ZOOM>1 ? _crCamX + sx/GAME_ZOOM : sx;
+  const ty = GAME_ZOOM>1 ? _crCamY + sy/GAME_ZOOM : sy;
 
   // Direct tap on any castle object — use per-object tapR so hitboxes match sprites
   for(const obj of CASTLE_OBJECTS){
@@ -19448,6 +19459,27 @@ function tickCastleRoom(dt) {
 
   const prompt = document.getElementById('castlePrompt');
   if(prompt) { prompt.classList.remove('show'); }
+
+  // ── Castle camera follow (same dead-zone style as raids) ──
+  if(GAME_ZOOM>1){
+    const cvW=_crW/GAME_ZOOM, cvH=_crH/GAME_ZOOM;
+    const dzFrac=0.30;
+    const dzW2=cvW*dzFrac, dzH2=cvH*dzFrac;
+    const dzL=(cvW-dzW2)/2, dzR=dzL+dzW2;
+    const dzT=(cvH-dzH2)/2, dzB=dzT+dzH2;
+    const px2=CR.px-_crCamX, py2=CR.py-_crCamY;
+    let tx2=_crCamX, ty2=_crCamY;
+    if(px2<dzL) tx2=CR.px-dzL;
+    else if(px2>dzR) tx2=CR.px-dzR;
+    if(py2<dzT) ty2=CR.py-dzT;
+    else if(py2>dzB) ty2=CR.py-dzB;
+    tx2=clamp(tx2,0,_crW-cvW);
+    ty2=clamp(ty2,0,_crH-cvH);
+    _crCamX+=((tx2-_crCamX)*0.10);
+    _crCamY+=((ty2-_crCamY)*0.10);
+  }else{
+    _crCamX=0;_crCamY=0;
+  }
 }
 
 // Build static background once into an offscreen canvas (walls + floors)
@@ -19641,6 +19673,7 @@ function drawCastleRoom() {
   const DPR=window.devicePixelRatio||1;
   const W=parseInt(cv.style.width)||cv.width, H=parseInt(cv.style.height)||cv.height;
   c.save();c.setTransform(DPR,0,0,DPR,0,0);
+  if(GAME_ZOOM>1){c.scale(GAME_ZOOM,GAME_ZOOM);c.translate(-_crCamX,-_crCamY);}
   const t_now=Date.now(), t=t_now/1000;
 
   const WX=Math.max(8,Math.floor(W*.022));
