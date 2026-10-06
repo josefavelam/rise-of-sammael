@@ -22582,6 +22582,7 @@ function closeShop_toHub(){ closeShop(); }
 let SV = null;  // Survival state (separate from RS)
 let _svAnimId = null;
 let _survCanvas = null, _survCtx = null;
+let _survCamX = 0, _survCamY = 0; // survival camera (world coords)
 
 // Survival uses the main game canvas + raid HUD
 function startSurvivalFromCatacombs(){
@@ -22657,6 +22658,13 @@ function initSurvival() {
 
   // Hellbridge Survival is solo — no minions, no risen bosses
   SV.minions = [];
+
+  // Camera snap to necro
+  if(GAME_ZOOM>1){
+    const vw=W/GAME_ZOOM, vh=H/GAME_ZOOM;
+    _survCamX=clamp(SV.necro.x-vw/2,0,W-vw);
+    _survCamY=clamp(SV.necro.y-vh/2,0,H-vh);
+  }else{_survCamX=0;_survCamY=0;}
 
   document.getElementById('floorHUD').style.display='none';
   document.getElementById('bossBar').style.display='none';
@@ -22947,6 +22955,28 @@ function tickSurvivalNecro(dt, t) {
   // Clamp to screen
   n.x = clamp(n.x, 20, SV.W-20);
   n.y = clamp(n.y, 60, SV.H-60);
+
+  // ── Dead-zone camera follow ──
+  if(GAME_ZOOM>1){
+    const cvW=SV.W/GAME_ZOOM, cvH=SV.H/GAME_ZOOM;
+    const dzFrac=0.30;
+    const dzW2=cvW*dzFrac, dzH2=cvH*dzFrac;
+    const dzL=(cvW-dzW2)/2, dzR=dzL+dzW2;
+    const dzT=(cvH-dzH2)/2, dzB=dzT+dzH2;
+    const px2=n.x-_survCamX, py2=n.y-_survCamY;
+    let tx2=_survCamX, ty2=_survCamY;
+    if(px2<dzL) tx2=n.x-dzL;
+    else if(px2>dzR) tx2=n.x-dzR;
+    if(py2<dzT) ty2=n.y-dzT;
+    else if(py2>dzB) ty2=n.y-dzB;
+    tx2=clamp(tx2,0,SV.W-cvW);
+    ty2=clamp(ty2,0,SV.H-cvH);
+    _survCamX+=((tx2-_survCamX)*0.10);
+    _survCamY+=((ty2-_survCamY)*0.10);
+  }else{
+    _survCamX=0;_survCamY=0;
+  }
+
   // HP regen
   if(GS.hasPassive(8)){n.hp=Math.min(n.maxHP,n.hp+dt*2);}
   // Auto-cast spells if auto mode
@@ -23284,6 +23314,11 @@ function drawSurvival(t) {
   const W=SV.W, H=SV.H;
   c.clearRect(0,0,W,H);
 
+  // ── GAME_ZOOM camera transform ─────────────────────────────
+  const DPR2=window.devicePixelRatio||1;
+  c.save();c.setTransform(DPR2,0,0,DPR2,0,0);
+  if(GAME_ZOOM>1){c.scale(GAME_ZOOM,GAME_ZOOM);c.translate(-_survCamX,-_survCamY);}
+
   // ── HELLBRIDGE BACKGROUND ──────────────────────────────────
   // Stone floor (dark basalt)
   const floorColors=['#0a0510','#0c0614','#0b0512','#0d0616'];
@@ -23412,6 +23447,7 @@ function drawSurvival(t) {
     c.globalAlpha=1;
   }
 
+  c.restore(); // end GAME_ZOOM transform
   c.textAlign='left';
 }
 
@@ -23496,8 +23532,10 @@ function survTouch(e) {
   const rect=_survCanvas.getBoundingClientRect();
   const scaleX=_survCanvas.width/(window.devicePixelRatio||1)/rect.width;
   const scaleY=_survCanvas.height/(window.devicePixelRatio||1)/rect.height;
-  const cx=(e.touches[0].clientX-rect.left)*scaleX;
-  const cy=(e.touches[0].clientY-rect.top)*scaleY;
+  const sx=(e.touches[0].clientX-rect.left)*scaleX;
+  const sy=(e.touches[0].clientY-rect.top)*scaleY;
+  const cx=GAME_ZOOM>1 ? _survCamX + sx/GAME_ZOOM : sx;
+  const cy=GAME_ZOOM>1 ? _survCamY + sy/GAME_ZOOM : sy;
   // Touch on portal sprite → retreat (only if portal intact)
   if(Math.hypot(cx-SV.PORTAL_X, cy-SV.H/2)<65){
     if(SV.portalDestroyed){showToast('⚠ Portal destroyed — use Call Home first!');return;}
@@ -23528,7 +23566,9 @@ function survTouch(e) {
 }
 function survMouse(e) {
   if(!SV||SV.done) return;
-  const cx=e.offsetX, cy=e.offsetY;
+  const ox=e.offsetX, oy=e.offsetY;
+  const cx=GAME_ZOOM>1 ? _survCamX + ox/GAME_ZOOM : ox;
+  const cy=GAME_ZOOM>1 ? _survCamY + oy/GAME_ZOOM : oy;
   if(Math.hypot(cx-SV.PORTAL_X, cy-SV.H/2)<65){
     if(SV.portalDestroyed){showToast('⚠ Portal destroyed — use Call Home first!');return;}
     endSurvival('retreat'); return;
@@ -24257,6 +24297,9 @@ function initPlatformer(region) {
   buildSpellBar();
   startAmbience();
   cancelAnimationFrame(animId);
+  // Camera snap to player
+  const _pfVW0 = GAME_ZOOM>1 ? W/GAME_ZOOM : W;
+  PF.camX = clamp(PF.player.x - _pfVW0*0.35, 0, PF.WORLD_W - _pfVW0);
   _pfAnimId = requestAnimationFrame(pfLoop);
 }
 
@@ -24322,8 +24365,9 @@ function pfTickPlayer(dt,t){
   });
   // Walk animation
   if(Math.abs(p.vx)>10)p._wp+=8*dt;
-  // Update camera
-  PF.camX = clamp(p.x - PF.W*0.35, 0, PF.WORLD_W - PF.W);
+  // Update camera (viewport shrinks with GAME_ZOOM)
+  const _pfVW = GAME_ZOOM>1 ? PF.W/GAME_ZOOM : PF.W;
+  PF.camX = clamp(p.x - _pfVW*0.35, 0, PF.WORLD_W - _pfVW);
   // Fall off map = hurt
   if(p.y > PF.FLOOR_Y+200){p.hp=0;}
   // HP check
@@ -24448,22 +24492,28 @@ function pfDraw(t){
   const W=PF.W,H=PF.H,cx=PF.camX;
   c.clearRect(0,0,W,H);
 
+  // ── GAME_ZOOM camera transform ─────────────────────────────
+  const DPR2=window.devicePixelRatio||1;
+  c.save();c.setTransform(DPR2,0,0,DPR2,0,0);
+  if(GAME_ZOOM>1){c.scale(GAME_ZOOM,GAME_ZOOM);}
+
   // Sky background (biome-tinted)
   const biomeCols={cemetery:['#050010','#0a0018'],forest:['#010a03','#021405'],sanctum:['#080005','#100010']};
   const bc=biomeCols[PF.region.biome]||biomeCols.cemetery;
-  const bgGrad=c.createLinearGradient(0,0,0,H);
+  const vW=GAME_ZOOM>1?W/GAME_ZOOM:W, vH=GAME_ZOOM>1?H/GAME_ZOOM:H;
+  const bgGrad=c.createLinearGradient(0,0,0,vH);
   bgGrad.addColorStop(0,bc[0]);bgGrad.addColorStop(1,bc[1]);
-  c.fillStyle=bgGrad;c.fillRect(0,0,W,H);
+  c.fillStyle=bgGrad;c.fillRect(0,0,vW,vH);
 
   // Stars
   c.fillStyle='rgba(255,255,255,.35)';
-  for(let i=0;i<60;i++){c.beginPath();c.arc((i*137+50)%W,(i*71+30)%H*0.7,0.8,0,Math.PI*2);c.fill();}
+  for(let i=0;i<60;i++){c.beginPath();c.arc((i*137+50)%vW,(i*71+30)%vH*0.7,0.8,0,Math.PI*2);c.fill();}
 
   c.save();c.translate(-cx,0);
 
   // Platforms
   PF.platforms.forEach(plat=>{
-    if(plat.x+plat.w<cx||plat.x>cx+W)return; // cull
+    if(plat.x+plat.w<cx||plat.x>cx+vW)return; // cull
     const isGround=plat.h>30;
     if(isGround){
       const gr=c.createLinearGradient(0,plat.y,0,plat.y+plat.h);
@@ -24551,6 +24601,7 @@ function pfDraw(t){
   });
 
   c.restore(); // un-translate camera
+  c.restore(); // end GAME_ZOOM transform
 
   c.textAlign='left';
 }
