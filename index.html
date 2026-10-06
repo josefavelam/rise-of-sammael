@@ -1373,6 +1373,9 @@ function gameWH(chrome){ chrome=chrome||0; return {W:gameW(), H:gameH()-chrome};
 const TILE_SIZE=32;
 const COLS=56,ROWS=56;
 const MAP=COLS*TILE_SIZE; // 1792 — keeps compatibility
+// Camera zoom — GBA RPG feel (Pokémon Silver / FF / KH:CoM scale)
+// 2.5× means ~14 tiles visible across a 1120px-wide screen
+const GAME_ZOOM=2.5;
 const T_WALL=0,T_FLOOR=1,T_STAIR=2,T_STAIR_UP=3;
 
 // ── RAID CONFIGURATIONS ──
@@ -9894,7 +9897,7 @@ function initRaid(raidKey,floorNum,opts){
     bossDef,onFinalFloor:isFinalFloor,
     parts:[],bonesGained:RS?RS.bonesGained:0,wGained:RS?RS.wGained:{pp:0,gp:0,sp:0,cp:0},
     xpGained:RS?RS.xpGained:0,
-    done:false,result:null,camX:0,camY:0,VW:W,VH:H,
+    done:false,result:null,camX:0,camY:0,VW:W/GAME_ZOOM,VH:H/GAME_ZOOM,
     stairLocked:true,hasKey:false,key:null,aiMode:(floorNum>1&&RS?RS.aiMode:'defense'),
     _famMode:(floorNum>1&&RS?RS._famMode:'defend'),activePet:(floorNum>1&&RS&&RS.activePet?(()=>{const _psp=safeSpawnPos(startX+rnd(-30,30),startY+rnd(-30,30),4,grid);return{...RS.activePet,x:_psp.x,y:_psp.y,_wp:0,_justSpawned:true};})():null),_petUsedThisRaid:(floorNum>1&&RS?RS._petUsedThisRaid:false),
     _patrolSetupPhase:0,_patrolPendingMinion:null,_patrolPointA:null,_patrolTargetType:null,_patrolTapPending:null,_patrolTapPendingB:null,
@@ -13778,18 +13781,22 @@ function camFollow(){
 
 // ── DRAW ──
 function draw(t,dt){
-  ctx.clearRect(0,0,RS.VW,RS.VH);
-  ctx.save();ctx.translate(-RS.camX,-RS.camY);
+  ctx.clearRect(0,0,RS.VW*GAME_ZOOM,RS.VH*GAME_ZOOM);
+  ctx.save();ctx.scale(GAME_ZOOM,GAME_ZOOM);ctx.translate(-RS.camX,-RS.camY);
   drawMap(t);
   RS.enemies.forEach(e=>{if(!e.dead||e.corpse)drawEnemy(e,t);});
   
   // Draw NPCs
   if(RS.npcs){
     RS.npcs.forEach(npc=>{
-      if(SPR[npc.type]){
+      if(SPR[npc.type]||SpriteManager.has(npc.type)){
         ctx.save();
         ctx.translate(npc.x,npc.y);
-        SPR[npc.type](ctx,t,0);
+        let _npcDrew=false;
+        if(!SpriteManager.isProceduralOnly(npc.type)){
+          _npcDrew=SpriteManager.draw(ctx,npc.type,48);
+        }
+        if(!_npcDrew&&SPR[npc.type])SPR[npc.type](ctx,t,0);
         ctx.restore();
         // Hover indicator
         if(Date.now()%1000<500){
@@ -13838,7 +13845,7 @@ function draw(t,dt){
   if(RS.stairLocked&&RS.stairX){
     // Pulsing red ring around locked stair (in addition to door sprite)
     const lp=0.45+Math.sin(t*2.2)*0.15;
-    ctx.restore();ctx.save();ctx.translate(-RS.camX,-RS.camY);
+    ctx.restore();ctx.save();ctx.scale(GAME_ZOOM,GAME_ZOOM);ctx.translate(-RS.camX,-RS.camY);
     ctx.strokeStyle=`rgba(239,68,68,${lp*0.4})`;ctx.lineWidth=2;ctx.setLineDash([5,6]);
     ctx.beginPath();ctx.arc(RS.stairX,RS.stairY,22,0,Math.PI*2);ctx.stroke();
     ctx.setLineDash([]);
@@ -13888,7 +13895,11 @@ function draw(t,dt){
     ctx.globalAlpha=0.55+Math.sin(t*1.8)*0.08;
     ctx.scale(sz,sz);
     const sprK=bc.type||'lich';
-    if(SPR[sprK])SPR[sprK](ctx,0);else SPR.lich(ctx,0);
+    let _bcDrew=false;
+    if(!SpriteManager.isProceduralOnly(sprK)){
+      _bcDrew=SpriteManager.draw(ctx,sprK,48);
+    }
+    if(!_bcDrew){if(SPR[sprK])SPR[sprK](ctx,0);else SPR.lich(ctx,0);}
     ctx.restore();
     // "Rise?" label
     const rp=0.7+Math.sin(t*3)*0.3;
@@ -24846,7 +24857,7 @@ window.addEventListener('resize',()=>{
   if(RS&&canvas){
     const {W,H}=gameWH(0),DPR=window.devicePixelRatio||1;
     canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';
-    ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);RS.VW=W;RS.VH=H;
+    ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);RS.VW=W/GAME_ZOOM;RS.VH=H/GAME_ZOOM;
   }
 });
 
