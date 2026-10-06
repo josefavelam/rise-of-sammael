@@ -16932,6 +16932,7 @@ function villageTick(){
 let _vilWalkState = null;
 let _vilStoragePos = {orchard:null, forest:null, mining:null, graveyard:null, workshop:null};
 let _vilWalkAnimId = null;
+let _vilCamX = 0, _vilCamY = 0; // village camera (world coords)
 
 function startVilWalk(){
   const cv=document.getElementById('vilCanvas');if(!cv)return;
@@ -16949,6 +16950,12 @@ function startVilWalk(){
   if(!_vilWalkState){
     _vilWalkState={px:W/2,py:H*.55,tx:W/2,ty:H*.55,facing:1,wp:0,nearNode:null};
   }
+  // Snap village camera to player spawn
+  if(GAME_ZOOM>1){
+    const vw=W/GAME_ZOOM, vh=H/GAME_ZOOM;
+    _vilCamX=clamp(_vilWalkState.px-vw/2,0,W-vw);
+    _vilCamY=clamp(_vilWalkState.py-vh/2,0,H-vh);
+  }else{_vilCamX=0;_vilCamY=0;}
   cv.onclick=vilTap; cv.ontouchstart=vilTap;
   stopVilWalk();
   _vilWalkAnimId=setInterval(tickVilWalk,50);
@@ -17333,7 +17340,10 @@ function vilTap(e){
   const rawX=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
   const rawY=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
   const W=parseInt(cv.style.width)||rect.width, H=parseInt(cv.style.height)||rect.height;
-  const tx=rawX*(W/rect.width), ty=rawY*(H/rect.height);
+  // Convert screen coords → world coords (through zoom + camera)
+  const sx=rawX*(W/rect.width), sy=rawY*(H/rect.height);
+  const tx=GAME_ZOOM>1 ? _vilCamX + sx/GAME_ZOOM : sx;
+  const ty=GAME_ZOOM>1 ? _vilCamY + sy/GAME_ZOOM : sy;
   const s=_vilWalkState;
   
   // Hobbit NPC tap detection in village gate
@@ -17459,6 +17469,26 @@ function tickVilWalk(){
   const W=parseInt(cv.style.width)||cv.width, H=parseInt(cv.style.height)||cv.height;
   s.px=clamp(s.px,10,W-10);
   s.py=clamp(s.py,10,H-10);
+  // ── Village camera follow (dead-zone style) ──
+  if(GAME_ZOOM>1){
+    const cvW=W/GAME_ZOOM, cvH=H/GAME_ZOOM;
+    const dzFrac=0.30;
+    const dzW2=cvW*dzFrac, dzH2=cvH*dzFrac;
+    const dzL=(cvW-dzW2)/2, dzR=dzL+dzW2;
+    const dzT=(cvH-dzH2)/2, dzB=dzT+dzH2;
+    const px2=s.px-_vilCamX, py2=s.py-_vilCamY;
+    let tx2=_vilCamX, ty2=_vilCamY;
+    if(px2<dzL) tx2=s.px-dzL;
+    else if(px2>dzR) tx2=s.px-dzR;
+    if(py2<dzT) ty2=s.py-dzT;
+    else if(py2>dzB) ty2=s.py-dzB;
+    tx2=clamp(tx2,0,W-cvW);
+    ty2=clamp(ty2,0,H-cvH);
+    _vilCamX+=((tx2-_vilCamX)*0.10);
+    _vilCamY+=((ty2-_vilCamY)*0.10);
+  }else{
+    _vilCamX=0;_vilCamY=0;
+  }
   drawVilCanvas();
   // Only update resource bar, not full DOM rebuild
   const rb=document.getElementById('villResources');
@@ -17486,6 +17516,9 @@ function drawVilCanvas(){
   }
   const W=parseInt(cv.style.width)||gameW();
   const H=parseInt(cv.style.height)||(gameH()-42);
+  const DPR2=window.devicePixelRatio||1;
+  c.save();c.setTransform(DPR2,0,0,DPR2,0,0);
+  if(GAME_ZOOM>1){c.scale(GAME_ZOOM,GAME_ZOOM);c.translate(-_vilCamX,-_vilCamY);}
   _vilFrame++;
   const fs=Math.max(0.5,Math.min(1.0,W/700));
 
@@ -18779,6 +18812,7 @@ function drawVilCanvas(){
     c.restore();
   }
   c.textAlign='left';
+  c.restore();
   _updateVilStorageOverlay(W, H);
 }
 
@@ -23601,6 +23635,7 @@ function endSurvival(result) {
 // ══════════════════════════════════════════════
 let CAT={px:0,py:0,tx:0,ty:0,facing:1,wp:0,nearStair:false,nearDeep:false,minionAnims:[]};
 let _catAnimId=null;
+let _catCamX = 0, _catCamY = 0; // catacombs camera (world coords)
 
 function openCatacombs(){
   showScreen('catacombs');
@@ -23611,6 +23646,8 @@ function openCatacombs(){
   const _W=gameW(),_H=gameH();
   CAT.px=_W/2;CAT.py=_H*.52;CAT.tx=_W/2;CAT.ty=_H*.52;
   CAT.facing=1;
+  // Snap catacombs camera to spawn
+  if(GAME_ZOOM>1){const vw=_W/GAME_ZOOM,vh=_H/GAME_ZOOM;_catCamX=clamp(CAT.px-vw/2,0,_W-vw);_catCamY=clamp(CAT.py-vh/2,0,_H-vh);}else{_catCamX=0;_catCamY=0;}
   startCatRoom();
 }
 function closeCatacombs(){
@@ -23629,6 +23666,8 @@ function startCatRoom(){
   cv.getContext('2d').scale(DPR,DPR);
   // Initialize player center
   if(!CAT.minionAnims||!CAT.minionAnims.length){CAT.px=W/2;CAT.py=H*.55;CAT.tx=W/2;CAT.ty=H*.55;}
+  // Snap catacombs camera
+  if(GAME_ZOOM>1){const vw=W/GAME_ZOOM,vh=H/GAME_ZOOM;_catCamX=clamp(CAT.px-vw/2,0,W-vw);_catCamY=clamp(CAT.py-vh/2,0,H-vh);}else{_catCamX=0;_catCamY=0;}
   // Spawn minion wander anims — only minions NOT in barracks and NOT in village
   const alive=GS.skeletons.map((s,i)=>({s,i})).filter(({s,i})=>s.hp>0&&!GS.villageAssign[i]);
   const waiting=alive.filter(({s,i})=>!GS.raidParty.has(i));
@@ -23678,7 +23717,10 @@ function catTap(e){
   const cy=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
   const W=parseInt(cv.style.width)||gameW();
   const H=parseInt(cv.style.height)||gameH();
-  const tx=cx*(W/rect.width),ty=cy*(H/rect.height);
+  // Convert screen coords → world coords (through zoom + camera)
+  const sx=cx*(W/rect.width), sy=cy*(H/rect.height);
+  const tx=GAME_ZOOM>1 ? _catCamX + sx/GAME_ZOOM : sx;
+  const ty=GAME_ZOOM>1 ? _catCamY + sy/GAME_ZOOM : sy;
   // Re-verify proximity at time of tap (not stale tick value)
   const STAIR_X=W*.5,STAIR_Y=H*.18;
   const DEEP_X=W*.5,DEEP_Y=H*.82;
@@ -23753,6 +23795,26 @@ function tickCatRoom(){
     else if(CAT.nearCastle){pr.textContent='▶ Tap: Return to Castle';pr.style.color='#a78bfa';pr.classList.add('show');}
     else{pr.classList.remove('show');pr.style.color='';}
   }
+  // ── Catacombs camera follow (dead-zone style) ──
+  if(GAME_ZOOM>1){
+    const cvW=W/GAME_ZOOM, cvH=H/GAME_ZOOM;
+    const dzFrac=0.30;
+    const dzW2=cvW*dzFrac, dzH2=cvH*dzFrac;
+    const dzL=(cvW-dzW2)/2, dzR=dzL+dzW2;
+    const dzT=(cvH-dzH2)/2, dzB=dzT+dzH2;
+    const px2=CAT.px-_catCamX, py2=CAT.py-_catCamY;
+    let tx2=_catCamX, ty2=_catCamY;
+    if(px2<dzL) tx2=CAT.px-dzL;
+    else if(px2>dzR) tx2=CAT.px-dzR;
+    if(py2<dzT) ty2=CAT.py-dzT;
+    else if(py2>dzB) ty2=CAT.py-dzB;
+    tx2=clamp(tx2,0,W-cvW);
+    ty2=clamp(ty2,0,H-cvH);
+    _catCamX+=((tx2-_catCamX)*0.10);
+    _catCamY+=((ty2-_catCamY)*0.10);
+  }else{
+    _catCamX=0;_catCamY=0;
+  }
   drawCatRoom();
 }
 
@@ -23763,6 +23825,7 @@ function drawCatRoom(){
   const W=parseInt(cv.style.width)||gameW();
   const H=parseInt(cv.style.height)||gameH();
   c.save();c.setTransform(DPR,0,0,DPR,0,0);
+  if(GAME_ZOOM>1){c.scale(GAME_ZOOM,GAME_ZOOM);c.translate(-_catCamX,-_catCamY);}
 
   // ── Floor (dark stone)
   const floorC=['#0c0812','#0e0a14','#100c16','#0d0911'];
@@ -23963,11 +24026,13 @@ function drawCatRoom(){
   }
   c.restore();
 
-  // ── HUD overlay (top bar)
+  c.restore(); // end zoom transform
+
+  // ── HUD overlay (top bar) — drawn in screen space
+  c.save();c.setTransform(DPR,0,0,DPR,0,0);
   c.fillStyle='rgba(0,0,0,.7)';c.fillRect(0,0,W,42);
   c.fillStyle='rgba(107,114,128,.3)';c.strokeStyle='rgba(107,114,128,.3)';
   c.lineWidth=1;c.beginPath();c.moveTo(0,42);c.lineTo(W,42);c.stroke();
-
   c.textAlign='left';c.restore();
 }
 
