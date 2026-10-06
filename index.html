@@ -1374,8 +1374,8 @@ const TILE_SIZE=32;
 const COLS=56,ROWS=56;
 const MAP=COLS*TILE_SIZE; // 1792 — keeps compatibility
 // Camera zoom — GBA RPG feel (Pokémon Silver / KH:CoM scale)
-// Responsive: always shows ~13 tiles across regardless of screen size
-const TARGET_TILES_ACROSS=13;
+// Responsive: always shows ~20 tiles across regardless of screen size
+const TARGET_TILES_ACROSS=20;
 function calcZoom(screenW){
   const z=screenW/(TARGET_TILES_ACROSS*TILE_SIZE);
   return Math.max(z,1); // never zoom below 1× on tiny screens
