@@ -1373,9 +1373,14 @@ function gameWH(chrome){ chrome=chrome||0; return {W:gameW(), H:gameH()-chrome};
 const TILE_SIZE=32;
 const COLS=56,ROWS=56;
 const MAP=COLS*TILE_SIZE; // 1792 — keeps compatibility
-// Camera zoom — GBA RPG feel (Pokémon Silver / FF / KH:CoM scale)
-// 2.5× means ~14 tiles visible across a 1120px-wide screen
-const GAME_ZOOM=2.5;
+// Camera zoom — GBA RPG feel (Pokémon Silver / KH:CoM scale)
+// Responsive: always shows ~13 tiles across regardless of screen size
+const TARGET_TILES_ACROSS=13;
+function calcZoom(screenW){
+  const z=screenW/(TARGET_TILES_ACROSS*TILE_SIZE);
+  return Math.max(z,1); // never zoom below 1× on tiny screens
+}
+let GAME_ZOOM=calcZoom(gameW());
 const T_WALL=0,T_FLOOR=1,T_STAIR=2,T_STAIR_UP=3;
 
 // ── RAID CONFIGURATIONS ──
@@ -9763,6 +9768,7 @@ function initRaid(raidKey,floorNum,opts){
   mmCanvas=document.getElementById('minimapCanvas');
   mmCtx=mmCanvas.getContext('2d');
   const {W,H}=gameWH(0),DPR=window.devicePixelRatio||1;
+  GAME_ZOOM=calcZoom(W);
   canvas.width=W*DPR;canvas.height=H*DPR;
   canvas.style.width=W+'px';canvas.style.height=H+'px';
   ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
@@ -13766,15 +13772,33 @@ function tickParts(dt){
   });
 }
 
+// Dead-zone camera — camera stays still until player nears screen edge,
+// then smoothly catches up. Feels like classic GBC/GBA RPGs.
+const CAM_DEADZONE=0.30; // inner 30% of view is the "safe" zone
+const CAM_LERP=0.08;     // smooth follow speed
 function camFollow(){
   if(!RS.necro.dead){
     // Phase 2+ final boss: camera lerps toward boss center
     if(RS.boss&&!RS.boss.dead&&RS.bossPhase>=2){
       const midX=(RS.necro.x+RS.boss.x)/2, midY=(RS.necro.y+RS.boss.y)/2;
-      RS.camX+=(clamp(midX-RS.VW/2,0,MAP-RS.VW)-RS.camX)*0.08;
-      RS.camY+=(clamp(midY-RS.VH/2,0,MAP-RS.VH)-RS.camY)*0.08;
+      RS.camX+=(clamp(midX-RS.VW/2,0,MAP-RS.VW)-RS.camX)*CAM_LERP;
+      RS.camY+=(clamp(midY-RS.VH/2,0,MAP-RS.VH)-RS.camY)*CAM_LERP;
     }else{
-      RS.camX=clamp(RS.necro.x-RS.VW/2,0,MAP-RS.VW);RS.camY=clamp(RS.necro.y-RS.VH/2,0,MAP-RS.VH);
+      // Dead zone: player position relative to camera view
+      const px=RS.necro.x-RS.camX, py=RS.necro.y-RS.camY;
+      const dzW=RS.VW*CAM_DEADZONE, dzH=RS.VH*CAM_DEADZONE;
+      const dzL=(RS.VW-dzW)/2, dzR=dzL+dzW;
+      const dzT=(RS.VH-dzH)/2, dzB=dzT+dzH;
+      // Target = current cam unless player is outside dead zone
+      let tx=RS.camX, ty=RS.camY;
+      if(px<dzL) tx=RS.necro.x-dzL;
+      else if(px>dzR) tx=RS.necro.x-dzR;
+      if(py<dzT) ty=RS.necro.y-dzT;
+      else if(py>dzB) ty=RS.necro.y-dzB;
+      tx=clamp(tx,0,MAP-RS.VW);
+      ty=clamp(ty,0,MAP-RS.VH);
+      RS.camX+=(tx-RS.camX)*CAM_LERP;
+      RS.camY+=(ty-RS.camY)*CAM_LERP;
     }
   }
 }
@@ -24857,7 +24881,7 @@ window.addEventListener('resize',()=>{
   if(RS&&canvas){
     const {W,H}=gameWH(0),DPR=window.devicePixelRatio||1;
     canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';
-    ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);RS.VW=W/GAME_ZOOM;RS.VH=H/GAME_ZOOM;
+    ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);GAME_ZOOM=calcZoom(W);RS.VW=W/GAME_ZOOM;RS.VH=H/GAME_ZOOM;
   }
 });
 
