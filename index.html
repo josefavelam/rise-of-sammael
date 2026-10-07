@@ -873,6 +873,16 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
           <button class="toggle" id="tog_movement" onclick="toggleMovement()" style=""></button>
         </div>
       </div>
+      <div class="set-row" style="padding:8px 10px">
+        <div class="set-ico" style="font-size:16px;width:22px">🌧️</div>
+        <div class="set-body">
+          <div class="set-label" style="font-size:10px">Weather Effects</div>
+          <div class="set-desc" style="font-size:8px">Rain, snow, fog, dust &amp; atmospheric particles</div>
+        </div>
+        <div class="set-ctrl">
+          <button class="toggle on" id="tog_weather" onclick="toggleSetting('weather')"></button>
+        </div>
+      </div>
       <div class="set-row set-danger" style="padding:8px 10px">
         <div class="set-ico" style="font-size:16px;width:22px">🗑️</div>
         <div class="set-body">
@@ -13750,7 +13760,7 @@ function loadGame(){
 // ═══════════════════════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
-const SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click'};
+const SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click',weather:true};
 function loadSettings(){try{const s=JSON.parse(localStorage.getItem('necro_settings')||'{}');Object.assign(SETTINGS,s);}catch(e){}syncSettingsUI();}
 function saveSettings(){try{localStorage.setItem('necro_settings',JSON.stringify(SETTINGS));}catch(e){}}
 function syncSettingsUI(){
@@ -13760,6 +13770,7 @@ function syncSettingsUI(){
   if(t('tog_autoDefault'))t('tog_autoDefault').className='toggle'+(SETTINGS.autoDefault?' on':'');
   if(t('tog_autoSave'))t('tog_autoSave').className='toggle'+(SETTINGS.autoSave?' on':'');
   if(t('tog_movement'))t('tog_movement').className='toggle'+(SETTINGS.movement==='joystick'?' on':'');
+  if(t('tog_weather'))t('tog_weather').className='toggle'+(SETTINGS.weather?' on':'');
   if(t('movementDesc'))t('movementDesc').textContent=SETTINGS.movement==='joystick'?'Joystick':'Click to move';
   // Only show movement toggle on mobile
   const isMobile=('ontouchstart' in window)||(window.innerWidth<1024);
@@ -15434,6 +15445,7 @@ function initRaid(raidKey,floorNum,opts){
     } else {_ngHud.style.display='none';}
   }
   cancelAnimationFrame(animId);
+  WeatherSystem.init(cfg);
   startAmbience('dungeon');startMusic('combat');
   if(floorNum===1)Analytics.raidStart(cfg.name||raidKey);
   animId=requestAnimationFrame(loop);
@@ -17339,6 +17351,7 @@ function loop(ts){
     tickHeroes(t,dt);
     resolveCollisions();
     tickParts(dt);
+    WeatherSystem.tick(dt);
     checkVictory(t);
     // Lv8 passive: HP regen in combat (blocked by NG+ Ironman)
     if(GS.hasPassive(8)&&!RS.necro.dead&&!ngRule('noHealing')){
@@ -19973,8 +19986,11 @@ function draw(t,dt){
     }
   }
   drawParts(dt||0.016);
+  WeatherSystem.draw(ctx);
   // ── LIGHTING & ATMOSPHERE OVERLAY ──
   drawLighting(t);
+  // ── WEATHER COLOR GRADING ──
+  WeatherSystem.drawColorGrade(ctx,RS.VW,RS.VH,RS.camX,RS.camY);
   ctx.restore();
   drawMinimap();
   updateActiveSpells(t);
@@ -31684,6 +31700,305 @@ function flash(txt,size,col){
   el.style.opacity='1';el.style.transition='none';
   clearTimeout(el._t);el._t=setTimeout(()=>{el.style.transition='opacity 1.1s';el.style.opacity='0';},2000);
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── WEATHER SYSTEM (per-biome atmospheric effects) ──────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+const WeatherSystem=(function(){
+  // ── Weather type definitions ──
+  // Maps terrain/biome to a weather effect. Each defines particle behaviour.
+  const WEATHER_TYPES={
+    rain:{
+      // cemetery/plains default — diagonal falling drops
+      spawn(vw,vh,camX,camY){
+        return{
+          x:camX+Math.random()*vw*1.3-vw*0.15,
+          y:camY-10-Math.random()*40,
+          vx:-18-Math.random()*12,  // slight wind
+          vy:180+Math.random()*90,
+          len:4+Math.random()*6,
+          life:1,
+          alpha:0.15+Math.random()*0.2,
+          col:'#94a3b8',
+        };
+      },
+      draw(ctx,p){
+        ctx.globalAlpha=p.alpha*p.life;
+        ctx.strokeStyle=p.col;
+        ctx.lineWidth=0.8;
+        ctx.beginPath();
+        const dx=p.vx*0.02,dy=p.vy*0.02;
+        ctx.moveTo(p.x,p.y);
+        ctx.lineTo(p.x+dx*p.len*0.4,p.y+dy*p.len*0.4);
+        ctx.stroke();
+      },
+      splash(ctx,p,camX,camY,vw,vh){
+        // tiny splash ring on ground
+        if(p.life>0)return;
+        const sx=p.x-camX,sy=p.y-camY;
+        if(sx<-10||sx>vw+10||sy<-10||sy>vh+10)return;
+        ctx.globalAlpha=0.15;
+        ctx.strokeStyle='#cbd5e1';
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,2+Math.random()*2,0,Math.PI*2);
+        ctx.stroke();
+      },
+      tint:'rgba(30,40,60,0.06)',  // cool blue overlay
+      maxP:150,
+    },
+    snow:{
+      // tundra — gentle floating flakes
+      spawn(vw,vh,camX,camY){
+        return{
+          x:camX+Math.random()*vw*1.2-vw*0.1,
+          y:camY-8-Math.random()*30,
+          vx:-5+Math.random()*10,
+          vy:25+Math.random()*20,
+          wobble:Math.random()*Math.PI*2,
+          wobbleSpd:1.5+Math.random()*2,
+          r:1+Math.random()*2,
+          life:1,
+          alpha:0.3+Math.random()*0.35,
+          col:'#e2e8f0',
+        };
+      },
+      draw(ctx,p){
+        ctx.globalAlpha=p.alpha*p.life;
+        ctx.fillStyle=p.col;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fill();
+      },
+      tint:'rgba(50,55,75,0.05)',
+      maxP:120,
+    },
+    fog:{
+      // forest — drifting fog wisps
+      spawn(vw,vh,camX,camY){
+        const side=Math.random()<0.5;
+        return{
+          x:side?camX-30:camX+vw+30,
+          y:camY+vh*0.3+Math.random()*vh*0.5,
+          vx:side?(8+Math.random()*6):-(8+Math.random()*6),
+          vy:-2+Math.random()*4,
+          r:30+Math.random()*50,
+          life:1,
+          alpha:0.04+Math.random()*0.06,
+          col:'#94a3b8',
+        };
+      },
+      draw(ctx,p){
+        ctx.globalAlpha=p.alpha*p.life;
+        const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
+        g.addColorStop(0,`rgba(148,163,184,${p.alpha*p.life})`);
+        g.addColorStop(1,'rgba(148,163,184,0)');
+        ctx.fillStyle=g;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fill();
+      },
+      tint:'rgba(40,50,45,0.07)',
+      maxP:30,  // fog is fewer, larger particles
+    },
+    dust:{
+      // wasteland/desert — horizontal blowing dust
+      spawn(vw,vh,camX,camY){
+        return{
+          x:camX+vw+10+Math.random()*40,
+          y:camY+Math.random()*vh,
+          vx:-60-Math.random()*40,
+          vy:-3+Math.random()*6,
+          r:1.5+Math.random()*2,
+          life:1,
+          alpha:0.12+Math.random()*0.15,
+          col:'#a8a29e',
+        };
+      },
+      draw(ctx,p){
+        ctx.globalAlpha=p.alpha*p.life;
+        ctx.fillStyle=p.col;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fill();
+      },
+      tint:'rgba(80,65,40,0.05)',
+      maxP:100,
+    },
+    motes:{
+      // elven/forest-light — floating golden/green motes
+      spawn(vw,vh,camX,camY){
+        return{
+          x:camX+Math.random()*vw,
+          y:camY+Math.random()*vh,
+          vx:-2+Math.random()*4,
+          vy:-8-Math.random()*6,
+          wobble:Math.random()*Math.PI*2,
+          wobbleSpd:1+Math.random()*1.5,
+          r:1+Math.random()*1.5,
+          life:1,
+          alpha:0.2+Math.random()*0.3,
+          col:Math.random()<0.5?'#86efac':'#fde68a',
+        };
+      },
+      draw(ctx,p){
+        ctx.globalAlpha=p.alpha*p.life*0.7;
+        ctx.fillStyle=p.col;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r*1.8,0,Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha=p.alpha*p.life;
+        ctx.fillStyle='#fff';
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r*0.6,0,Math.PI*2);
+        ctx.fill();
+      },
+      tint:'rgba(20,40,20,0.03)',
+      maxP:60,
+    },
+    embers:{
+      // sanctum/mordor — rising ash & ember particles
+      spawn(vw,vh,camX,camY){
+        return{
+          x:camX+Math.random()*vw,
+          y:camY+vh+10+Math.random()*20,
+          vx:-4+Math.random()*8,
+          vy:-30-Math.random()*25,
+          wobble:Math.random()*Math.PI*2,
+          wobbleSpd:2+Math.random()*3,
+          r:1+Math.random()*1.5,
+          life:1,
+          alpha:0.2+Math.random()*0.35,
+          col:Math.random()<0.3?'#fbbf24':Math.random()<0.5?'#ef4444':'#78716c',
+        };
+      },
+      draw(ctx,p){
+        ctx.globalAlpha=p.alpha*p.life;
+        ctx.fillStyle=p.col;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fill();
+        // hot core glow
+        if(p.col!=='#78716c'){
+          ctx.globalAlpha=p.alpha*p.life*0.4;
+          ctx.fillStyle='#fff7ed';
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.r*0.4,0,Math.PI*2);
+          ctx.fill();
+        }
+      },
+      tint:'rgba(60,20,10,0.06)',
+      maxP:80,
+    },
+  };
+
+  // ── Terrain → weather mapping ──
+  function _weatherForCfg(cfg){
+    if(!cfg)return null;
+    const biome=cfg.biome||'cemetery';
+    const terrain=cfg.terrain||'';
+    // Sanctum biomes → embers (Mordor, dark dungeons)
+    if(biome==='sanctum')return'embers';
+    // Tundra terrain → snow
+    if(terrain==='tundra')return'snow';
+    // Forest biome → either fog or motes
+    if(biome==='forest'){
+      // Elven forests get motes, darker forests get fog
+      if(terrain==='forest'&&cfg.faction==='elves')return'motes';
+      if(terrain==='swamp')return'fog';
+      return'fog';
+    }
+    // Wasteland/desert → dust
+    if(terrain==='wasteland'||terrain==='desert')return'dust';
+    // Default (cemetery, plains, mountain) → rain
+    return'rain';
+  }
+
+  // ── State ──
+  let _particles=[];
+  let _type=null;     // current WEATHER_TYPES key
+  let _cfg=null;      // current weather type def
+  let _spawnAcc=0;    // spawn accumulator
+  let _active=false;
+  let _tintCol=null;
+
+  // ── Public API ──
+  function init(raidCfg){
+    _particles=[];
+    _spawnAcc=0;
+    if(!SETTINGS.weather){_active=false;_tintCol=null;return;}
+    const wKey=_weatherForCfg(raidCfg);
+    if(!wKey||!WEATHER_TYPES[wKey]){_active=false;_tintCol=null;return;}
+    _type=wKey;
+    _cfg=WEATHER_TYPES[wKey];
+    _tintCol=_cfg.tint||null;
+    _active=true;
+  }
+
+  function tick(dt){
+    if(!_active||!_cfg||!RS)return;
+    // Respect toggle mid-raid
+    if(!SETTINGS.weather){_active=false;_particles=[];return;}
+    const vw=RS.VW,vh=RS.VH,camX=RS.camX,camY=RS.camY;
+    const maxP=_cfg.maxP||100;
+    // Spawn rate: fill to max in ~2 seconds
+    const spawnRate=maxP/2;
+    _spawnAcc+=spawnRate*dt;
+    while(_spawnAcc>=1&&_particles.length<maxP){
+      _spawnAcc-=1;
+      _particles.push(_cfg.spawn(vw,vh,camX,camY));
+    }
+    // Update particles
+    for(let i=_particles.length-1;i>=0;i--){
+      const p=_particles[i];
+      p.x+=p.vx*dt;
+      p.y+=p.vy*dt;
+      // Wobble (snow, motes, embers)
+      if(p.wobble!==undefined){
+        p.wobble+=p.wobbleSpd*dt;
+        p.x+=Math.sin(p.wobble)*0.8;
+      }
+      // Life decay — based on whether particle is still on screen
+      const offX=p.x<camX-50||p.x>camX+vw+50;
+      const offY=p.y<camY-50||p.y>camY+vh+50;
+      if(offX||offY){
+        p.life=0;
+      } else {
+        // Gradual fade for fog, motes, embers
+        if(_type==='fog')p.life-=dt*0.15;
+        else if(_type==='motes'||_type==='embers')p.life-=dt*0.2;
+      }
+      if(p.life<=0)_particles.splice(i,1);
+    }
+  }
+
+  function draw(ctx){
+    if(!_active||!_cfg||!_particles.length)return;
+    ctx.save();
+    for(let i=0;i<_particles.length;i++){
+      _cfg.draw(ctx,_particles[i]);
+    }
+    // Rain splash effect for dead particles — handled inline since
+    // particles are removed, we do splashes during spawn instead
+    ctx.restore();
+  }
+
+  function drawColorGrade(ctx,vw,vh,camX,camY){
+    if(!_active||!_tintCol)return;
+    ctx.save();
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle=_tintCol;
+    ctx.fillRect(camX,camY,vw,vh);
+    ctx.restore();
+  }
+
+  function isActive(){return _active;}
+  function getType(){return _type;}
+  function particleCount(){return _particles.length;}
+
+  return{init,tick,draw,drawColorGrade,isActive,getType,particleCount};
+})();
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ── COMBAT PRESENTATION (FE-style battle visual effects) ─────────────────────
