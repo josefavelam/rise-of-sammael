@@ -1514,12 +1514,19 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
 </div>
 <!-- GLOBAL D-PAD (castle + village) -->
 <div id="flashMsg"></div>
-<div id="npcDialogueOverlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);justify-content:center;align-items:center;" onclick="closeNpcDialogue()">
-  <div id="npcDialogueBox" onclick="event.stopPropagation()" style="max-width:min(88vw,380px);background:linear-gradient(135deg,rgba(12,6,28,.97),rgba(8,4,20,.98));border:1.5px solid rgba(168,85,247,.5);border-radius:14px;padding:18px 20px;box-shadow:0 0 40px rgba(0,0,0,.7),0 0 12px rgba(168,85,247,.2);text-align:center">
-    <div id="npcDialogueIcon" style="font-size:36px;margin-bottom:8px"></div>
-    <div id="npcDialogueName" style="font-family:'Press Start 2P',monospace;font-size:7px;margin-bottom:10px;letter-spacing:1px"></div>
-    <div id="npcDialogueText" style="font-family:'IM Fell English',serif;font-size:13px;line-height:1.7;color:#d4c8a8;white-space:pre-line;word-wrap:break-word"></div>
-    <div style="margin-top:14px;font-family:'Press Start 2P',monospace;font-size:6px;color:#6b728088;letter-spacing:.5px">tap anywhere to close</div>
+<div id="npcDialogueOverlay" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;" onclick="DialogueSystem.advance()">
+  <div id="npcDialogueDim" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:-1"></div>
+  <div id="npcDialogueBox" onclick="event.stopPropagation()" style="position:relative;max-width:min(96vw,520px);margin:0 auto 8px;background:rgba(8,2,24,.94);border:2px solid #5b3cc4;border-radius:2px;box-shadow:inset 0 0 0 1px #2d1b69,0 2px 8px rgba(0,0,0,.6);padding:0;display:flex;flex-direction:row;align-items:stretch;overflow:hidden">
+    <canvas id="npcPortraitCanvas" width="68" height="68" style="display:none;margin:6px 0 6px 6px;border:2px solid #5b3cc4;border-radius:2px;box-shadow:inset 0 0 0 1px #2d1b69;background:rgba(20,8,40,.9);flex-shrink:0;image-rendering:pixelated"></canvas>
+    <div style="flex:1;min-width:0;padding:8px 10px;display:flex;flex-direction:column;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span id="npcDialogueIcon" style="font-size:16px;line-height:1"></span>
+        <span id="npcDialogueName" style="font-family:'Press Start 2P',monospace;font-size:6px;letter-spacing:.5px;color:#fcd34d"></span>
+      </div>
+      <div id="npcDialogueText" style="font-family:'Press Start 2P',monospace;font-size:6px;line-height:1.9;color:#d4c8a8;min-height:36px;word-wrap:break-word"></div>
+      <div id="npcDialogueActions" style="display:none;margin-top:4px"></div>
+      <div id="npcDialogueAdvance" style="text-align:right;margin-top:2px;font-family:'Press Start 2P',monospace;font-size:5px;color:#a78bfa;opacity:0">▼</div>
+    </div>
   </div>
 </div>
 <div id="toast"></div>
@@ -5605,11 +5612,13 @@ function openCastleUpgradePanel(){
     <span>💰 ${GS.wallet.gp||0}gp</span>
   </div>`;
   npcDialogue('🏰','Castle Upgrades',resBar+html,'#7c3aed',[{label:'Close',action:()=>{
-    const o=document.getElementById('npcDialogueOverlay');if(o)o.style.display='none';
+    if(typeof DialogueSystem!=='undefined')DialogueSystem.close();
+    else{const o=document.getElementById('npcDialogueOverlay');if(o)o.style.display='none';}
   }}]);
 }
 function closeCastleUpgradePanel(){
-  const o=document.getElementById('npcDialogueOverlay');if(o)o.style.display='none';
+  if(typeof DialogueSystem!=='undefined')DialogueSystem.close();
+  else{const o=document.getElementById('npcDialogueOverlay');if(o)o.style.display='none';}
 }
 
 // Village resource nodes
@@ -31659,38 +31668,332 @@ function flash(txt,size,col){
   clearTimeout(el._t);el._t=setTimeout(()=>{el.style.transition='opacity 1.1s';el.style.opacity='0';},2000);
 }
 
-function npcDialogue(icon, name, txt, col, actions){
-  const ov=document.getElementById('npcDialogueOverlay');
-  const ic=document.getElementById('npcDialogueIcon');
-  const nm=document.getElementById('npcDialogueName');
-  const tx=document.getElementById('npcDialogueText');
-  if(!ov)return;
-  ic.textContent=icon||'';
-  nm.textContent=name||'';
-  nm.style.color=col||'#fcd34d';
-  nm.style.textShadow='0 0 12px '+(col||'#fcd34d')+'66';
-  tx.innerHTML=txt.replace(/\\n/g,'<br>').replace(/\n/g,'<br>');
-  // Action buttons
-  let existingBtnRow=ov.querySelector('.npc-dlg-actions');
-  if(existingBtnRow)existingBtnRow.remove();
-  if(actions&&actions.length){
-    const row=document.createElement('div');
-    row.className='npc-dlg-actions';
-    row.style.cssText='display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap';
-    actions.forEach(a=>{
-      const b=document.createElement('button');
-      b.style.cssText='-webkit-appearance:none;font-family:Press Start 2P,monospace;font-size:7px;padding:6px 14px;border-radius:2px;cursor:pointer;border:1px solid '+(col||'#fcd34d')+'66;background:'+(col||'#fcd34d')+'22;color:'+(col||'#fcd34d');
-      b.textContent=a.label;
-      b.onclick=a.action;
-      row.appendChild(b);
-    });
-    tx.parentElement.appendChild(row);
+// ═══════════════════════════════════════════════════════════════════
+// TYPEWRITER DIALOGUE SYSTEM (Phase 4)
+// Bottom-screen JRPG dialogue with character portraits, per-character
+// text reveal, multi-page support, and choice selection.
+// ═══════════════════════════════════════════════════════════════════
+const DialogueSystem=(function(){
+  // ── Portrait sprite map: NPC name → SPR key ──
+  const PORTRAIT_MAP={
+    'Gandalf the Grey':'gandalf_npc',
+    'Hobbit Elder':'hobbit_npc',
+    'Hobbit Merchant':'hobbit_npc',
+    'Ranger Haldir':'ranger_npc',
+    'Scholar Elara':'scholar_npc',
+    'Gimrik Ironhand':'dwarf_npc',
+    'Sister Althea':'cleric_npc',
+    'Bartender':'necromancer',
+    'Necromancer':'necromancer',
+  };
+
+  // ── State ──
+  let _active=false;
+  let _pages=[];       // array of {text, actions}
+  let _pageIdx=0;
+  let _charIdx=0;
+  let _typeTimer=null;
+  let _typeSpeed=28;   // ms per character
+  let _icon='';
+  let _name='';
+  let _color='#fcd34d';
+  let _sprKey=null;
+  let _blinkTimer=null;
+  let _cursorIdx=0;    // for choice selection
+
+  // ── DOM refs (cached on first use) ──
+  let _ov,_box,_ic,_nm,_tx,_adv,_actDiv,_portCanvas,_portCtx;
+
+  function _refs(){
+    if(!_ov){
+      _ov=document.getElementById('npcDialogueOverlay');
+      _box=document.getElementById('npcDialogueBox');
+      _ic=document.getElementById('npcDialogueIcon');
+      _nm=document.getElementById('npcDialogueName');
+      _tx=document.getElementById('npcDialogueText');
+      _adv=document.getElementById('npcDialogueAdvance');
+      _actDiv=document.getElementById('npcDialogueActions');
+      _portCanvas=document.getElementById('npcPortraitCanvas');
+      if(_portCanvas)_portCtx=_portCanvas.getContext('2d');
+    }
   }
-  ov.style.display='flex';
+
+  // ── Portrait rendering ──
+  function _drawPortrait(sprKey){
+    if(!_portCtx||!sprKey)return false;
+    const fn=SPR[sprKey];
+    if(!fn)return false;
+    _portCtx.clearRect(0,0,68,68);
+    _portCtx.save();
+    // Center the sprite in the 68x68 canvas, scale up for portrait
+    _portCtx.translate(34,42);
+    _portCtx.scale(1.2,1.2);
+    try{fn(_portCtx,Date.now()*.001,0);}catch(e){}
+    _portCtx.restore();
+    return true;
+  }
+
+  // ── Typewriter text rendering ──
+  function _startTyping(){
+    _charIdx=0;
+    _stopBlink();
+    const page=_pages[_pageIdx];
+    if(!page)return;
+    _tx.textContent='';
+    _adv.style.opacity='0';
+    _actDiv.style.display='none';
+    // If page contains HTML (e.g. castle upgrades), render instantly
+    if(page.html){
+      _tx.innerHTML=page.text;
+      _typeTimer=null;
+      _onPageComplete();
+      return;
+    }
+    _typeTimer=setInterval(()=>{
+      const fullText=page.text;
+      if(_charIdx<fullText.length){
+        // Handle newlines — render as line breaks
+        _tx.innerHTML=fullText.substring(0,_charIdx+1).replace(/\n/g,'<br>');
+        _charIdx++;
+      } else {
+        clearInterval(_typeTimer);
+        _typeTimer=null;
+        _onPageComplete();
+      }
+    },_typeSpeed);
+  }
+
+  function _skipToEnd(){
+    if(_typeTimer){
+      clearInterval(_typeTimer);
+      _typeTimer=null;
+    }
+    const page=_pages[_pageIdx];
+    if(!page)return;
+    _charIdx=page.text.length;
+    _tx.innerHTML=page.html?page.text:page.text.replace(/\n/g,'<br>');
+    _onPageComplete();
+  }
+
+  function _onPageComplete(){
+    const page=_pages[_pageIdx];
+    const isLastPage=(_pageIdx>=_pages.length-1);
+    if(isLastPage&&page.actions&&page.actions.length){
+      _showActions(page.actions);
+    } else {
+      // Show blinking advance indicator
+      _startBlink();
+    }
+  }
+
+  // ── Blinking advance indicator ──
+  function _startBlink(){
+    _adv.style.opacity='1';
+    let on=true;
+    _blinkTimer=setInterval(()=>{
+      on=!on;
+      _adv.style.opacity=on?'1':'0.2';
+    },400);
+  }
+  function _stopBlink(){
+    if(_blinkTimer){clearInterval(_blinkTimer);_blinkTimer=null;}
+    if(_adv)_adv.style.opacity='0';
+  }
+
+  // ── Action buttons with cursor selection ──
+  function _showActions(actions){
+    _actDiv.innerHTML='';
+    _actDiv.style.display='flex';
+    _actDiv.style.cssText='display:flex;flex-direction:column;gap:3px;margin-top:4px';
+    _cursorIdx=0;
+    actions.forEach((a,i)=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 4px;border-radius:2px';
+      row.dataset.idx=i;
+      const arrow=document.createElement('span');
+      arrow.className='dlg-cursor';
+      arrow.style.cssText='font-family:"Press Start 2P",monospace;font-size:5px;color:#fcd34d;min-width:8px;display:inline-block';
+      arrow.textContent=i===0?'▸':'';
+      const label=document.createElement('span');
+      label.style.cssText='font-family:"Press Start 2P",monospace;font-size:5px;color:'+(_color||'#fcd34d')+';cursor:pointer';
+      label.textContent=a.label;
+      row.appendChild(arrow);
+      row.appendChild(label);
+      row.onclick=(e)=>{
+        e.stopPropagation();
+        _close();
+        if(a.action)a.action();
+      };
+      row.onmouseenter=()=>{
+        _cursorIdx=i;
+        _updateCursor();
+      };
+      _actDiv.appendChild(row);
+    });
+    _updateCursor();
+    // Hide blink indicator when actions are shown
+    _stopBlink();
+  }
+
+  function _updateCursor(){
+    const arrows=_actDiv.querySelectorAll('.dlg-cursor');
+    arrows.forEach((a,i)=>{a.textContent=i===_cursorIdx?'▸':'';});
+    // Highlight selected row
+    const rows=_actDiv.children;
+    for(let i=0;i<rows.length;i++){
+      rows[i].style.background=i===_cursorIdx?'rgba(124,58,237,.15)':'transparent';
+    }
+  }
+
+  // ── Keyboard support ──
+  function _onKey(e){
+    if(!_active)return;
+    if(e.key==='Escape'){
+      e.preventDefault();
+      _close();
+      return;
+    }
+    // If actions are showing, handle arrow navigation
+    if(_actDiv&&_actDiv.style.display!=='none'&&_actDiv.children.length>0){
+      const numActions=_actDiv.children.length;
+      if(e.key==='ArrowUp'||e.key==='w'){
+        e.preventDefault();
+        _cursorIdx=(_cursorIdx-1+numActions)%numActions;
+        _updateCursor();
+      } else if(e.key==='ArrowDown'||e.key==='s'){
+        e.preventDefault();
+        _cursorIdx=(_cursorIdx+1)%numActions;
+        _updateCursor();
+      } else if(e.key==='Enter'||e.key===' '){
+        e.preventDefault();
+        const row=_actDiv.children[_cursorIdx];
+        if(row)row.click();
+      }
+      return;
+    }
+    // Otherwise advance dialogue
+    if(e.key==='Enter'||e.key===' '||e.key==='z'){
+      e.preventDefault();
+      advance();
+    }
+  }
+
+  // ── Public: advance to next page or close ──
+  function advance(){
+    if(!_active)return;
+    // If still typing, skip to end of current page
+    if(_typeTimer){
+      _skipToEnd();
+      return;
+    }
+    // If actions are showing, don't auto-advance (user picks)
+    if(_actDiv&&_actDiv.style.display!=='none'&&_actDiv.children.length>0){
+      return;
+    }
+    // Next page
+    _pageIdx++;
+    if(_pageIdx<_pages.length){
+      _startTyping();
+    } else {
+      _close();
+    }
+  }
+
+  // ── Public: open dialogue ──
+  function open(icon, name, txt, col, actions){
+    _refs();
+    if(!_ov)return;
+    _icon=icon||'';
+    _name=name||'';
+    _color=col||'#fcd34d';
+
+    // Parse text into pages (split on \n\n for multi-page, or treat as single page)
+    // Keep backward compat: single page with all text
+    const cleanTxt=(txt||'').replace(/\\n/g,'\n');
+    // Detect HTML content (castle upgrades, etc.) — skip typewriter for HTML
+    const isHTML=/<[a-z][\s\S]*>/i.test(cleanTxt);
+    _pages=[{text:cleanTxt, actions:actions||null, html:isHTML}];
+    _pageIdx=0;
+    _active=true;
+
+    // Set name and icon
+    _ic.textContent=_icon;
+    _nm.textContent=_name;
+    _nm.style.color=_color;
+    _nm.style.textShadow='0 0 8px '+_color+'44';
+
+    // Portrait
+    _sprKey=PORTRAIT_MAP[_name]||null;
+    if(_sprKey&&_drawPortrait(_sprKey)){
+      _portCanvas.style.display='block';
+    } else {
+      _portCanvas.style.display='none';
+    }
+
+    // Show overlay
+    _ov.style.display='block';
+    // Start typewriter
+    _startTyping();
+    // Listen for keys
+    document.addEventListener('keydown',_onKey);
+  }
+
+  // ── Public: close ──
+  function _close(){
+    _refs();
+    _active=false;
+    _stopBlink();
+    if(_typeTimer){clearInterval(_typeTimer);_typeTimer=null;}
+    if(_ov)_ov.style.display='none';
+    if(_actDiv){_actDiv.style.display='none';_actDiv.innerHTML='';}
+    document.removeEventListener('keydown',_onKey);
+  }
+
+  // ── Multi-page dialogue helper ──
+  // Usage: DialogueSystem.openMulti(icon, name, pages, col)
+  // pages = [{text:'...', actions:[...]}, {text:'...'}, ...]
+  function openMulti(icon, name, pages, col){
+    _refs();
+    if(!_ov)return;
+    _icon=icon||'';
+    _name=name||'';
+    _color=col||'#fcd34d';
+    _pages=pages.map(p=>{
+      if(typeof p==='string')return{text:p,actions:null};
+      return{text:p.text||'',actions:p.actions||null};
+    });
+    _pageIdx=0;
+    _active=true;
+    _ic.textContent=_icon;
+    _nm.textContent=_name;
+    _nm.style.color=_color;
+    _nm.style.textShadow='0 0 8px '+_color+'44';
+    _sprKey=PORTRAIT_MAP[_name]||null;
+    if(_sprKey&&_drawPortrait(_sprKey)){
+      _portCanvas.style.display='block';
+    } else {
+      _portCanvas.style.display='none';
+    }
+    _ov.style.display='block';
+    _startTyping();
+    document.addEventListener('keydown',_onKey);
+  }
+
+  // ── Register a portrait mapping at runtime ──
+  function registerPortrait(npcName,sprKey){
+    PORTRAIT_MAP[npcName]=sprKey;
+  }
+
+  return{open,openMulti,advance,close:_close,registerPortrait,
+    get active(){return _active;}};
+})();
+
+// ── Backward-compatible wrappers ──
+function npcDialogue(icon, name, txt, col, actions){
+  DialogueSystem.open(icon, name, txt, col, actions);
 }
 function closeNpcDialogue(){
-  const ov=document.getElementById('npcDialogueOverlay');
-  if(ov){ov.style.display='none';const ab=ov.querySelector('.npc-dlg-actions');if(ab)ab.remove();}
+  DialogueSystem.close();
 }
 
 // ═══════════════════════════════════════════════════════
