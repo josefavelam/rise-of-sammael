@@ -911,6 +911,16 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
           <button class="danger-btn" style="background:rgba(168,85,247,.15);border-color:rgba(168,85,247,.5);color:#c4b5fd;font-size:9px;padding:5px 10px" onclick="openHowToPlay()">Open</button>
         </div>
       </div>
+      <div class="set-row" style="padding:8px 10px;border-top:1px solid rgba(168,85,247,.2)">
+        <div class="set-ico" style="font-size:16px;width:22px">📊</div>
+        <div class="set-body">
+          <div class="set-label" style="font-size:10px">Anonymous Analytics</div>
+          <div class="set-desc" style="font-size:8px">Help improve the game — no personal data collected</div>
+        </div>
+        <div class="set-ctrl">
+          <label class="toggle"><input type="checkbox" id="analyticsToggle" onchange="Analytics.setConsent(this.checked)"><span class="slider"></span></label>
+        </div>
+      </div>
       <div class="set-version" style="font-size:9px;margin-top:10px">Necromancer v2.0 · Built with ❤️ &amp; 🦴</div>
     </div>
 </div>
@@ -2387,6 +2397,7 @@ function evolveMinion(skelIdx){
   s.maxHP=evolved.maxHP;
   s.hp=evolved.maxHP; // Full heal on evolution
   showToast(`✨ ${oldName} evolved into ${evolved.name}!`);
+  Analytics.minionEvolve(s.type,s.evoTier);
   if(typeof checkAchievements==='function')checkAchievements();
   saveGame();
   return true;
@@ -2590,6 +2601,7 @@ function startTutorial(){
 
 function skipTutorial(){
   const t=_ensureTutorial();
+  Analytics.tutorialSkip(t.step);
   t.skipped=true;
   _closeTutorialOverlay();
   saveGame();
@@ -2601,11 +2613,13 @@ function _advanceTutorial(){
   t.step++;
   if(t.step>=TUTORIAL_STEPS.length){
     t.completed=true;
+    Analytics.tutorialComplete();
     _closeTutorialOverlay();
     saveGame();
     showToast('🎓 Tutorial complete!');
     return;
   }
+  Analytics.tutorialStep(t.step);
   _showTutorialOverlay();
 }
 
@@ -2711,6 +2725,123 @@ function closeHowToPlay(){
   if(p)p.style.display='none';
   SND.menuClose();
 }
+
+// ── ANALYTICS MANAGER ──
+// Privacy-first, opt-in telemetry — batched events sent to Netlify Functions
+const Analytics=(function(){
+  const ENDPOINT='/.netlify/functions/analytics?action=ingest';
+  const FLUSH_INTERVAL=60000; // flush every 60s
+  const MAX_QUEUE=200;
+  let _queue=[];
+  let _sid='';
+  let _enabled=false;
+  let _flushTimer=null;
+  let _sessionStart=0;
+
+  function _genSid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+
+  function init(){
+    _sid=_genSid();
+    _sessionStart=Date.now();
+    _enabled=!!(GS.analyticsConsent);
+    if(_enabled)_startFlushing();
+  }
+
+  function setConsent(on){
+    _enabled=!!on;
+    GS.analyticsConsent=_enabled;
+    if(_enabled&&!_flushTimer)_startFlushing();
+    if(!_enabled){_stopFlushing();_queue=[];}
+    saveGame(false);
+  }
+
+  function isEnabled(){return _enabled;}
+
+  function track(type,data){
+    if(!_enabled)return;
+    _queue.push({type,ts:Date.now(),data:data||{}});
+    if(_queue.length>=MAX_QUEUE)_flush();
+  }
+
+  function _startFlushing(){
+    if(_flushTimer)return;
+    _flushTimer=setInterval(_flush,FLUSH_INTERVAL);
+  }
+
+  function _stopFlushing(){
+    if(_flushTimer){clearInterval(_flushTimer);_flushTimer=null;}
+  }
+
+  function _flush(){
+    if(!_enabled||!_queue.length)return;
+    const batch=_queue.splice(0,50);
+    const body=JSON.stringify({sessionId:_sid,events:batch});
+    try{
+      if(navigator.sendBeacon){
+        navigator.sendBeacon(ENDPOINT,new Blob([body],{type:'application/json'}));
+      }else{
+        fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:true}).catch(()=>{});
+      }
+    }catch(e){/* silent — analytics never breaks gameplay */}
+  }
+
+  // Track session end on page unload
+  function _onUnload(){
+    if(!_enabled)return;
+    const playSeconds=Math.round((Date.now()-_sessionStart)/1000);
+    track('session_end',{playTimeSeconds:playSeconds});
+    _flush();
+  }
+
+  // Convenience trackers
+  function sessionStart(){
+    track('session_start',{
+      necroLv:GS.necroLv||1,
+      prestige:GS.prestige||0,
+      skeletonCount:(GS.skeletons||[]).length,
+      regionsConquered:Object.keys(GS.conquered||{}).length
+    });
+  }
+
+  function raidStart(areaName){track('raid_start',{area:areaName});}
+  function raidEnd(areaName,result,durationMs){track('raid_end',{area:areaName,result,durationMs});}
+  function raidDeath(areaName){track('raid_death',{area:areaName});}
+  function bossKill(bossName){track('boss_kill',{boss:bossName});}
+  function enemyKills(count){if(count>0)track('enemy_kill_batch',{count});}
+  function levelUp(newLevel){track('level_up',{level:newLevel});}
+  function prestigeUp(newLevel){track('prestige',{level:newLevel});}
+  function panelOpen(panelName){track('panel_open',{panel:panelName});}
+  function featureDiscovered(featureName){track('feature_discovered',{feature:featureName});}
+  function questComplete(questId){track('quest_complete',{quest:questId});}
+  function questAccept(questId){track('quest_accept',{quest:questId});}
+  function goldEarned(amount,source){track('gold_earned',{amount,source});}
+  function goldSpent(amount,category){track('gold_spent',{amount,category});}
+  function tutorialStep(step){track('tutorial_step',{step});}
+  function tutorialComplete(){track('tutorial_complete',{});}
+  function tutorialSkip(atStep){track('tutorial_skip',{step:atStep});}
+  function achievementUnlock(achId){track('achievement_unlock',{id:achId});}
+  function minionEvolve(type,tier){track('minion_evolve',{type,tier});}
+  function ngPlusStart(modifiers){track('ng_plus_start',{modifiers:[...modifiers]});}
+  function pvpMatch(result){track('pvp_match',{result});}
+  function castleUpgrade(room,level){track('castle_upgrade',{room,level});}
+  function villageUpgrade(building,level){track('village_upgrade',{building,level});}
+
+  // Attach unload listener
+  if(typeof window!=='undefined'){
+    window.addEventListener('beforeunload',_onUnload);
+    window.addEventListener('pagehide',_onUnload);
+  }
+
+  return{
+    init,setConsent,isEnabled,track,
+    sessionStart,raidStart,raidEnd,raidDeath,bossKill,enemyKills,
+    levelUp,prestigeUp,panelOpen,featureDiscovered,
+    questComplete,questAccept,goldEarned,goldSpent,
+    tutorialStep,tutorialComplete,tutorialSkip,
+    achievementUnlock,minionEvolve,ngPlusStart,pvpMatch,
+    castleUpgrade,villageUpgrade
+  };
+})();
 
 // ── SPELL DEFINITIONS ──
 const SPELLS={
@@ -3019,6 +3150,7 @@ const GS={
     const cap=Math.round(XP_TABLE[Math.min(this.necroLv,19)]*this.prestXPMult()); // Ascended: 2× XP per tier
     if(this.necroXP>=cap&&this.necroLv<20){
       this.necroLv++;
+      Analytics.levelUp(this.necroLv);
       this.necroMaxHP=Math.round((100+this.necroLv*12+(this.hasPassive(8)?50:0))*this.prestHPMult());
       this.necroXP-=cap;
       SND.level();
@@ -4472,7 +4604,7 @@ function checkAchievements(silent){
     try{
       if(a.check()){
         GS.achievements[a.id]={unlocked:true,unlockedAt:Date.now()};
-        newUnlocks.push(a);
+        newUnlocks.push(a);Analytics.achievementUnlock(a.id);
       }
     }catch(e){}
   });
@@ -4741,6 +4873,7 @@ function tickCastleBuilding(){
     const def=CASTLE_UPGRADE_DEFS[b.roomId];
     const tierDef=def?.tiers[b.tier-1];
     showToast(`🏰 ${def?.name||b.roomId} upgraded to ${tierDef?.name||'Tier '+b.tier}!`);
+    Analytics.castleUpgrade(b.roomId,b.tier);
     saveGame(false);
     if(typeof checkAchievements==='function')checkAchievements();
   }
@@ -12480,7 +12613,7 @@ function _sprFallback(type){
 // ═══════════════════════════════════════════════════════
 let shopTab='consumables';
 
-function openShop(){SND.menuOpen();renderShop();const el=document.getElementById('shop');if(el){el.style.display='flex';}}
+function openShop(){SND.menuOpen();Analytics.panelOpen('shop');renderShop();const el=document.getElementById('shop');if(el){el.style.display='flex';}}
 function closeShop(){SND.menuClose();const el=document.getElementById('shop');if(el)el.style.display='none';clearInterval(_shopMerchAnim);}
 
 function switchShopTab(t){
@@ -12834,7 +12967,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,tutorial:GS.tutorial||null,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,tutorial:GS.tutorial||null,analyticsConsent:GS.analyticsConsent||false,savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -12912,6 +13045,7 @@ function loadGame(){
     GS.ngPlusStats=d.ngPlusStats||null;
     // Load tutorial state
     GS.tutorial=d.tutorial||null;
+    GS.analyticsConsent=d.analyticsConsent||false;
     // Rebuild ascended unlocks from prestige level for old saves
     if(GS.prestige>=11&&!Object.keys(GS.ascendedUnlocks).length){
       for(const u of ASCENDED_UNLOCKS){if(GS.prestige>=u.tier)GS.ascendedUnlocks[u.key]=true;}
@@ -12962,6 +13096,7 @@ function syncSettingsUI(){
   if(t('rng_music')){t('rng_music').value=SETTINGS.musicVol;t('rng_music_val').textContent=SETTINGS.musicVol;}
   if(t('rng_amb')){t('rng_amb').value=SETTINGS.ambVol;t('rng_amb_val').textContent=SETTINGS.ambVol;}
   try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');if(s.savedAt){const d=new Date(s.savedAt);if(t('lastSaveLabel'))t('lastSaveLabel').textContent='Last save: '+d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}}catch(e){}
+  if(t('analyticsToggle'))t('analyticsToggle').checked=!!(GS.analyticsConsent);
 }
 function toggleSetting(k){SETTINGS[k]=!SETTINGS[k];saveSettings();syncSettingsUI();}
 function toggleMovement(){SETTINGS.movement=SETTINGS.movement==='click'?'joystick':'click';saveSettings();syncSettingsUI();_updateJoystickVisibility();}
@@ -13427,8 +13562,8 @@ function showScreen(id){if(id!=='village')stopVilCanvas();if(id!=='castle')stopC
 function initGame(){
   loadSettings();
   setInterval(villageTick,5000); // resource tick every 5s
-  if(loadGame()){renderHub();setTimeout(()=>checkAchievements(true),1000);}
-  else{renderHub();setTimeout(()=>startTutorial(),800);}
+  if(loadGame()){renderHub();setTimeout(()=>checkAchievements(true),1000);Analytics.init();Analytics.sessionStart();}
+  else{renderHub();setTimeout(()=>startTutorial(),800);Analytics.init();}
   // Start ambient on first user interaction (AudioContext policy)
   const _audioKick=()=>{startAmbience('castle');startMusic('menu');document.removeEventListener('click',_audioKick);document.removeEventListener('touchstart',_audioKick);};
   document.addEventListener('click',_audioKick,{once:true});document.addEventListener('touchstart',_audioKick,{once:true});
@@ -13473,9 +13608,9 @@ function initGame(){
   // Check daily login reward — show popup if claimable
   setTimeout(()=>{if(canClaimDailyReward())openDailyRewardsPanel();},1500);
 }
-function openSB(){renderSB();showScreen('spellbook');showFeatureHighlight('spellbook','Spellbook','Equip spells for combat. Drag to reorder. Summon minions from the Summon tab.','📖');}
+function openSB(){renderSB();showScreen('spellbook');Analytics.panelOpen('spellbook');showFeatureHighlight('spellbook','Spellbook','Equip spells for combat. Drag to reorder. Summon minions from the Summon tab.','📖');}
 function _closeSB_orig(){renderHub();showScreen('hub');}
-function openArmy(){renderArmy();showScreen('army');showFeatureHighlight('army','Your Army','Manage your undead forces. Tap a minion to add/remove from your Raid Party. Evolve minions for powerful upgrades.','💀');}
+function openArmy(){renderArmy();showScreen('army');Analytics.panelOpen('army');showFeatureHighlight('army','Your Army','Manage your undead forces. Tap a minion to add/remove from your Raid Party. Evolve minions for powerful upgrades.','💀');}
 function _closeArmy_orig(){renderHub();showScreen('hub');}
 function switchTab(t){
   sbTab=t;
@@ -14159,6 +14294,7 @@ function selectRaid(key){
   if(GS.necroLv<cfg.minLv){showToast(`Requires Level ${cfg.minLv}!`);return;}
   activeRaid=key;
   const _mods=_ngSelectedMods.size?new Set(_ngSelectedMods):null;
+  if(_mods)Analytics.ngPlusStart(_mods);
   closeRaidSelect();
   showScreen('raid');
   requestAnimationFrame(()=>requestAnimationFrame(()=>initRaid(key,1,_mods?{ngMods:_mods}:undefined)));
@@ -14621,6 +14757,7 @@ function initRaid(raidKey,floorNum,opts){
   }
   cancelAnimationFrame(animId);
   startAmbience('dungeon');startMusic('combat');
+  if(floorNum===1)Analytics.raidStart(cfg.name||raidKey);
   animId=requestAnimationFrame(loop);
 }
 
@@ -17339,6 +17476,7 @@ function hitTarget(tgt,dmg,fx,fy,ranged,t,attacker){
 
 function onEnemyKilled(en,t){
   GS.totalEnemiesKilled=(GS.totalEnemiesKilled||0)+1;
+  Analytics.enemyKills(1);
   SND.enemyDeath();
   // Thundergod: pause drain on kill by player (necro attacked recently)
   if(_thundergodActive&&RS&&RS.necro&&RS.necro._attackAnim&&t<RS.necro._attackAnim){
@@ -17468,6 +17606,7 @@ function onBossKilled(){
   }
   // ── Check if boss has already been raised ──
   const bossKey=RS.cfg?.bossKey||(RS.raidKey==='cemetery'?'wight_lord':RS.raidKey==='forest'?'forest_hag':'lich');
+  Analytics.bossKill(bd.name||bossKey);
   const bossAlreadyRaised=(GS.raisedBosses||[]).some(rb=>rb.bossKey===bossKey);
   // ── Instead of ending raid: leave a corpse for Rise attempt (only if not already raised) ──
   if(RS.isFinalFloor&&!bossAlreadyRaised){
@@ -20547,6 +20686,8 @@ function endRaid(result){
   if(RS._riseAutoEndTimer){clearTimeout(RS._riseAutoEndTimer);RS._riseAutoEndTimer=null;}
   closeRisePanel();
   RS.done=true;RS.result=result;
+  Analytics.raidEnd((RS.cfg&&RS.cfg.name)||RS.raidKey||'unknown',result,Date.now()-(RS._raidStartTs||Date.now()));
+  if(result==='defeat')Analytics.raidDeath((RS.cfg&&RS.cfg.name)||RS.raidKey||'unknown');
   RS.minions.forEach(mk=>{mk.ref.hp=mk.dead?0:mk.hp;});
   // Persist alive raised-via-animate-dead minions to barracks/catacombs
   const _raisedAlive=RS.minions.filter(mk=>mk._raised&&!mk.dead);
@@ -20857,6 +20998,7 @@ function isRegionAccessible(region) {
 let wmSelectedRegion = null;
 
 function openWorldMap() {
+  Analytics.panelOpen('world_map');
   renderWorldMap();
   WM.popupRegion=null; WM._raidBtns=[]; WM._nameBtns=[]; WM._portBtn=null;
   WM._t0=Date.now();
@@ -22183,6 +22325,7 @@ let _activeNode=null;
 let _vilAssignCooldown=0; // timestamp after which assign can re-open
 
 function openVillage(){ // (raid/catacomb nav added inline in village header)
+  Analytics.panelOpen('village');
   villageTick();
   renderVillage();
   showScreen('village');
@@ -22366,7 +22509,7 @@ function handleVillageNPCTap(){
   // If quest hasn't started yet, start it
   if(!quest.started){
     GS.quests.pumpkin_quest.started=true;
-    GS.quests.pumpkin_quest.npcMet=true;
+    GS.quests.pumpkin_quest.npcMet=true;Analytics.questAccept('pumpkin_quest');
     npcDialogue('🎃','Hobbit Elder','Brave Necromancer! A terrible Orc Captain stole a precious heirloom—my Big Pumpkin!\nWould you retrieve it from the Shire and bring it back to me?\n\nI\'ll reward you generously!','#f97316');
     saveGame(false);
     return;
@@ -22386,7 +22529,7 @@ function handleVillageNPCTap(){
       return;
     }
     
-    GS.quests.pumpkin_quest.completed=true;
+    GS.quests.pumpkin_quest.completed=true;Analytics.questComplete('pumpkin_quest');
     GS.quests.pumpkin_quest.npcLeft=false; // Keep NPC in village as merchant
     GS.inv.consumables['big_pumpkin']=0;
     GS.inv.consumables['pumpkin_juice']=(GS.inv.consumables['pumpkin_juice']||0)+pumpkinCount;
@@ -22417,7 +22560,7 @@ function openGandalfTap(){
   
   // If quest hasn't started yet, start it
   if(!quest.started){
-    GS.quests.gandalf_quest.started=true;
+    GS.quests.gandalf_quest.started=true;Analytics.questAccept('gandalf_quest');
     npcDialogue('🧙','Gandalf the Grey','Greetings, Necromancer!\nThe Orc Colonel has stolen my Dragon Fireworks—they are vital to defend these lands.\n\nVenture to the Orcish Fortress and retrieve them!','#6366f1');
     saveGame(false);
     return;
@@ -22437,7 +22580,7 @@ function openGandalfTap(){
       return;
     }
     
-    GS.quests.gandalf_quest.completed=true;
+    GS.quests.gandalf_quest.completed=true;Analytics.questComplete('gandalf_quest');
     GS.inv.consumables['dragon_fireworks']=0;
     GS.inv.consumables['pipe_weed']=(GS.inv.consumables['pipe_weed']||0)+fireworkCount;
     npcDialogue('🧙','Gandalf the Grey',`Excellent! These are vital to our cause.\nI grant you Pipe-weed—it grants strength in peril.\n\n+ ${fireworkCount} Pipe-weed received\n✓ Quest Complete!`,'#6366f1');
@@ -22463,7 +22606,7 @@ function openRangerTap(){
   if(!GS.quests.ranger_quest)GS.quests.ranger_quest={started:false,completed:false,has_map:false};
   const quest=GS.quests.ranger_quest;
   if(!quest.started){
-    GS.quests.ranger_quest.started=true;
+    GS.quests.ranger_quest.started=true;Analytics.questAccept('ranger_quest');
     npcDialogue('🏹','Ranger Haldir','Hail, Necromancer! I am Haldir of the Rangers.\nThe Innkeeper Revenant in Bree stole a map vital to our patrols.\n\nRetrieve it from The Prancing Pony Plague and I shall gift you my spare cloak.','#d97706');
     saveGame(false);
     return;
@@ -22475,7 +22618,7 @@ function openRangerTap(){
     }
     const mapCount=GS.inv.consumables['stolen_map']||0;
     if(mapCount===0){npcDialogue('🏹','Ranger Haldir','Where is the map? I sense you had it...','#d97706');return;}
-    GS.quests.ranger_quest.completed=true;
+    GS.quests.ranger_quest.completed=true;Analytics.questComplete('ranger_quest');
     GS.inv.consumables['stolen_map']=0;
     GS.inv.consumables['rangers_cloak']=(GS.inv.consumables['rangers_cloak']||0)+1;
     npcDialogue('🏹','Ranger Haldir','You have done the Rangers a great service!\nTake my cloak—it will shield you in dark places.\n\n+ 1 Rangers Cloak received (+25% DEF)\n✓ Quest Complete!','#d97706');
@@ -22498,7 +22641,7 @@ function openScholarTap(){
   if(!GS.quests.scholar_quest)GS.quests.scholar_quest={started:false,completed:false,has_tome:false};
   const quest=GS.quests.scholar_quest;
   if(!quest.started){
-    GS.quests.scholar_quest.started=true;
+    GS.quests.scholar_quest.started=true;Analytics.questAccept('scholar_quest');
     npcDialogue('📖','Scholar Elara','Greetings, learned one! I am Elara, keeper of ancient lore.\nThe Barrow Specter in the Weatherhills stole a tome of great knowledge.\n\nRecover it and I shall share its wisdom—a Lore Scroll that hastens learning.','#94a3b8');
     saveGame(false);
     return;
@@ -22510,7 +22653,7 @@ function openScholarTap(){
     }
     const tomeCount=GS.inv.consumables['ancient_tome']||0;
     if(tomeCount===0){npcDialogue('📖','Scholar Elara','The tome... did you lose it?','#94a3b8');return;}
-    GS.quests.scholar_quest.completed=true;
+    GS.quests.scholar_quest.completed=true;Analytics.questComplete('scholar_quest');
     GS.inv.consumables['ancient_tome']=0;
     GS.inv.consumables['lore_scroll']=(GS.inv.consumables['lore_scroll']||0)+1;
     npcDialogue('📖','Scholar Elara','Magnificent! This tome holds secrets thought lost!\nI have transcribed its wisdom into a Lore Scroll for you.\n\n+ 1 Lore Scroll received (+30% XP)\n✓ Quest Complete!','#94a3b8');
@@ -22533,7 +22676,7 @@ function openDwarfTap(){
   if(!GS.quests.dwarf_quest)GS.quests.dwarf_quest={started:false,completed:false,has_axe:false};
   const quest=GS.quests.dwarf_quest;
   if(!quest.started){
-    GS.quests.dwarf_quest.started=true;
+    GS.quests.dwarf_quest.started=true;Analytics.questAccept('dwarf_quest');
     npcDialogue('⚔️','Gimrik Ironhand','By Durin! That blasted Great Troll stole my ancestral axe!\nI tracked it to the Trollshaws but need help to reclaim it.\n\nBring it back and I will share my finest Dwarven Ale!','#65a30d');
     saveGame(false);
     return;
@@ -22545,7 +22688,7 @@ function openDwarfTap(){
     }
     const axeCount=GS.inv.consumables['dwarven_axe']||0;
     if(axeCount===0){npcDialogue('⚔️','Gimrik Ironhand','The axe... where did it go?!','#65a30d');return;}
-    GS.quests.dwarf_quest.completed=true;
+    GS.quests.dwarf_quest.completed=true;Analytics.questComplete('dwarf_quest');
     GS.inv.consumables['dwarven_axe']=0;
     GS.inv.consumables['dwarven_ale']=(GS.inv.consumables['dwarven_ale']||0)+1;
     npcDialogue('⚔️','Gimrik Ironhand','My ancestor\'s blade! You have my eternal gratitude!\nHere, drink this Dwarven Ale—it will fire your blood!\n\n+ 1 Dwarven Ale received (Heal 80 HP + 15% ATK)\n✓ Quest Complete!','#65a30d');
@@ -22569,7 +22712,7 @@ function openClericTap(){
   if(!GS.quests.cleric_quest)GS.quests.cleric_quest={started:false,completed:false,has_relic:false};
   const quest=GS.quests.cleric_quest;
   if(!quest.started){
-    GS.quests.cleric_quest.started=true;
+    GS.quests.cleric_quest.started=true;Analytics.questAccept('cleric_quest');
     npcDialogue('☀️','Sister Althea','Praise the Morninglord! I have traveled far seeking aid.\n\nThe Crypt Guardian in the Sanctum stole our Sun Relic—without it, the dead grow bolder with every dusk.\n\nRetrieve it, and I shall lend my mace and prayers to your cause!','#fbbf24');
     saveGame(false);
     return;
@@ -22581,7 +22724,7 @@ function openClericTap(){
     }
     const relicCount=GS.inv.consumables['sun_relic']||0;
     if(relicCount===0){npcDialogue('☀️','Sister Althea','I sensed the relic... but it is not with you?','#fbbf24');return;}
-    GS.quests.cleric_quest.completed=true;
+    GS.quests.cleric_quest.completed=true;Analytics.questComplete('cleric_quest');
     GS.inv.consumables['sun_relic']=0;
     GS.heroes.unlocked.add('cleric');_ensureHeroLevels();if(!GS.heroes.levels.cleric)GS.heroes.levels.cleric={lv:GS.necroLv||1,xp:0};
     npcDialogue('☀️','Sister Althea','The Sun Relic! Its radiance returns!\nThe Morninglord smiles upon you, Necromancer.\n\nI pledge my mace and my healing light to your cause.\n\n⚔ Hero Unlocked: Sister Althea joins the Pub!\n✓ Quest Complete!','#fbbf24');
@@ -24636,6 +24779,7 @@ function crIsWalkable(px2,py2,W,H){
 
 
 function openCastle() {
+  Analytics.panelOpen('castle');
   renderHub();
   showScreen('castle');
   startCastleRoom();
@@ -30733,6 +30877,7 @@ function closePrestige(){renderHub();showScreen('hub');}
 function doPrestige(){
   if(GS.prestige>=20)return; // max prestige cap
   GS.prestige++;
+  Analytics.prestigeUp(GS.prestige);
   // Grant Ascended unlocks for tiers 11+
   if(GS.prestige>=11){
     if(!GS.ascendedUnlocks)GS.ascendedUnlocks={};
@@ -34023,6 +34168,7 @@ function _pvpMatchEnd(winner, myScore, opScore) {
   const iWon = (PVP.role === winner) || (winner === 'me');
 
   // Update stats
+  Analytics.pvpMatch(iWon?'win':'loss');
   if(iWon) {
     GS.pvpWins = (GS.pvpWins||0) + 1;
     const ratingGain = Math.max(8, Math.round(32 * (1 - (GS.pvpRating||1000)/2000)));
