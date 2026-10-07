@@ -18105,6 +18105,9 @@ function initRaid(raidKey,floorNum,opts){
   const {grid,rooms,startX,startY,stairX,stairY}=genFloor(floorNum);
   const floorMult=(cfg.floorScale[floorNum-1]||1)*_enemyScale;
 
+  // Apply pre-raid consumable buffs (only on floor 1) — must be before minion HP calc
+  const raidBuffs=floorNum===1?applyPreRaidBuffs():(RS?{atkMult:RS.atkMult,defMult:RS.defMult,shield:RS.shield,revive:RS.revive,lifesteal:RS.lifesteal,speedBuff:RS.speedBuff,minionSpeed:RS.minionSpeed,raiseScroll:RS.raiseScroll,minionHPBoost:RS.minionHPBoost,darkBinding:RS.darkBinding,spiritAnchor:RS.spiritAnchor,invisibility:RS._invisTimer>0&&RS._invisStart>0?Math.max(0,RS._invisTimer-(RS.lastTs/1000-RS._invisStart)):0}:{});
+
   // Build minion list
   // Scale minion stats by necromancer level
   const _lScale=1+Math.max(0,GS.necroLv-1)*0.08; // +8% stats per level
@@ -18225,9 +18228,6 @@ function initRaid(raidKey,floorNum,opts){
   if(_spa)_spa.style.display='flex';
   const _br=document.getElementById('bottomRight');
   if(_br)_br.style.display='flex';
-
-  // Apply pre-raid consumable buffs (only on floor 1)
-  const raidBuffs=floorNum===1?applyPreRaidBuffs():(RS?{atkMult:RS.atkMult,defMult:RS.defMult,shield:RS.shield,revive:RS.revive,lifesteal:RS.lifesteal,speedBuff:RS.speedBuff,minionSpeed:RS.minionSpeed,raiseScroll:RS.raiseScroll,minionHPBoost:RS.minionHPBoost,darkBinding:RS.darkBinding,spiritAnchor:RS.spiritAnchor,invisibility:RS._invisTimer>0&&RS._invisStart>0?Math.max(0,RS._invisTimer-(RS.lastTs/1000-RS._invisStart)):0}:{});
 
   window._activeRaidBuffs=[];
   GS.undead_fortitude_used=false; // Reset racial trait for new raid
@@ -26092,6 +26092,9 @@ let _vilWalkAnimId = null;
 let _vilCamX = 0, _vilCamY = 0; // village camera (world coords)
 
 function startVilWalk(){
+  // Village uses flat rendering — reset raid zoom so camera/transform code is skipped
+  GAME_ZOOM=1;
+  _vilCamX=0;_vilCamY=0;
   const cv=document.getElementById('vilCanvas');if(!cv)return;
   // Ensure canvas is properly sized
   if(!cv._sized){
@@ -26949,8 +26952,7 @@ function drawVilCanvas(){
   // Interaction indicator on proximity
   const finDist=_vws?Math.hypot(_vws.px-fin.x,_vws.py-fin.y):999;
   if(finDist<80){
-    const finPulse=Math.sin(_vilFrame*.07)*.3+.7;
-    c.fillStyle=`rgba(34,197,94,${finPulse*.3})`;c.beginPath();c.arc(fin.x,fin.y-6,10,0,Math.PI*2);c.fill();
+    // Finrod proximity glow removed
     c.fillStyle='#22c55e';c.font=`bold ${Math.round(Math.max(5,7*fs))}px "Press Start 2P",monospace`;c.textAlign='center';
     icoD(c,'🎒',fin.x,fin.y-16,12);
   }
@@ -27548,8 +27550,7 @@ function drawVilCanvas(){
           // Bone pile storage
           const gbx=rm.x+rm.w*.22, gby=rm.y+rm.h*.72;
           const gbNear=_vws&&Math.hypot(_vws.px-gbx,_vws.py-gby)<Math.min(rm.w,rm.h)*.22;
-          const gbgl=gbNear?0.3+Math.sin(_vilFrame*.07)*.1:0.08;
-          c.fillStyle=`rgba(107,114,128,${gbgl})`;c.beginPath();c.ellipse(gbx,gby+5,14,6,0,0,Math.PI*2);c.fill();
+          const gbgl=0; // proximity glow removed
           const gBones=[[-6,2,10,2,.18],[5,1,8,2,-.15],[-2,-3,9,2,.25],[3,-4,7,1.5,-.2]];
           c.save();c.translate(gbx,gby);
           gBones.forEach(([lx,ly,lw,lh,rot])=>{
@@ -27645,8 +27646,7 @@ function drawVilCanvas(){
           }
           // Glow when near
           const wkNear=_vws&&Math.hypot(_vws.px-wkx,_vws.py-wky)<Math.min(rm.w,rm.h)*.25;
-          const wkgl=wkNear?0.35+Math.sin(_vilFrame*.08)*.1:0.08;
-          c.fillStyle=`rgba(251,146,60,${wkgl})`;c.beginPath();c.arc(wkx,wky,wkw*.7,0,Math.PI*2);c.fill();
+          // Workshop proximity glow removed
           if(wkNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(wkx-28,wky-wkh/2-wkh*.5-16,56,11);
             c.fillStyle='#fbbf24';c.font=`bold ${Math.round(Math.max(4,5.5*fs))}px "Press Start 2P",monospace`;c.textAlign='center';
@@ -27662,8 +27662,7 @@ function drawVilCanvas(){
             c.beginPath();c.ellipse(wpx+lox,wpy+loy,7,3.5,.2,0,Math.PI*2);c.fill();c.stroke();
             c.fillStyle='#5a3a10';c.fillRect(wpx+lox-6,wpy+loy-.5,3,3);c.fillRect(wpx+lox+3,wpy+loy-.5,3,3);
           });
-          const wpgl=wpNear?0.4+Math.sin(_vilFrame*.1)*.1:0.1;
-          c.fillStyle=`rgba(120,83,15,${wpgl})`;c.beginPath();c.arc(wpx,wpy,18,0,Math.PI*2);c.fill();
+          // Wood pile proximity glow removed
           if(wpNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(wpx-32,wpy-30,64,12);
             c.fillStyle='#fbbf24';c.font='bold 6px "Press Start 2P",monospace';c.textAlign='center';
@@ -27735,8 +27734,7 @@ function drawVilCanvas(){
           c.fillRect(ghx-10,ghy-12,9,8);c.fillRect(ghx+1,ghy-12,9,8);
           c.fillRect(ghx-10,ghy-3,9,5);c.fillRect(ghx+1,ghy-3,9,5);
           c.font='7px serif';c.textAlign='center';icoD(c,'🌿',ghx,ghy+6,7);
-          const ghgl=ghNear?0.4+Math.sin(_vilFrame*.1)*.1:0.1;
-          c.fillStyle=`rgba(34,197,94,${ghgl})`;c.beginPath();c.arc(ghx,ghy,18,0,Math.PI*2);c.fill();
+          // Greenhouse proximity glow removed
           if(ghNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(ghx-32,ghy-30,64,12);
             c.fillStyle='#86efac';c.font='bold 6px "Press Start 2P",monospace';c.textAlign='center';
@@ -27761,8 +27759,7 @@ function drawVilCanvas(){
             c.beginPath();c.ellipse(8,-1,5,6,0,0,Math.PI*2);c.fill();
             c.fillStyle='#22c55e';c.fillRect(-0.5,-9,1,9);
             c.restore();
-            const pmgl=pmNear?0.5+Math.sin(_vilFrame*.1)*.15:0.15;
-            c.fillStyle=`rgba(249,115,22,${pmgl})`;c.beginPath();c.arc(pmx,pmy,22,0,Math.PI*2);c.fill();
+            // Pumpkin merchant proximity glow removed
             if(pmNear){
               c.fillStyle='rgba(0,0,0,.88)';c.fillRect(pmx-48,pmy-30,96,12);
               c.fillStyle='#f97316';c.font='bold 5px "Press Start 2P",monospace';c.textAlign='center';
@@ -27832,8 +27829,7 @@ function drawVilCanvas(){
           c.strokeStyle='#7a5800';c.lineWidth=.7;c.stroke();
           c.fillStyle='#c4960a';c.fillRect(mcx-10,mcy-1,20,1.5);
           c.fillStyle='#fcd34d';c.beginPath();c.arc(mcx,mcy-8,2,0,Math.PI*2);c.fill();
-          const mcgl=mcNear?0.4+Math.sin(_vilFrame*.08)*.1:0.12;
-          c.fillStyle=`rgba(252,211,77,${mcgl})`;c.beginPath();c.arc(mcx,mcy,14,0,Math.PI*2);c.fill();
+          // Mining camp proximity glow removed
           if(mcNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(mcx-32,mcy-22,64,12);
             c.fillStyle='#fcd34d';c.font='bold 6px "Press Start 2P",monospace';c.textAlign='center';
@@ -29030,7 +29026,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       const mx2=b.x+b.w*.8;
       const mirrorNear=CR&&Math.hypot(CR.px-mx2,CR.py-cy)<52;
       const mg=Math.sin(t*.003)*.12;
-      if(mirrorNear){
+      if(false){
         c.save();c.fillStyle=`rgba(167,139,250,${0.12+mg})`;c.beginPath();c.ellipse(mx2,cy,16,24,0,0,Math.PI*2);c.fill();c.restore();
       }
       c.strokeStyle=mirrorNear?PALETTE.frameGlow:'#7c3aed';c.lineWidth=mirrorNear?2.5:2;
@@ -29047,9 +29043,8 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       const cfx=b.x+b.w*.5, cfy=b.y+b.h*.75;
       const cofferNear=CR&&Math.hypot(CR.px-cfx,CR.py-cfy)<46;
       c.drawImage(ct.chest, cfx-16, cfy-16, 32, 32);
-      // Glow if near
-      const cfgl=cofferNear?0.35+Math.sin(t*.006)*.12:0.12;
-      c.fillStyle=`rgba(252,211,77,${cfgl})`;c.beginPath();c.arc(cfx,cfy,22,0,Math.PI*2);c.fill();
+      // Glow if near — disabled (proximity circles removed)
+      const cfgl=0;
       if(cofferNear){
         c.fillStyle='rgba(0,0,0,.88)';c.fillRect(cfx-36,cfy-32,72,14);
         c.fillStyle='#fcd34d';c.font='bold 5px "Press Start 2P",monospace';c.textAlign='center';
@@ -29098,8 +29093,6 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       c.drawImage(ct.desk, dx-deskW/2, dy-deskH/2, 64, 32);
       // ── Highlight glow when near
       if(deskNear){
-        c.strokeStyle='#60a5fa';c.lineWidth=2;c.shadowColor='#3b82f6';c.shadowBlur=10;
-        c.strokeRect(dx-deskW/2-3,dy-deskH/2-3,deskW+6,deskH+6);c.shadowBlur=0;
         c.fillStyle='rgba(0,0,0,.88)';c.fillRect(dx-46,dy-46,92,15);
         c.fillStyle='#93c5fd';c.font='bold 5px "Press Start 2P",monospace';c.textAlign='center';
         c.fillText('\u25b6 Research Desk',dx,dy-35);
@@ -29109,14 +29102,10 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       const gl=Math.sin(t*.004)*.3+.7;
       const libPulse=Math.sin(t*.009)*.25+.75;
       const armyCnt=GS.skeletons.filter(s=>s.hp>0).length;
-      // Outer glow halo (red)
-      const libHalo=c.createRadialGradient(cx,cy,10,cx,cy,42);
-      libHalo.addColorStop(0,`rgba(220,38,38,${libPulse*.22})`);
-      libHalo.addColorStop(1,'rgba(220,38,38,0)');
-      c.fillStyle=libHalo;c.beginPath();c.arc(cx,cy,42,0,Math.PI*2);c.fill();
+      // Outer glow halo (red) — proximity glow removed
       // Outer circle — rotating rune ring (red)
-      c.strokeStyle=`rgba(220,38,38,${gl*.7})`;c.lineWidth=libNear?2.5:1.5;
-      c.shadowColor='#ef4444';c.shadowBlur=libNear?12:6;
+      c.strokeStyle=`rgba(220,38,38,${gl*.7})`;c.lineWidth=1.5;
+      c.shadowColor='#ef4444';c.shadowBlur=6;
       c.beginPath();c.arc(cx,cy,28,0,Math.PI*2);c.stroke();c.shadowBlur=0;
       // Penta-rune marks
       for(let ri=0;ri<5;ri++){
@@ -29197,7 +29186,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       const capX=capPos.x, capY=capPos.y;
       const capNear=CR&&CR.nearObj&&CR.nearObj.id==='captain';
       const capSaluting=!!(CR&&Math.hypot(CR.px-capX,CR.py-capY)<70);
-      if(capNear){c.fillStyle='rgba(239,68,68,.15)';c.beginPath();c.arc(capX,capY,32,0,Math.PI*2);c.fill();c.strokeStyle='#ef4444';c.lineWidth=1.5;c.beginPath();c.arc(capX,capY,32,0,Math.PI*2);c.stroke();}
+      // Captain proximity glow removed
       c.save();c.translate(capX,capY);
       if(capSaluting){
         // Salute pose — t*2.2 for bob, t*1.5 for arm tremor
@@ -29407,8 +29396,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       // Bone pile sprite — bottom-right corner, matching CASTLE_OBJECTS boneVault (rx:.78, ry:.76)
       const bpx=b.x+b.w*.78, bpy=b.y+b.h*.76;
       const bpNear=CR&&Math.hypot(CR.px-bpx,CR.py-bpy)<46;
-      const bpgl=bpNear?0.3+Math.sin(t*.005)*.1:0.08;
-      c.fillStyle=`rgba(124,58,237,${bpgl})`;c.beginPath();c.ellipse(bpx,bpy+8,22,9,0,0,Math.PI*2);c.fill();
+      const bpgl=0; // proximity glow removed
       // Long bone shafts
       const bpLongs=[[-8,4,14,2.5,.18],[5,2,12,2.5,-.15],[-4,-2,13,2.2,.25],[2,-6,10,2,-.2]];
       c.save();c.translate(bpx,bpy);
@@ -30201,10 +30189,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
         const ctPos=ctObj?crObjWorld(ctObj):{x:b.x+b.w*.18,y:b.cy};
         const cx2=ctPos.x, cy2=ctPos.y;
         const ctNear=CR&&Math.hypot(CR.px-cx2,CR.py-cy2)<52;
-        // Ambient glow
-        const cg=c.createRadialGradient(cx2,cy2,4,cx2,cy2,38);
-        cg.addColorStop(0,'rgba(160,120,255,0.22)');cg.addColorStop(1,'rgba(0,0,0,0)');
-        c.fillStyle=cg;c.beginPath();c.arc(cx2,cy2,38,0,Math.PI*2);c.fill();
+        // Ambient glow — proximity glow removed
         // Shadow
         c.fillStyle='rgba(0,0,0,.45)';c.beginPath();c.ellipse(cx2,cy2+18,12,4,0,0,Math.PI*2);c.fill();
         // Skeleton sprite
@@ -30408,9 +30393,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       const _coopPerchY=_coopY+28+cH1*.52; // perch stick center
       _crObjPosCache['raven']={x:_coopRavenX, y:_coopPerchY};
       const coopNear=CR&&Math.hypot(CR.px-_coopRavenX,CR.py-_coopPerchY)<50;
-      if(coopNear){
-        c.save();c.fillStyle='rgba(100,110,255,.08)';c.beginPath();c.arc(_coopRavenX,_coopRavenY,cH1*.4,0,Math.PI*2);c.fill();c.restore();
-      }
+      // Co-op raven proximity glow removed
       _hangingCage(_coopX, _coopY, cW1, cH1, 0, false, false, false, true);
       _ravenLabel(_coopRavenX,_coopRavenY-4,'CO-OP',coopNear,'#a5b4fc','rgba(30,30,100,.88)');
 
@@ -30421,7 +30404,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       const _wPerchY=_wcy+28+cH2*.52; // perch stick center
       _crObjPosCache['whiteRaven']={x:_wRavenX, y:_wPerchY};
       const _wgl=0.4+Math.sin(avt*2.2)*0.18;
-      c.save();c.fillStyle=`rgba(255,255,240,${_wgl*0.10})`;c.beginPath();c.arc(_wRavenX,_wRavenY,cH2*.4,0,Math.PI*2);c.fill();c.restore();
+      // White raven ambient glow removed
       const whiteNear=CR&&Math.hypot(CR.px-_wRavenX,CR.py-_wPerchY)<52;
       _hangingCage(_wcx, _wcy, cW2, cH2, 1.2, false, true, true, false);
       _ravenLabel(_wRavenX,_wRavenY-4,'DEV GIFT',whiteNear,'#fef3c7','rgba(80,60,0,.88)');
