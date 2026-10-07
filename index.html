@@ -1577,9 +1577,45 @@ function gameWH(chrome){ chrome=chrome||0; return {W:gameW(), H:gameH()-chrome};
 // ═══════════════════════════════════════════════════════
 //  CONSTANTS & D&D DATA
 // ═══════════════════════════════════════════════════════
-const TILE_SIZE=32;
+// ══════════════════════════════════════════════════════════════
+// ██  PALETTE — Master Color Palette (≤64 colors)           ██
+// ══════════════════════════════════════════════════════════════
+var PALETTE={
+  // ── UI Chrome ──
+  frameBg:'rgba(8,2,24,.92)', frameOuter:'#2d1b69', frameMid:'#5b3cc4',
+  frameInner:'#8b5cf6', frameCorner:'#a78bfa', frameGlow:'#c4b5fd',
+  // ── Text ──
+  textWhite:'#e2e8f0', textGray:'#9ca3af', textDark:'#4b5563',
+  textGold:'#fbbf24', textWarn:'#f97316',
+  // ── Health / Damage / Status ──
+  hpGreen:'#22c55e', hpGreenLt:'#86efac', hpGreenDk:'#166534',
+  dmgRed:'#ef4444', dmgRedLt:'#f87171', dmgRedDk:'#dc2626', dmgRedDeep:'#991b1b',
+  manaBlue:'#60a5fa', manaBlueLt:'#93c5fd', manaBlueDk:'#3b82f6',
+  xpGold:'#fbbf24', xpGoldLt:'#fcd34d', xpGoldDk:'#f59e0b',
+  // ── Elements ──
+  fire:'#f97316', fireLt:'#fb923c', fireDk:'#ea580c',
+  ice:'#60a5fa', iceLt:'#93c5fd',
+  poison:'#84cc16', poisonDk:'#65a30d',
+  holy:'#fef08a', holyDk:'#eab308',
+  shadow:'#a855f7', shadowLt:'#c084fc', shadowDk:'#7c3aed',
+  arcane:'#818cf8', arcaneLt:'#a78bfa', arcaneDk:'#6366f1',
+  necrotic:'#6b7280', necroticLt:'#9ca3af',
+  // ── Biome Accents ──
+  shire:'#86efac', bree:'#d97706', mountain:'#94a3b8',
+  forest:'#22c55e', elven:'#60a5fa', swamp:'#a855f7',
+  mordor:'#ef4444', desert:'#f59e0b', tundra:'#93c5fd',
+  // ── Items / Rarity ──
+  common:'#9ca3af', uncommon:'#22c55e', rare:'#3b82f6',
+  epic:'#a855f7', legendary:'#fbbf24',
+  // ── Misc ──
+  black:'#000', white:'#fff', parchment:'#ddd8c0', parchDk:'#c8c0b0',
+  brown:'#92400e', brownLt:'#b45309', brownDk:'#78350f',
+  steel:'#94a3b8', steelDk:'#4b5563',
+};
+
+var TILE_SIZE=32;
 const COLS=56,ROWS=56;
-const MAP=COLS*TILE_SIZE; // 1792 — keeps compatibility
+var MAP=COLS*TILE_SIZE; // 1792 — keeps compatibility
 // Camera zoom — GBA RPG feel (Pokémon Silver / KH:CoM scale)
 // Responsive: always shows ~25 tiles across regardless of screen size
 const TARGET_TILES_ACROSS=25;
@@ -1591,7 +1627,7 @@ let GAME_ZOOM=calcZoom(gameW());
 const T_WALL=0,T_FLOOR=1,T_STAIR=2,T_STAIR_UP=3;
 
 // ── RAID CONFIGURATIONS ──
-const RAID_CONFIGS={
+var RAID_CONFIGS={
   cemetery:{
     name:'Cemetery of the Damned',ico:'🪦',biome:'cemetery',
     floors:3,minLv:1,
@@ -1815,7 +1851,7 @@ const RAID_CONFIGS={
 };
 
 // Region → [easy_key, medium_key, hard_key]
-const REGION_RAID_MAP={
+var REGION_RAID_MAP={
   'shire':['shire_easy','shire_medium','shire_hard'],
   'bree':['bree_easy','bree_medium','bree_hard'],
   'weatherhills':['weatherhills_easy','weatherhills_medium','weatherhills_hard'],
@@ -1839,7 +1875,7 @@ const REGION_RAID_MAP={
 };
 
 // Boss stat definitions for all 60 region raids
-const REGION_BOSSES={
+var REGION_BOSSES={
   barrow_king:{name:'Barrow King',hp:122,maxHP:122,dmg:16,spd:0.75,rng:160,cd:2.2,bones:20,gp:[10,22],pp:[0,0],xp:6500,phase2HP:61,fortHP:30,color:'#6b7280',size:1.2},
   mill_ghost:{name:"The Miller's Ghost",hp:162,maxHP:162,dmg:19,spd:0.65,rng:160,cd:2.0,bones:28,gp:[18,38],pp:[0,1],xp:10500,phase2HP:81,fortHP:40,color:'#9ca3af',size:1.35},
   barrow_elder:{name:'Barrow-Wight Elder',hp:221,maxHP:221,dmg:24,spd:0.58,rng:160,cd:1.8,bones:38,gp:[28,58],pp:[0,2],xp:15500,phase2HP:110,fortHP:55,color:'#4b5563',size:1.55},
@@ -2114,7 +2150,7 @@ function canAddUnit(type){
 }
 
 // XP thresholds per level (1→2, 2→3 ...)
-const XP_TABLE=[0,100,250,500,1000,2000,4000,8000,16000,32000,64000,100000,140000,180000,230000,290000,360000,440000,540000,99999];
+var XP_TABLE=[0,100,250,500,1000,2000,4000,8000,16000,32000,64000,100000,140000,180000,230000,290000,360000,440000,540000,99999];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  DnD 5e CHARACTER PROGRESSION (Phase 11)
@@ -2635,7 +2671,7 @@ function petDmgScale(petId){
 
 // ── PASSIVES unlocked per level ──
 // Passives unlock every 2 levels (passive N unlocks at level N*2)
-const PASSIVES={
+var PASSIVES={
   1:{name:'Grim Harvest',     unlockLv:2,  desc:'Killing a creature with a spell heals you for 2× spell level HP.'},
   2:{name:'Dark Resilience',  unlockLv:4,  desc:'Necrotic damage resistance. Max HP can\'t be reduced.'},
   3:{name:'Soul Snare',       unlockLv:6,  desc:'+5 bones dropped by every enemy killed.'},
@@ -2650,7 +2686,7 @@ const PASSIVES={
 
 // ── MINION DEFINITIONS ──
 // 3 categories × 20 each, ordered by CR. Last entry fills all raid slots.
-const MINIONS={
+var MINIONS={
   // ══ SKELETAL (bone-based) ══
   skel_rat:     {name:'Bone Rat',         cr:'0',  hp:8,   maxHP:8,   dmg:4,  spd:3.1, rng:40,  cd:1.0,cost:3,  unlockLv:1,cat:'skeletal',flavor:'Pack skirmisher. Very fast, cheap to raise.'},
   skel_bat:     {name:'Bone Bat',         cr:'0',  hp:10,  maxHP:10,  dmg:5,  spd:2.6, rng:90,  cd:1.1,cost:4,  unlockLv:1,cat:'skeletal',flavor:'Aerial swooper. Attacks from distance.'},
@@ -3246,7 +3282,7 @@ function closeHowToPlay(){
 
 // ── ANALYTICS MANAGER ──
 // Privacy-first, opt-in telemetry — batched events sent to Netlify Functions
-const Analytics=(function(){
+var Analytics=(function(){
   const ENDPOINT='/.netlify/functions/analytics?action=ingest';
   const FLUSH_INTERVAL=60000; // flush every 60s
   const MAX_QUEUE=200;
@@ -3364,7 +3400,7 @@ const Analytics=(function(){
 // ══════════════════════════════════════════════════════════════════════════════
 // ── TRANSITION MANAGER (canvas-based screen transition effects) ─────────────
 // ══════════════════════════════════════════════════════════════════════════════
-const TransitionManager=(function(){
+var TransitionManager=(function(){
   let _cv=null, _ctx=null;
   let _active=false, _queue=[];
   let _cur=null; // {type, t0, dur, onMid, onDone, opts}
@@ -4020,7 +4056,7 @@ const RetroUI=(function(){
 })();
 
 // ── SPELL DEFINITIONS ──
-const SPELLS={
+var SPELLS={
   staffStrike:  {name:'Staff Strike',    ico:'🪄',lv:1,cd:0.8,tgt:'single',rng:160,dmg:8, color:'#a78bfa',desc:'Medium-range strike. Auto-fires on cooldown. Always available.',isStrike:true},
   tollTheDead:  {name:'Toll the Dead',   ico:'🔔',lv:1,cd:3,  tgt:'single',rng:160,dmg:14,color:'#7c3aed',desc:'Necrotic bell tolls. Single target.'},
   chillTouch:   {name:'Chill Touch',     ico:'🖐️',lv:1,cd:4,  tgt:'single',rng:90,dmg:9, color:'#60a5fa',desc:'Spectral hand. Target cannot heal for 4s.'},
@@ -4138,7 +4174,7 @@ const SPELLS={
 const SPELL_ORDER=Object.keys(SPELLS);
 
 // ── ENEMY DEFINITIONS ──
-const EDEF={
+var EDEF={
   // ── CEMETERY ──
   cultist:    {hp:9, dmg:5, spd:1.8,rng:90,cd:1.4,aggro:160,bones:[1,3],cp:[2,6],  xp:25},
   skeleton_e: {hp:13,dmg:6, spd:1.5,rng:40, cd:1.5,aggro:160,bones:[2,4],cp:[3,8],  xp:50},
@@ -4162,7 +4198,7 @@ const EDEF={
   wraith_e:   {hp:35,dmg:18,spd:1.8,rng:160,cd:1.4,aggro:160,bones:[5,9],gp:[1,2],  xp:500},
 };
 
-const BOSSES={
+var BOSSES={
   wight_lord:{name:'Wight Lord',     hp:220,maxHP:220,dmg:20,spd:0.65,rng:160,cd:2.0,bones:25,gp:[15,30],pp:[0,1],xp:8000, phase2HP:110,fortHP:60, color:'#ef4444',size:1.3},
   forest_hag: {name:'The Hag Queen', hp:300,maxHP:300,dmg:24,spd:0.7, rng:160,cd:1.8,bones:32,gp:[20,40],pp:[0,2],xp:12000,phase2HP:150,fortHP:70, color:'#22c55e',size:1.4},
   lich:       {name:'The Lich',      hp:400,maxHP:400,dmg:28,spd:0.55,rng:160,cd:2.2,bones:40,gp:[30,60],pp:[1,4], xp:18000,phase2HP:200,fortHP:80, color:'#22ff44',size:1.65},
@@ -4205,7 +4241,7 @@ function getMergeTier(cr){
 // ═══════════════════════════════════════════════════════
 //  GAME STATE
 // ═══════════════════════════════════════════════════════
-const GS={
+var GS={
   bones:20,
   wallet:{pp:0,gp:0,sp:0,cp:0},
   necroLv:1,
@@ -4357,7 +4393,7 @@ const GS={
 //  SHOP DATA
 // ═══════════════════════════════════════════════════════
 // Prices in GP equivalent (1gp = 10sp = 100cp)
-const SHOP_ITEMS={
+var SHOP_ITEMS={
   consumables:[
     {id:'heal_minor',  name:'Minor Healing Potion',ico:'🧪',price:{gp:2},  type:'consumable',qty:true,  desc:'Restores 30 HP to the Necromancer.',effect:'heal',val:30},
     {id:'heal_major',  name:'Major Healing Potion', ico:'⚗️',price:{gp:8},  type:'consumable',qty:true,  desc:'Restores 80 HP to the Necromancer.',effect:'heal',val:80},
@@ -6655,7 +6691,7 @@ function fmtWallet(w){
 function px(c,x,y,w,h,col){c.fillStyle=col;c.fillRect(x,y,w,h);}
 function fc(c,x,y,r,col){c.fillStyle=col;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();}
 
-const SPR={};
+var SPR={};
 
 // ═══════════════════════════════════════════════════════
 //  SPRITE MANAGER — PNG sprite loader with chroma key removal
@@ -8826,44 +8862,9 @@ function _getAnimDT(t){
 }
 
 
-// ══════════════════════════════════════════════════════════════
-// ██  PALETTE — Master Color Palette (≤64 colors)           ██
-// ══════════════════════════════════════════════════════════════
-const PALETTE={
-  // ── UI Chrome ──
-  frameBg:'rgba(8,2,24,.92)', frameOuter:'#2d1b69', frameMid:'#5b3cc4',
-  frameInner:'#8b5cf6', frameCorner:'#a78bfa', frameGlow:'#c4b5fd',
-  // ── Text ──
-  textWhite:'#e2e8f0', textGray:'#9ca3af', textDark:'#4b5563',
-  textGold:'#fbbf24', textWarn:'#f97316',
-  // ── Health / Damage / Status ──
-  hpGreen:'#22c55e', hpGreenLt:'#86efac', hpGreenDk:'#166534',
-  dmgRed:'#ef4444', dmgRedLt:'#f87171', dmgRedDk:'#dc2626', dmgRedDeep:'#991b1b',
-  manaBlue:'#60a5fa', manaBlueLt:'#93c5fd', manaBlueDk:'#3b82f6',
-  xpGold:'#fbbf24', xpGoldLt:'#fcd34d', xpGoldDk:'#f59e0b',
-  // ── Elements ──
-  fire:'#f97316', fireLt:'#fb923c', fireDk:'#ea580c',
-  ice:'#60a5fa', iceLt:'#93c5fd',
-  poison:'#84cc16', poisonDk:'#65a30d',
-  holy:'#fef08a', holyDk:'#eab308',
-  shadow:'#a855f7', shadowLt:'#c084fc', shadowDk:'#7c3aed',
-  arcane:'#818cf8', arcaneLt:'#a78bfa', arcaneDk:'#6366f1',
-  necrotic:'#6b7280', necroticLt:'#9ca3af',
-  // ── Biome Accents ──
-  shire:'#86efac', bree:'#d97706', mountain:'#94a3b8',
-  forest:'#22c55e', elven:'#60a5fa', swamp:'#a855f7',
-  mordor:'#ef4444', desert:'#f59e0b', tundra:'#93c5fd',
-  // ── Items / Rarity ──
-  common:'#9ca3af', uncommon:'#22c55e', rare:'#3b82f6',
-  epic:'#a855f7', legendary:'#fbbf24',
-  // ── Misc ──
-  black:'#000', white:'#fff', parchment:'#ddd8c0', parchDk:'#c8c0b0',
-  brown:'#92400e', brownLt:'#b45309', brownDk:'#78350f',
-  steel:'#94a3b8', steelDk:'#4b5563',
-};
 
 // Per-biome sub-palettes (≤16 colors each, referencing PALETTE keys)
-const BIOME_PAL={
+var BIOME_PAL={
   cemetery:{bg:'#080510',mid:'#100820',wall:'#3d2060',floor:'#120a22',accent:PALETTE.shadow,text:PALETTE.shadowLt},
   forest:{bg:'#030a04',mid:'#071408',wall:'#1a3a14',floor:'#071008',accent:PALETTE.forest,text:PALETTE.hpGreenLt},
   sanctum:{bg:'#040208',mid:'#080418',wall:'#1a0a3a',floor:'#06030e',accent:PALETTE.shadow,text:PALETTE.shadowLt},
@@ -15656,7 +15657,7 @@ function loadGame(){
 // ═══════════════════════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
-const SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click',weather:true,haptics:true};
+var SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click',weather:true,haptics:true};
 function loadSettings(){try{const s=JSON.parse(localStorage.getItem('necro_settings')||'{}');Object.assign(SETTINGS,s);}catch(e){}syncSettingsUI();}
 function saveSettings(){try{localStorage.setItem('necro_settings',JSON.stringify(SETTINGS));}catch(e){}}
 function syncSettingsUI(){
@@ -15729,7 +15730,7 @@ function confirmReset(){
 // ══════════════════════════════════════════════════════════════════════════════
 // AUDIO ENGINE v2.0 — Procedural synthesis with proper SFX, ambient & music
 // ══════════════════════════════════════════════════════════════════════════════
-const SFX={enabled:true,ctx:null};
+var SFX={enabled:true,ctx:null};
 function getACtx(){if(!SFX.ctx){try{SFX.ctx=new(window.AudioContext||window.webkitAudioContext)();
   // Create master bus with per-category gain nodes
   const ac=SFX.ctx;
@@ -15785,7 +15786,7 @@ function playTone(freq,type,dur,vol,delay){if(!SFX.enabled)return;_tone(SFX.sfxG
 function playNoise(dur,vol,freq){if(!SFX.enabled)return;_noise(SFX.sfxGain,dur,vol,freq);}
 
 // ── Designed SFX library ──
-const SND={
+var SND={
   // UI
   click:()=>{if(!SFX.enabled)return;
     _tone(SFX.sfxGain,880,'square',.03,.03);_tone(SFX.sfxGain,1320,'square',.02,.015,.015);
@@ -15965,8 +15966,8 @@ const SND={
 // ══════════════════════════════════════════════════════════════════════════════
 // AMBIENT & MUSIC ENGINE — Procedural layered atmosphere + note sequencing
 // ══════════════════════════════════════════════════════════════════════════════
-const AMB={gainNode:null,playing:false,oscs:[],nodes:[],scene:null,_lfoPhase:0};
-const MUS={playing:false,nodes:[],_timers:[],track:null,_intensity:0};
+var AMB={gainNode:null,playing:false,oscs:[],nodes:[],scene:null,_lfoPhase:0};
+var MUS={playing:false,nodes:[],_timers:[],track:null,_intensity:0};
 
 // ── Ambient scenes ──
 function _buildAmbScene(sceneName){
@@ -16165,7 +16166,7 @@ function stopAmbience(){_stopAmbNodes();stopMusic();}
 // Each track has: melody, harmony (countermelody), bass, pad, percussion, arpeggio
 // Layers can be activated/deactivated for dynamic intensity
 
-const MUSIC_TRACKS={
+var MUSIC_TRACKS={
   menu:{bpm:70,key:'Dm',timeSignature:4,
     melody:[
       {f:294,d:.5},{f:349,d:.5},{f:440,d:.75},{f:392,d:.25},
@@ -17096,7 +17097,7 @@ let autoMode=false; // always starts OFF
 let _sammAelActive=false;
 const _SAMM_DRAIN_RANGE=280; // 1.5× normal aggro range (~180)
 const _SAMM_DRAIN_RATE=3;    // HP drained from summons per second (per summon nearby)
-const _SAMM_POISON_DMG_BONUS=8; // extra poison damage per spell hit in lich form
+var _SAMM_POISON_DMG_BONUS=8; // extra poison damage per spell hit in lich form
 let _sammDrainAcc=0;
 
 function toggleSammaelForm(){
@@ -24092,7 +24093,7 @@ function toggleAiPanel(){
 //  20 Regions, 3 raids each (Easy/Med/Hard), locked by necroLv
 // ══════════════════════════════════════════════
 
-const WORLD_REGIONS = [
+var WORLD_REGIONS = [
   // terrain: forest|desert|mountain|tundra|wasteland|plains|swamp|sanctum
   {id:'shire',       name:'The Shire',          lv:1, x:.18,y:.70, biome:'cemetery', terrain:'plains',   color:'#86efac', faction:'shire'},
   {id:'bree',        name:'Bree-land',          lv:1, x:.26,y:.58, biome:'cemetery', terrain:'plains',   color:'#86efac', faction:'shire'},
@@ -24125,7 +24126,7 @@ const WM_FACTIONS = {
   mordor: {name:'Mordor',     color:'#ef4444', members:['isengard','osgiliath','gorgoroth','minas_morgul','mordor','mount_doom']},
 };
 // Linear campaign progression: each faction must be FULLY cleared before the next unlocks
-const FACTION_ORDER = ['shire','rohan','elves','gondor','mordor'];
+var FACTION_ORDER = ['shire','rohan','elves','gondor','mordor'];
 function isFactionCleared(facId){
   const fac=WM_FACTIONS[facId];if(!fac)return true;
   return fac.members.every(rid=>{const c=GS.conquered[rid]||{};return c.easy&&c.medium&&c.hard;});
@@ -33859,7 +33860,7 @@ function drawObstaclesAndZones(t){
 }
 
 // ── PRESTIGE ──────────────────────────────────────────────────────────────
-const PRESTIGE_NAMES=['Initiate','Risen','Undying','Deathbound','Lich-Touched','Wraithborn','Soulreaver','Doomwalker','Void Necromancer','Eternal',
+var PRESTIGE_NAMES=['Initiate','Risen','Undying','Deathbound','Lich-Touched','Wraithborn','Soulreaver','Doomwalker','Void Necromancer','Eternal',
   'Ascended Initiate','Ascended Disciple','Ascended Acolyte','Ascended Adept','Ascended Invoker','Ascended Summoner','Ascended Necrolord','Ascended Archlich','Ascended Dread King','Ascended Eternal'];
 
 // Ascended prestige unlocks (tier 11-20) — checked via GS.prestige >= tier
