@@ -746,19 +746,35 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
           <div class="set-desc" style="font-size:8px">Combat sounds, spell audio, UI clicks</div>
         </div>
         <div class="set-ctrl">
-          <button class="toggle" id="tog_sfx" onclick="toggleSetting('sfx')"></button>
+          <div class="range-wrap">
+            <input type="range" id="rng_sfx" min="0" max="100" value="80" oninput="setSetting('sfxVol',this.value)">
+            <span class="range-val" id="rng_sfx_val">80</span>
+          </div>
         </div>
       </div>
       <div class="set-row" style="padding:8px 10px">
         <div class="set-ico" style="font-size:16px;width:22px">🎵</div>
         <div class="set-body">
-          <div class="set-label" style="font-size:10px">Ambient Music</div>
-          <div class="set-desc" style="font-size:8px">Procedural dark dungeon ambience</div>
+          <div class="set-label" style="font-size:10px">Music</div>
+          <div class="set-desc" style="font-size:8px">Procedural dark ambient music</div>
         </div>
         <div class="set-ctrl">
           <div class="range-wrap">
             <input type="range" id="rng_music" min="0" max="100" value="40" oninput="setSetting('musicVol',this.value)">
             <span class="range-val" id="rng_music_val">40</span>
+          </div>
+        </div>
+      </div>
+      <div class="set-row" style="padding:8px 10px">
+        <div class="set-ico" style="font-size:16px;width:22px">🌫️</div>
+        <div class="set-body">
+          <div class="set-label" style="font-size:10px">Ambient</div>
+          <div class="set-desc" style="font-size:8px">Environmental atmosphere & drones</div>
+        </div>
+        <div class="set-ctrl">
+          <div class="range-wrap">
+            <input type="range" id="rng_amb" min="0" max="100" value="50" oninput="setSetting('ambVol',this.value)">
+            <span class="range-val" id="rng_amb_val">50</span>
           </div>
         </div>
       </div>
@@ -3542,6 +3558,7 @@ function checkAchievements(silent){
 }
 
 function showAchievementToast(ach){
+  SND.achieve();
   const cat=ACHIEVEMENT_CATEGORIES[ach.cat];
   // Create a special achievement toast with glow
   const t=document.getElementById('toast');
@@ -9903,8 +9920,8 @@ function _sprFallback(type){
 // ═══════════════════════════════════════════════════════
 let shopTab='consumables';
 
-function openShop(){renderShop();const el=document.getElementById('shop');if(el){el.style.display='flex';}}
-function closeShop(){const el=document.getElementById('shop');if(el)el.style.display='none';clearInterval(_shopMerchAnim);}
+function openShop(){SND.menuOpen();renderShop();const el=document.getElementById('shop');if(el){el.style.display='flex';}}
+function closeShop(){SND.menuClose();const el=document.getElementById('shop');if(el)el.style.display='none';clearInterval(_shopMerchAnim);}
 
 function switchShopTab(t){
   shopTab=t;
@@ -10343,12 +10360,13 @@ function loadGame(){
 // ═══════════════════════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
-const SETTINGS={sfx:true,musicVol:40,autoDefault:false,autoSave:true,movement:'click'};
+const SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click'};
 function loadSettings(){try{const s=JSON.parse(localStorage.getItem('necro_settings')||'{}');Object.assign(SETTINGS,s);}catch(e){}syncSettingsUI();}
 function saveSettings(){try{localStorage.setItem('necro_settings',JSON.stringify(SETTINGS));}catch(e){}}
 function syncSettingsUI(){
   const t=id=>document.getElementById(id);
-  if(t('tog_sfx'))t('tog_sfx').className='toggle'+(SETTINGS.sfx?' on':'');
+  // SFX enabled state derived from volume (0 = off)
+  SFX.enabled=SETTINGS.sfxVol>0;SETTINGS.sfx=SFX.enabled;
   if(t('tog_autoDefault'))t('tog_autoDefault').className='toggle'+(SETTINGS.autoDefault?' on':'');
   if(t('tog_autoSave'))t('tog_autoSave').className='toggle'+(SETTINGS.autoSave?' on':'');
   if(t('tog_movement'))t('tog_movement').className='toggle'+(SETTINGS.movement==='joystick'?' on':'');
@@ -10356,17 +10374,19 @@ function syncSettingsUI(){
   // Only show movement toggle on mobile
   const isMobile=('ontouchstart' in window)||(window.innerWidth<1024);
   if(t('movementToggleRow'))t('movementToggleRow').style.display=isMobile?'flex':'none';
+  if(t('rng_sfx')){t('rng_sfx').value=SETTINGS.sfxVol;t('rng_sfx_val').textContent=SETTINGS.sfxVol;}
   if(t('rng_music')){t('rng_music').value=SETTINGS.musicVol;t('rng_music_val').textContent=SETTINGS.musicVol;}
+  if(t('rng_amb')){t('rng_amb').value=SETTINGS.ambVol;t('rng_amb_val').textContent=SETTINGS.ambVol;}
   try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');if(s.savedAt){const d=new Date(s.savedAt);if(t('lastSaveLabel'))t('lastSaveLabel').textContent='Last save: '+d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}}catch(e){}
 }
-function toggleSetting(k){SETTINGS[k]=!SETTINGS[k];saveSettings();syncSettingsUI();if(k==='sfx')SFX.enabled=SETTINGS.sfx;if(k==='musicVol'&&AMB.gainNode)AMB.gainNode.gain.value=SETTINGS.musicVol/200;}
+function toggleSetting(k){SETTINGS[k]=!SETTINGS[k];saveSettings();syncSettingsUI();}
 function toggleMovement(){SETTINGS.movement=SETTINGS.movement==='click'?'joystick':'click';saveSettings();syncSettingsUI();_updateJoystickVisibility();}
-function setSetting(k,v){SETTINGS[k]=parseInt(v);saveSettings();syncSettingsUI();if(k==='musicVol'&&AMB.gainNode)AMB.gainNode.gain.value=SETTINGS.musicVol/200;}
+function setSetting(k,v){SETTINGS[k]=parseInt(v);saveSettings();syncSettingsUI();if(k==='sfxVol')setVolume('sfx',v);if(k==='musicVol')setVolume('music',v);if(k==='ambVol')setVolume('ambient',v);}
 function _updateJoystickVisibility(){
   if(window._updateJoystickDisplay)window._updateJoystickDisplay();
 }
-function openSettings(){syncSettingsUI();const el=document.getElementById('settings');const bd=document.getElementById('settingsBdrop');if(el){el.style.display='block';}if(bd)bd.style.display='block';}
-function closeSettings(){const el=document.getElementById('settings');const bd=document.getElementById('settingsBdrop');if(el)el.style.display='none';if(bd)bd.style.display='none';}
+function openSettings(){SND.menuOpen();syncSettingsUI();const el=document.getElementById('settings');const bd=document.getElementById('settingsBdrop');if(el){el.style.display='block';}if(bd)bd.style.display='block';}
+function closeSettings(){SND.menuClose();const el=document.getElementById('settings');const bd=document.getElementById('settingsBdrop');if(el)el.style.display='none';if(bd)bd.style.display='none';}
 function confirmReset(){
   const msg = '⚠️ RESET ALL PROGRESS ⚠️\n\nThis will permanently delete:\n• All minions & skeletons\n• All raids & defeated bosses\n• All quests\n• All items, resources & inventory\n• All exchanged dev codes\n• All cosmetics\n\nAre you absolutely sure? Type YES to confirm:';
   const response = prompt(msg);
@@ -10407,38 +10427,427 @@ function confirmReset(){
 // ═══════════════════════════════════════════════════════
 //  WEB AUDIO
 // ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// AUDIO ENGINE v2.0 — Procedural synthesis with proper SFX, ambient & music
+// ══════════════════════════════════════════════════════════════════════════════
 const SFX={enabled:true,ctx:null};
-function getACtx(){if(!SFX.ctx){try{SFX.ctx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}return SFX.ctx;}
-function playTone(freq,type,dur,vol,delay){if(!SFX.enabled)return;const ac=getACtx();if(!ac)return;const osc=ac.createOscillator();const gain=ac.createGain();osc.connect(gain);gain.connect(ac.destination);osc.type=type||'sine';osc.frequency.value=freq;const t=ac.currentTime+(delay||0);gain.gain.setValueAtTime(vol||0.08,t);gain.gain.exponentialRampToValueAtTime(0.0001,t+dur);osc.start(t);osc.stop(t+dur+.01);}
-function playNoise(dur,vol,freq){if(!SFX.enabled)return;const ac=getACtx();if(!ac)return;const buf=ac.createBuffer(1,Math.ceil(ac.sampleRate*dur),ac.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);const src=ac.createBufferSource();src.buffer=buf;const filt=ac.createBiquadFilter();filt.type='bandpass';filt.frequency.value=freq||400;const gain=ac.createGain();gain.gain.setValueAtTime(vol||0.06,ac.currentTime);gain.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);src.connect(filt);filt.connect(gain);gain.connect(ac.destination);src.start();src.stop(ac.currentTime+dur);}
+function getACtx(){if(!SFX.ctx){try{SFX.ctx=new(window.AudioContext||window.webkitAudioContext)();
+  // Create master bus with per-category gain nodes
+  const ac=SFX.ctx;
+  SFX.masterGain=ac.createGain();SFX.masterGain.gain.value=1;SFX.masterGain.connect(ac.destination);
+  SFX.sfxGain=ac.createGain();SFX.sfxGain.gain.value=(SETTINGS.sfxVol||80)/100;SFX.sfxGain.connect(SFX.masterGain);
+  SFX.musicGain=ac.createGain();SFX.musicGain.gain.value=(SETTINGS.musicVol||40)/100;SFX.musicGain.connect(SFX.masterGain);
+  SFX.ambGain=ac.createGain();SFX.ambGain.gain.value=(SETTINGS.ambVol||50)/100;SFX.ambGain.connect(SFX.masterGain);
+  // Shared reverb impulse (short dark hall)
+  const rvLen=Math.ceil(ac.sampleRate*1.2);const rvBuf=ac.createBuffer(2,rvLen,ac.sampleRate);
+  for(let ch=0;ch<2;ch++){const d=rvBuf.getChannelData(ch);for(let i=0;i<rvLen;i++){d[i]=(Math.random()*2-1)*Math.pow(1-i/rvLen,2.8);}}
+  SFX.reverb=ac.createConvolver();SFX.reverb.buffer=rvBuf;
+  SFX.reverbGain=ac.createGain();SFX.reverbGain.gain.value=0.15;
+  SFX.reverb.connect(SFX.reverbGain);SFX.reverbGain.connect(SFX.sfxGain);
+}catch(e){}}return SFX.ctx;}
+
+// ── Low-level synth primitives ──
+function _tone(dest,freq,type,dur,vol,delay,env){
+  const ac=getACtx();if(!ac)return;
+  const osc=ac.createOscillator();const g=ac.createGain();
+  osc.connect(g);g.connect(dest||SFX.sfxGain);
+  osc.type=type||'sine';osc.frequency.value=freq;
+  const t0=ac.currentTime+(delay||0);
+  const atk=env?.a||0.005,dec=env?.d||dur*0.3,sus=env?.s||0.5,rel=env?.r||dur*0.5;
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(vol||0.08,t0+atk);
+  g.gain.linearRampToValueAtTime((vol||0.08)*sus,t0+atk+dec);
+  g.gain.linearRampToValueAtTime(0.0001,t0+dur);
+  osc.start(t0);osc.stop(t0+dur+.02);
+  return osc;
+}
+function _noise(dest,dur,vol,freq,type,delay){
+  const ac=getACtx();if(!ac)return;
+  const len=Math.ceil(ac.sampleRate*dur);const buf=ac.createBuffer(1,len,ac.sampleRate);
+  const d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const src=ac.createBufferSource();src.buffer=buf;
+  const filt=ac.createBiquadFilter();filt.type=type||'bandpass';filt.frequency.value=freq||400;filt.Q.value=1.5;
+  const g=ac.createGain();const t0=ac.currentTime+(delay||0);
+  g.gain.setValueAtTime(vol||0.06,t0);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  src.connect(filt);filt.connect(g);g.connect(dest||SFX.sfxGain);
+  src.start(t0);src.stop(t0+dur+.01);return src;
+}
+function _sweep(dest,f1,f2,type,dur,vol,delay){
+  const ac=getACtx();if(!ac)return;
+  const osc=ac.createOscillator();const g=ac.createGain();
+  osc.connect(g);g.connect(dest||SFX.sfxGain);
+  osc.type=type||'sine';const t0=ac.currentTime+(delay||0);
+  osc.frequency.setValueAtTime(f1,t0);osc.frequency.exponentialRampToValueAtTime(f2,t0+dur);
+  g.gain.setValueAtTime(vol||0.06,t0);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  osc.start(t0);osc.stop(t0+dur+.02);
+}
+// Legacy compat — anything still calling playTone/playNoise directly
+function playTone(freq,type,dur,vol,delay){if(!SFX.enabled)return;_tone(SFX.sfxGain,freq,type,dur,vol,delay);}
+function playNoise(dur,vol,freq){if(!SFX.enabled)return;_noise(SFX.sfxGain,dur,vol,freq);}
+
+// ── Designed SFX library ──
 const SND={
-  click:()=>playTone(440,'square',.05,.04),
-  raise:()=>{playTone(180,'sawtooth',.3,.07);playTone(220,'sawtooth',.3,.05,.05);playNoise(.2,.04,300);},
-  hit:()=>playNoise(.06,.1,600),
-  cast:()=>{playTone(660,'sine',.15,.06);playTone(880,'sine',.1,.04,.1);},
-  level:()=>{[440,550,660,880].forEach((f,i)=>playTone(f,'sine',.4,.08,i*.1));},
-  victory:()=>{[523,659,784,1046].forEach((f,i)=>playTone(f,'triangle',.5,.07,i*.12));},
-  defeat:()=>{[300,250,200,150].forEach((f,i)=>playTone(f,'sawtooth',.4,.06,i*.12));},
-  buy:()=>{playTone(660,'sine',.1,.05);playTone(880,'sine',.1,.04,.1);},
-  heal:()=>{playTone(550,'sine',.2,.05);playTone(660,'sine',.2,.04,.1);},
-  stair:()=>{[200,300,400].forEach((f,i)=>playTone(f,'triangle',.2,.05,i*.08));},
-  boss:()=>{[150,180,220].forEach((f,i)=>playTone(f,'sawtooth',.5,.08,i*.08));playNoise(.3,.08,150,.08);},
+  // UI
+  click:()=>{if(!SFX.enabled)return;
+    _tone(SFX.sfxGain,880,'square',.03,.03);_tone(SFX.sfxGain,1320,'square',.02,.015,.015);
+  },
+  // Combat — minion summoning (dark whoosh + bass thrum)
+  raise:()=>{if(!SFX.enabled)return;
+    _sweep(SFX.sfxGain,80,220,'sawtooth',.35,.06);
+    _noise(SFX.sfxGain,.25,.04,200,'lowpass',.05);
+    _tone(SFX.sfxGain,110,'triangle',.4,.05,.05,{a:.02,d:.1,s:.4,r:.2});
+    _tone(SFX.reverb,165,'sine',.3,.03,.08);
+  },
+  // Combat — enemy hit (metallic impact + crunch)
+  hit:()=>{if(!SFX.enabled)return;
+    _noise(SFX.sfxGain,.04,.12,2200,'highpass');
+    _noise(SFX.sfxGain,.06,.08,800,'bandpass');
+    _tone(SFX.sfxGain,200,'square',.03,.04);
+  },
+  // Combat — spell cast (ethereal shimmer + arcane tone)
+  cast:()=>{if(!SFX.enabled)return;
+    _sweep(SFX.sfxGain,440,1760,'sine',.12,.05);
+    _tone(SFX.reverb,880,'sine',.2,.04,.05,{a:.01,d:.05,s:.3,r:.1});
+    _noise(SFX.sfxGain,.08,.03,3000,'highpass',.02);
+    _tone(SFX.sfxGain,660,'triangle',.08,.03,.08);
+  },
+  // UI — level up (triumphant ascending arpeggio with shimmer)
+  level:()=>{if(!SFX.enabled)return;
+    [523,659,784,1047].forEach((f,i)=>{
+      _tone(SFX.sfxGain,f,'triangle',.35,.07,i*.09,{a:.005,d:.05,s:.6,r:.15});
+      _tone(SFX.reverb,f*2,'sine',.2,.02,i*.09+.02);
+    });
+    _noise(SFX.sfxGain,.3,.03,4000,'highpass',.1);
+  },
+  // Raid — victory (major chord fanfare)
+  victory:()=>{if(!SFX.enabled)return;
+    [523,659,784,1047,1319].forEach((f,i)=>{
+      _tone(SFX.sfxGain,f,'triangle',.5,.06,i*.1,{a:.01,d:.1,s:.5,r:.2});
+      _tone(SFX.reverb,f,'sine',.4,.03,i*.1);
+    });
+    _noise(SFX.sfxGain,.15,.04,6000,'highpass',.35);
+    _tone(SFX.sfxGain,523,'triangle',.8,.04,.5,{a:.01,d:.2,s:.3,r:.3});
+  },
+  // Raid — defeat (minor descent with rumble)
+  defeat:()=>{if(!SFX.enabled)return;
+    [349,311,277,233].forEach((f,i)=>{
+      _tone(SFX.sfxGain,f,'sawtooth',.45,.05,i*.14,{a:.02,d:.1,s:.4,r:.2});
+    });
+    _noise(SFX.sfxGain,.5,.06,120,'lowpass',.1);
+    _tone(SFX.reverb,110,'sine',.8,.04,.2);
+  },
+  // UI — purchase (coin clink + register ding)
+  buy:()=>{if(!SFX.enabled)return;
+    _tone(SFX.sfxGain,1200,'square',.04,.04);
+    _tone(SFX.sfxGain,1800,'square',.03,.025,.03);
+    _noise(SFX.sfxGain,.03,.03,5000,'highpass',.01);
+    _tone(SFX.sfxGain,880,'sine',.12,.03,.06,{a:.005,d:.03,s:.3,r:.06});
+  },
+  // UI — heal (warm ascending chime)
+  heal:()=>{if(!SFX.enabled)return;
+    _tone(SFX.sfxGain,440,'sine',.2,.05,0,{a:.01,d:.05,s:.6,r:.1});
+    _tone(SFX.sfxGain,660,'sine',.2,.04,.08,{a:.01,d:.05,s:.5,r:.1});
+    _tone(SFX.reverb,880,'sine',.25,.03,.14);
+    _tone(SFX.sfxGain,1100,'triangle',.15,.025,.18);
+  },
+  // Raid — staircase descent (stone scrape + echo)
+  stair:()=>{if(!SFX.enabled)return;
+    _noise(SFX.sfxGain,.12,.06,300,'lowpass');
+    [174,220,262].forEach((f,i)=>_tone(SFX.reverb,f,'triangle',.25,.04,i*.1,{a:.01,d:.08,s:.4,r:.1}));
+    _noise(SFX.sfxGain,.08,.03,1500,'bandpass',.2);
+  },
+  // Raid — boss entrance (ominous rumble + power chord)
+  boss:()=>{if(!SFX.enabled)return;
+    _noise(SFX.sfxGain,.6,.08,80,'lowpass');
+    [110,138,165].forEach((f,i)=>{
+      _tone(SFX.sfxGain,f,'sawtooth',.6,.07,i*.06,{a:.03,d:.15,s:.5,r:.2});
+      _tone(SFX.reverb,f*2,'sine',.5,.03,i*.06+.1);
+    });
+    _sweep(SFX.sfxGain,80,40,'sawtooth',.8,.05,.1);
+  },
+  // Loot drop (sparkling cascade)
+  loot:()=>{if(!SFX.enabled)return;
+    [1047,1319,1568,2093].forEach((f,i)=>_tone(SFX.sfxGain,f,'sine',.15,.03,i*.05,{a:.002,d:.03,s:.4,r:.08}));
+    _noise(SFX.sfxGain,.1,.02,5000,'highpass',.12);
+  },
+  // Achievement unlock (grand chime)
+  achieve:()=>{if(!SFX.enabled)return;
+    [784,988,1175,1568].forEach((f,i)=>{
+      _tone(SFX.sfxGain,f,'triangle',.4,.06,i*.08,{a:.005,d:.08,s:.5,r:.15});
+      _tone(SFX.reverb,f,'sine',.35,.025,i*.08);
+    });
+    _noise(SFX.sfxGain,.2,.03,6000,'highpass',.25);
+  },
+  // Enemy death (category-specific, but generic crumble)
+  enemyDeath:()=>{if(!SFX.enabled)return;
+    _noise(SFX.sfxGain,.08,.08,1200,'bandpass');
+    _sweep(SFX.sfxGain,400,100,'sawtooth',.15,.04,.02);
+    _noise(SFX.sfxGain,.06,.04,200,'lowpass',.06);
+  },
+  // Shield break
+  shieldBreak:()=>{if(!SFX.enabled)return;
+    _noise(SFX.sfxGain,.1,.12,3000,'highpass');
+    _sweep(SFX.sfxGain,1200,200,'square',.12,.06);
+    _noise(SFX.sfxGain,.08,.06,600,'bandpass',.05);
+  },
+  // Necro death (dramatic)
+  necroDeath:()=>{if(!SFX.enabled)return;
+    _noise(SFX.sfxGain,.3,.1,200,'lowpass');
+    [330,277,220,165].forEach((f,i)=>_tone(SFX.reverb,f,'sawtooth',.5,.06,i*.12,{a:.02,d:.1,s:.4,r:.2}));
+    _sweep(SFX.sfxGain,500,50,'sawtooth',.6,.05,.1);
+  },
+  // Menu open/close
+  menuOpen:()=>{if(!SFX.enabled)return;_sweep(SFX.sfxGain,300,600,'sine',.08,.03);},
+  menuClose:()=>{if(!SFX.enabled)return;_sweep(SFX.sfxGain,600,300,'sine',.06,.025);},
+  // Craft success
+  craft:()=>{if(!SFX.enabled)return;
+    _tone(SFX.sfxGain,440,'triangle',.15,.05);_tone(SFX.sfxGain,660,'triangle',.12,.04,.08);
+    _tone(SFX.sfxGain,880,'sine',.2,.035,.14);_noise(SFX.sfxGain,.06,.03,3000,'highpass',.1);
+  },
+  // Buff activate (magical shimmer)
+  buff:()=>{if(!SFX.enabled)return;
+    _sweep(SFX.sfxGain,330,990,'sine',.2,.04);_tone(SFX.reverb,660,'sine',.25,.03,.05);
+    _noise(SFX.sfxGain,.08,.02,4000,'highpass',.1);
+  },
 };
-const AMB={gainNode:null,playing:false,oscs:[]};
-function startAmbience(){if(!SETTINGS.musicVol||AMB.playing)return;const ac=getACtx();if(!ac)return;if(!AMB.gainNode){AMB.gainNode=ac.createGain();AMB.gainNode.gain.value=SETTINGS.musicVol/200;AMB.gainNode.connect(ac.destination);}[55,73,82,110].forEach((freq,i)=>{const osc=ac.createOscillator();const g=ac.createGain();osc.type=i%2?'sawtooth':'triangle';osc.frequency.value=freq;g.gain.value=0.012/(i+1);osc.connect(g);g.connect(AMB.gainNode);osc.start();AMB.oscs.push(osc);});AMB.playing=true;}
-function stopAmbience(){if(!AMB.playing)return;AMB.oscs.forEach(o=>{try{o.stop();}catch(e){}});AMB.oscs=[];AMB.playing=false;}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AMBIENT & MUSIC ENGINE — Procedural layered atmosphere + note sequencing
+// ══════════════════════════════════════════════════════════════════════════════
+const AMB={gainNode:null,playing:false,oscs:[],nodes:[],scene:null,_lfoPhase:0};
+const MUS={playing:false,nodes:[],_seqTimer:null,track:null};
+
+// ── Ambient scenes ──
+function _buildAmbScene(sceneName){
+  const ac=getACtx();if(!ac)return;
+  // Stop previous scene
+  _stopAmbNodes();
+  AMB.scene=sceneName;
+  const dest=SFX.ambGain;
+  const nodes=[];
+
+  if(sceneName==='dungeon'||sceneName==='raid'){
+    // Deep sub-bass drone with slow LFO
+    const droneOsc=ac.createOscillator();droneOsc.type='sine';droneOsc.frequency.value=55;
+    const droneG=ac.createGain();droneG.gain.value=0.025;
+    const droneLfo=ac.createOscillator();droneLfo.type='sine';droneLfo.frequency.value=0.15;
+    const lfoG=ac.createGain();lfoG.gain.value=8;
+    droneLfo.connect(lfoG);lfoG.connect(droneOsc.frequency);
+    droneOsc.connect(droneG);droneG.connect(dest);
+    droneOsc.start();droneLfo.start();
+    nodes.push(droneOsc,droneLfo);
+    // Filtered noise — cave wind
+    const windLen=ac.sampleRate*4;const windBuf=ac.createBuffer(1,windLen,ac.sampleRate);
+    const wd=windBuf.getChannelData(0);for(let i=0;i<windLen;i++)wd[i]=Math.random()*2-1;
+    const windSrc=ac.createBufferSource();windSrc.buffer=windBuf;windSrc.loop=true;
+    const windFilt=ac.createBiquadFilter();windFilt.type='lowpass';windFilt.frequency.value=400;windFilt.Q.value=2;
+    const windLfo=ac.createOscillator();windLfo.type='sine';windLfo.frequency.value=0.08;
+    const wlfoG=ac.createGain();wlfoG.gain.value=200;
+    windLfo.connect(wlfoG);wlfoG.connect(windFilt.frequency);
+    const windG=ac.createGain();windG.gain.value=0.02;
+    windSrc.connect(windFilt);windFilt.connect(windG);windG.connect(dest);
+    windSrc.start();windLfo.start();
+    nodes.push(windSrc,windLfo);
+    // Dark pad (two detuned saws through lowpass)
+    [82,82.5].forEach(f=>{
+      const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;
+      const fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=200;fl.Q.value=0.7;
+      const g=ac.createGain();g.gain.value=0.008;
+      o.connect(fl);fl.connect(g);g.connect(dest);o.start();nodes.push(o);
+    });
+    // Occasional water drip (scheduled noise bursts) — done via interval
+    AMB._dripTimer=setInterval(()=>{
+      if(!AMB.playing)return;
+      if(Math.random()>0.3)return;
+      const t0=ac.currentTime;
+      const dripF=2000+Math.random()*3000;
+      _noise(dest,.02,.03+Math.random()*.02,dripF,'bandpass');
+      if(Math.random()>0.5)_tone(dest,dripF*.6,'sine',.08,.01,.03);
+    },2000+Math.random()*3000);
+  }
+  else if(sceneName==='castle'){
+    // Warm low hum
+    const humOsc=ac.createOscillator();humOsc.type='triangle';humOsc.frequency.value=73;
+    const humG=ac.createGain();humG.gain.value=0.02;
+    humOsc.connect(humG);humG.connect(dest);humOsc.start();nodes.push(humOsc);
+    // Fireplace crackle
+    const crLen=ac.sampleRate*3;const crBuf=ac.createBuffer(1,crLen,ac.sampleRate);
+    const cd=crBuf.getChannelData(0);for(let i=0;i<crLen;i++){cd[i]=Math.random()>0.97?(Math.random()*2-1):cd[i-1]*(0.95+Math.random()*0.04)||0;}
+    const crSrc=ac.createBufferSource();crSrc.buffer=crBuf;crSrc.loop=true;
+    const crFilt=ac.createBiquadFilter();crFilt.type='highpass';crFilt.frequency.value=1200;
+    const crG=ac.createGain();crG.gain.value=0.015;
+    crSrc.connect(crFilt);crFilt.connect(crG);crG.connect(dest);crSrc.start();nodes.push(crSrc);
+    // Low string pad
+    [110,165].forEach(f=>{
+      const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;
+      const fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=150;
+      const g=ac.createGain();g.gain.value=0.006;
+      o.connect(fl);fl.connect(g);g.connect(dest);o.start();nodes.push(o);
+    });
+  }
+  else if(sceneName==='village'){
+    // Bright outdoor — birds (high noise bursts on timer) + warm pad
+    const padOsc=ac.createOscillator();padOsc.type='triangle';padOsc.frequency.value=165;
+    const padG=ac.createGain();padG.gain.value=0.012;
+    padOsc.connect(padG);padG.connect(dest);padOsc.start();nodes.push(padOsc);
+    // Gentle breeze
+    const breezeLen=ac.sampleRate*3;const brBuf=ac.createBuffer(1,breezeLen,ac.sampleRate);
+    const bd=brBuf.getChannelData(0);for(let i=0;i<breezeLen;i++)bd[i]=Math.random()*2-1;
+    const brSrc=ac.createBufferSource();brSrc.buffer=brBuf;brSrc.loop=true;
+    const brFilt=ac.createBiquadFilter();brFilt.type='lowpass';brFilt.frequency.value=300;
+    const brG=ac.createGain();brG.gain.value=0.012;
+    brSrc.connect(brFilt);brFilt.connect(brG);brG.connect(dest);brSrc.start();nodes.push(brSrc);
+    // Bird chirps
+    AMB._dripTimer=setInterval(()=>{
+      if(!AMB.playing)return;
+      if(Math.random()>0.4)return;
+      const birdF=2500+Math.random()*2000;
+      _sweep(dest,birdF,birdF*1.3,'sine',.06,.015);
+      if(Math.random()>.5)_sweep(dest,birdF*1.2,birdF*.9,'sine',.05,.01,.08);
+    },1500+Math.random()*2000);
+  }
+  else if(sceneName==='boss'){
+    // Intense — heavy sub + tension drone
+    const subOsc=ac.createOscillator();subOsc.type='sine';subOsc.frequency.value=40;
+    const subG=ac.createGain();subG.gain.value=0.035;
+    subOsc.connect(subG);subG.connect(dest);subOsc.start();nodes.push(subOsc);
+    // Dissonant tension (tritone)
+    [110,156].forEach(f=>{
+      const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;
+      const fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=250;fl.Q.value=1;
+      const g=ac.createGain();g.gain.value=0.012;
+      o.connect(fl);fl.connect(g);g.connect(dest);o.start();nodes.push(o);
+    });
+    // Rumbling noise
+    const rLen=ac.sampleRate*2;const rBuf=ac.createBuffer(1,rLen,ac.sampleRate);
+    const rd=rBuf.getChannelData(0);for(let i=0;i<rLen;i++)rd[i]=Math.random()*2-1;
+    const rSrc=ac.createBufferSource();rSrc.buffer=rBuf;rSrc.loop=true;
+    const rFilt=ac.createBiquadFilter();rFilt.type='lowpass';rFilt.frequency.value=100;
+    const rG=ac.createGain();rG.gain.value=0.02;
+    rSrc.connect(rFilt);rFilt.connect(rG);rG.connect(dest);rSrc.start();nodes.push(rSrc);
+  }
+
+  AMB.nodes=nodes;AMB.playing=true;
+}
+
+function _stopAmbNodes(){
+  if(AMB._dripTimer){clearInterval(AMB._dripTimer);AMB._dripTimer=null;}
+  AMB.nodes.forEach(n=>{try{n.stop();}catch(e){}try{n.disconnect();}catch(e){}});
+  AMB.nodes=[];AMB.playing=false;AMB.scene=null;
+}
+
+function startAmbience(scene){
+  if(!SETTINGS.musicVol&&!SETTINGS.ambVol)return;
+  const sc=scene||'dungeon';
+  if(AMB.playing&&AMB.scene===sc)return;
+  const ac=getACtx();if(!ac)return;
+  _buildAmbScene(sc);
+}
+function stopAmbience(){_stopAmbNodes();stopMusic();}
+
+// ── Music Engine — procedural note sequencing ──
+const MUSIC_TRACKS={
+  menu:{bpm:70,key:'Dm',notes:[
+    {f:294,d:.5},{f:349,d:.5},{f:440,d:.75},{f:392,d:.25},
+    {f:349,d:.5},{f:330,d:.5},{f:294,d:1},
+    {f:262,d:.5},{f:294,d:.5},{f:349,d:.75},{f:330,d:.25},
+    {f:294,d:.5},{f:262,d:.5},{f:220,d:1},
+  ],bass:[294,220,262,233],pad:[294,349,440]},
+  combat:{bpm:120,key:'Am',notes:[
+    {f:440,d:.25},{f:523,d:.25},{f:659,d:.5},{f:523,d:.25},{f:440,d:.25},{f:392,d:.5},
+    {f:349,d:.25},{f:392,d:.25},{f:440,d:.5},{f:523,d:.5},{f:440,d:.5},
+  ],bass:[220,175,196,165],pad:[220,262,330]},
+  boss:{bpm:140,key:'Em',notes:[
+    {f:330,d:.25},{f:392,d:.25},{f:494,d:.25},{f:392,d:.25},
+    {f:330,d:.5},{f:294,d:.25},{f:330,d:.25},
+    {f:247,d:.5},{f:294,d:.25},{f:330,d:.75},
+  ],bass:[165,139,147,123],pad:[165,196,247]},
+};
+
+function startMusic(track){
+  const ac=getACtx();if(!ac||!SETTINGS.musicVol)return;
+  if(MUS.playing&&MUS.track===track)return;
+  stopMusic();
+  const td=MUSIC_TRACKS[track];if(!td)return;
+  MUS.track=track;MUS.playing=true;
+  const dest=SFX.musicGain;
+  const beatDur=60/td.bpm;
+  let noteIdx=0;
+  let bassIdx=0;
+  let beatCount=0;
+
+  // Bass drone
+  td.bass.forEach((f,i)=>{
+    const o=ac.createOscillator();o.type='triangle';o.frequency.value=f;
+    const fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=180;
+    const g=ac.createGain();g.gain.value=i===0?0.015:0;
+    o.connect(fl);fl.connect(g);g.connect(dest);o.start();
+    MUS.nodes.push(o);MUS['_bassG'+i]=g;MUS['_bassO'+i]=o;
+  });
+  // Pad
+  td.pad.forEach((f,i)=>{
+    const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;
+    const fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=250;fl.Q.value=0.5;
+    const g=ac.createGain();g.gain.value=0.006;
+    o.connect(fl);fl.connect(g);g.connect(dest);o.start();
+    MUS.nodes.push(o);
+  });
+
+  // Melody sequencer
+  MUS._seqTimer=setInterval(()=>{
+    if(!MUS.playing||!ac)return;
+    const n=td.notes[noteIdx%td.notes.length];
+    _tone(dest,n.f,'triangle',n.d*beatDur*0.9,0.035,0,{a:.01,d:.05,s:.5,r:.1});
+    // Octave shimmer on some notes
+    if(noteIdx%3===0)_tone(dest,n.f*2,'sine',n.d*beatDur*0.5,0.012,0.02);
+    noteIdx++;
+    beatCount++;
+    // Rotate bass every 4 beats
+    if(beatCount%4===0){
+      const bi=(bassIdx+1)%td.bass.length;
+      for(let i=0;i<td.bass.length;i++){
+        const g=MUS['_bassG'+i];if(g)g.gain.linearRampToValueAtTime(i===bi?0.015:0,ac.currentTime+0.3);
+      }
+      bassIdx=bi;
+    }
+  },beatDur*1000);
+}
+
+function stopMusic(){
+  if(MUS._seqTimer){clearInterval(MUS._seqTimer);MUS._seqTimer=null;}
+  MUS.nodes.forEach(n=>{try{n.stop();}catch(e){}try{n.disconnect();}catch(e){}});
+  MUS.nodes=[];MUS.playing=false;MUS.track=null;
+  // Clean up bass gain refs
+  for(let i=0;i<8;i++){delete MUS['_bassG'+i];delete MUS['_bassO'+i];}
+}
+
+// ── Volume control helpers (called from settings sliders) ──
+function setVolume(category,val){
+  const v=parseInt(val)/100;
+  if(category==='sfx'&&SFX.sfxGain)SFX.sfxGain.gain.value=v;
+  if(category==='music'&&SFX.musicGain)SFX.musicGain.gain.value=v;
+  if(category==='ambient'&&SFX.ambGain)SFX.ambGain.gain.value=v;
+}
 
 
 let sbTab='summon';
 let sbCat='all';
 function stopCatRoom(){if(typeof _catAnimId!=='undefined'){clearInterval(_catAnimId);_catAnimId=null;}}
-function showScreen(id){if(id!=='village')stopVilCanvas();if(id!=='castle')stopCastleRoom();if(id!=='catacombs')stopCatRoom();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=document.getElementById(id);if(el)el.classList.add('active');}
+function showScreen(id){if(id!=='village')stopVilCanvas();if(id!=='castle')stopCastleRoom();if(id!=='catacombs')stopCatRoom();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=document.getElementById(id);if(el)el.classList.add('active');
+  // ── Audio scene transitions ──
+  if(id==='castle'){startAmbience('castle');startMusic('menu');}
+  else if(id==='village'){startAmbience('village');startMusic('menu');}
+  else if(id==='hub'||id==='spellbook'||id==='army'||id==='worldMapScreen'||id==='prestigeScreen'||id==='aviary'){startAmbience('castle');startMusic('menu');}
+}
 // ── INIT on load ──
 function initGame(){
   loadSettings();
   setInterval(villageTick,5000); // resource tick every 5s
   if(loadGame()){renderHub();setTimeout(()=>checkAchievements(true),1000);}
   else{renderHub();}
+  // Start ambient on first user interaction (AudioContext policy)
+  const _audioKick=()=>{startAmbience('castle');startMusic('menu');document.removeEventListener('click',_audioKick);document.removeEventListener('touchstart',_audioKick);};
+  document.addEventListener('click',_audioKick,{once:true});document.addEventListener('touchstart',_audioKick,{once:true});
   // Restore Rikker active state from save
   if(GS.cosmetics&&GS.cosmetics.staff==='rikker_sword'&&GS.cosmetics.robe==='rikker_armor'&&GS.cosmetics.hat==='rikker_helm'){
     _rikkerActive=true;
@@ -11515,7 +11924,7 @@ function initRaid(raidKey,floorNum,opts){
   }
   if(RS&&RS.floorNum===1){GS.heroes.deadThisRaid=new Set();}
   cancelAnimationFrame(animId);
-  startAmbience();
+  startAmbience('dungeon');startMusic('combat');
   animId=requestAnimationFrame(loop);
 }
 
@@ -12106,7 +12515,7 @@ function useRaidItem(id){
   else if(item.effect==='defBuff'){const mult=item.val||0.25;RS.defMult=(RS.defMult||1)*(1+mult);RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`🛡 +${Math.round(mult*100)}% DEF!`,col:'#60a5fa',life:1.5,ml:1.5,vy:-30});}
   else if(item.effect==='xpBuff'){const mult=item.val||0.3;RS.xpMult=(RS.xpMult||1)*(1+mult);RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`📜 +${Math.round(mult*100)}% XP!`,col:'#94a3b8',life:1.5,ml:1.5,vy:-30});}
   else if(item.effect==='healAndAtk'){RS.necro.hp=Math.min(RS.necro.maxHP,RS.necro.hp+(item.val||80));const atkMult=1.15;RS.atkMult=(RS.atkMult||1)*atkMult;RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`🍺 +${item.val}HP +15%ATK!`,col:'#65a30d',life:1.5,ml:1.5,vy:-30});}
-  flash(`${item.ico} ${item.name} used!`,14,'#a855f7');
+  SND.buff();flash(`${item.ico} ${item.name} used!`,14,'#a855f7');
   refreshRaidInventory();
   updateHUD();
 }
@@ -14007,7 +14416,7 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
       if(RS.revive){RS.revive=false;if(GS.inv.consumables.revive_dust>0)GS.inv.consumables.revive_dust--;RS.necro.hp=Math.round(RS.necro.maxHP*.3);flash('✨ Revive Dust activates!\nYou rise again!',16,'#fcd34d');return;}
       // Revivify from hero
       if(RS._activeHeroes){const revH=RS._activeHeroes.find(h2=>!h2.dead&&h2._skillFlags&&h2._skillFlags._revivifyReady&&!h2._skillFlags._revivifyUsed);if(revH){revH._skillFlags._revivifyUsed=true;revH._skillFlags._revivifyReady=false;RS.necro.hp=Math.round(RS.necro.maxHP*.25);const rDef=HERO_DEFS[revH.heroId];flash('🌟 '+(rDef?.name||'Hero')+' casts Revivify!\nYou rise again!',16,'#fef08a');return;}}
-      RS.necro.dead=true;SND.defeat();flash('💀 THE NECROMANCER FALLS!',22,'#ef4444');setTimeout(()=>endRaid('defeat'),1800);
+      RS.necro.dead=true;SND.necroDeath();flash('💀 THE NECROMANCER FALLS!',22,'#ef4444');setTimeout(()=>endRaid('defeat'),1800);
     }
   } else if(tgt===RS.activePet){
     // Pet targeted directly — damage it, consume if dead
@@ -14117,6 +14526,7 @@ function hitTarget(tgt,dmg,fx,fy,ranged,t,attacker){
 }
 
 function onEnemyKilled(en,t){
+  SND.enemyDeath();
   // Thundergod: pause drain on kill by player (necro attacked recently)
   if(_thundergodActive&&RS&&RS.necro&&RS.necro._attackAnim&&t<RS.necro._attackAnim){
     thundergodOnKill(t);
@@ -14165,7 +14575,7 @@ function onEnemyKilled(en,t){
       const _tc=ITEM_TIERS[_li.tier]||ITEM_TIERS.common;
       RS.parts.push({k:'flt',x:en.x,y:en.y-20,txt:`${_li.ico} ${_li.name}!`,col:_tc.color,life:2,ml:2,vy:-55});
       flash(`${_li.ico} ${_tc.label} Drop: ${_li.name}!`,14,_tc.color);
-      SND.victory();
+      SND.loot();
     }
   }
   en.corpse=!GS.hasPassive(5)||Math.random()<.2?true:Math.random()<.5;
@@ -15107,7 +15517,7 @@ function spawnBoss(){
   document.getElementById('bossName').textContent=bd.name.toUpperCase();
   document.getElementById('bossFill').style.width='100%';
   const bColor=bd.color||'#22ff44';
-  SND.boss();flash(`${RS.cfg.ico} ${bd.name} AWAKENS!\nSlay the ${bd.name} or perish!`,18,bColor);
+  SND.boss();startAmbience('boss');startMusic('boss');flash(`${RS.cfg.ico} ${bd.name} AWAKENS!\nSlay the ${bd.name} or perish!`,18,bColor);
 }
 
 // ── Spell bar tooltip ──
@@ -17540,7 +17950,7 @@ function finishRaid(){
   const _wasDefeat=RS&&RS.result==='defeat';
   const _wasCatRaid=RS&&RS.isCatacombRaid;
   if(_wasCatRaid&&!_wasDefeat)GS.catacombRuns=(GS.catacombRuns||0)+1;
-  RS=null;stopAmbience();if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
+  RS=null;stopAmbience();startAmbience('castle');startMusic('menu');if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
   // Clear target HUD when leaving raid
   const kbHUD=document.getElementById('kbTargetHUD');if(kbHUD)kbHUD.style.display='none';
   if(_wasDefeat)CR=null; // necro died — wake in bed
@@ -21344,7 +21754,7 @@ function doCraft(id){
     showToast('⚡ Speed rune active for this session!');
     if(!GS._speedRune)GS._speedRune=0;GS._speedRune++;
   }
-  SND.buy();
+  SND.craft();
   renderCrafting();
   renderHub();
   const msg=document.getElementById('craftMsg');if(msg){msg.style.color='var(--grn)';msg.textContent='✓ Crafted!';clearTimeout(msg._t);msg._t=setTimeout(()=>msg.textContent='',2000);}
@@ -24925,7 +25335,7 @@ function initSurvival() {
   _survCanvas.addEventListener('mousedown', survMouse);
 
   buildSpellBar();
-  startAmbience();
+  startAmbience('dungeon');startMusic('combat');
   cancelAnimationFrame(animId);
 
   // Start first wave
@@ -25851,7 +26261,7 @@ function endSurvival(result) {
   devPetGainXP(SV.xpGained);
   GS.necroHP = GS.necroMaxHP; // Full heal on exit
   cancelAnimationFrame(_svAnimId);
-  stopAmbience();
+  stopAmbience();startAmbience('castle');startMusic('menu');
 
   // Restore returnBtn to default raid behavior (survival had overridden it)
   const _retBtn=document.getElementById('returnBtn');
@@ -26524,7 +26934,7 @@ function initPlatformer(region) {
   _pfCanvas.addEventListener('mouseup',pfMouseUp);
 
   buildSpellBar();
-  startAmbience();
+  startAmbience('dungeon');startMusic('combat');
   cancelAnimationFrame(animId);
   // Camera snap to player
   const _pfVW0 = GAME_ZOOM>1 ? W/GAME_ZOOM : W;
@@ -26853,7 +27263,7 @@ function endPlatformer(result){
   devPetGainXP(PF.xpGained);
   GS.necroHP=GS.necroMaxHP;
   cancelAnimationFrame(_pfAnimId);
-  stopAmbience();
+  stopAmbience();startAmbience('castle');startMusic('menu');
   _pfCanvas.removeEventListener('touchstart',pfTouchStart);
   _pfCanvas.removeEventListener('touchend',pfTouchEnd);
   _pfCanvas.removeEventListener('mousedown',pfMouseDown);
