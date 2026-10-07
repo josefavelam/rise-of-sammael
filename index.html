@@ -2252,6 +2252,10 @@ const GS={
   prestige:0,       // New Game+ counter — each run carries permanent bonuses
   pvpWins:0, pvpLosses:0, pvpCurrency:0, pvpRating:1000, pvpTitles:[],
   pvpCosmetics:{},   // {id:true} — unlocked PvP cosmetic items
+  // Guild system
+  guildId:null,          // current guild ID (null = not in a guild)
+  guildCache:null,       // last-fetched guild data (not saved — refreshed on login)
+  guildLastFetch:0,      // timestamp of last guild fetch
   // Leaderboard tracking
   hbBestWave:0,          // highest Hellbridge Survival wave reached
   totalEnemiesKilled:0,  // lifetime enemies killed across all raids
@@ -2702,7 +2706,7 @@ const LOOT_TABLES={
 };
 
 // ── Loot Roll Functions ─────────────────────────────────────────────────────
-function getLootLuck(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.lootLuck||0)+getTavernBuff('lootMult')+getCastleBonus('lootMult');}
+function getLootLuck(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.lootLuck||0)+getTavernBuff('lootMult')+getCastleBonus('lootMult')+(getGuildBonuses().lootBonus||0);}
 function getGoldBonus(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.goldBonus||0)+getCastleBonus('goldMult');}
 function getXPBonus(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);const ar=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.armor);return (a?.stats?.xpBonus||0)+(ar?.stats?.xpBonus||0);}
 
@@ -10449,7 +10453,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -10517,6 +10521,8 @@ function loadGame(){
     GS.dailyRewards=d.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0};
     // Load purchasable pet levels
     GS.petLevels=d.petLevels||{};
+    // Load guild membership
+    GS.guildId=d.guildId||null;
     // Load quest progress (or initialize for fresh/old saves)
     if(d.quests){
       GS.quests=d.quests;
@@ -14743,18 +14749,19 @@ function onEnemyKilled(en,t){
   const d=EDEF[en.type];
   let bones=Math.round(ri(d.bones[0],d.bones[1])*GS.prestBoneYield());
   if(GS.hasPassive(3))bones+=5;
-  // Accessory bone bonus + set bonus
+  // Accessory bone bonus + set bonus + guild bonus
   const _sbK=GS._setBonus||getSetBonuses();
+  const _guildB=getGuildBonuses();
   const bb=getBoneBonus()+(_sbK.boneBonus||0);if(bb>0)bones=Math.round(bones*(1+bb));
   // Raid atk buff bone bonus
   if(RS.atkMult&&RS.atkMult>1)bones=Math.round(bones*1.1);
   RS.bonesGained+=_rikkerActive?bones*2:bones;
-  const _gb=getGoldBonus();const _rm=_rikkerActive?2:1;
+  const _gb=getGoldBonus()+(_guildB.goldBonus||0);const _rm=_rikkerActive?2:1;
   if(d.cp){const _cv=Array.isArray(d.cp)?ri(d.cp[0],d.cp[1]):d.cp;addCurrency(RS.wGained,Math.round(_cv*_rm*(1+_gb)),null,null,null);}
   if(d.sp){const _sv=Array.isArray(d.sp)?ri(d.sp[0],d.sp[1]):d.sp;addCurrency(RS.wGained,null,Math.round(_sv*_rm*(1+_gb)),null,null);}
   if(d.gp){const _gv=Array.isArray(d.gp)?ri(d.gp[0],d.gp[1]):d.gp;addCurrency(RS.wGained,null,null,Math.round(_gv*_rm*(1+_gb)),null);}
   const _xpLvMult=1+(GS.necroLv-1)*0.08; // +8% XP per player level to ease XP wall
-  const _xpEquip=getXPBonus()+(_sbK.xpBonus||0); // include set bonus XP
+  const _xpEquip=getXPBonus()+(_sbK.xpBonus||0)+(_guildB.xpBonus||0); // include set bonus + guild XP
   const _tavXP=getTavernBuff('xpMult');
   RS.xpGained+=(_rikkerActive?2:1)*d.xp*_xpLvMult*(1+_xpEquip+_tavXP+getCastleBonus('xpMult'));
   devPetGainXP(d.xp);heroGainXP(d.xp);purchasablePetGainXP(d.xp);
@@ -22067,6 +22074,7 @@ const CASTLE_OBJECTS = [
   {id:'leaderboard', room:'hall', rx:.20, ry:.30, ico:'🏅', label:'Leaderboards',        action:'openLeaderboard',    color:'#fbbf24', tapR:18},
   {id:'throne',      room:'hall', rx:.50, ry:.30, ico:'👑', label:'Open Hub Panel',      action:'openHubPanel',       color:'#9ca3af', tapR:20},
   {id:'upgrades',    room:'hall', rx:.80, ry:.30, ico:'🔨', label:'Castle Upgrades',     action:'openCastleUpgrades', color:'#f59e0b', tapR:18},
+  {id:'guildHall',   room:'hall', rx:.50, ry:.60, ico:'👥', label:'Guild Hall',          action:'openGuildPanel',      color:'#8b5cf6', tapR:22},
   {id:'pedestal_me', room:'hall', rx:.25, ry:.88, ico:'🏆', label:'Middle-earth Trophy', action:'openTrophyPanel_me', color:'#c8a050', tapR:22},
   {id:'pedestal_tau',room:'hall', rx:.50, ry:.88, ico:'🏆', label:"Tau'ri Trophy",       action:'openTrophyPanel_tau',color:'#86efac', tapR:22},
   {id:'pedestal_sw', room:'hall', rx:.75, ry:.88, ico:'🏆', label:'Galaxy Trophy',       action:'openTrophyPanel_sw', color:'#60a5fa', tapR:22},
@@ -31313,6 +31321,586 @@ if(_origCloudSave){
     const r=await _origCloudSave(gsj);
     // Fire-and-forget leaderboard submit
     if(r) _lbSubmitAll().catch(()=>{});
+    return r;
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GUILD SYSTEM
+// ═══════════════════════════════════════════════════════════════
+const GUILD_API='/.netlify/functions/guild';
+let _guildTab='overview'; // overview|chat|members|perks|raids|settings
+let _guildBrowseData=null;
+let _guildCreateStep=false;
+
+// ── Guild API helpers ──
+async function _guildFetch(action,params={},postBody=null){
+  const qs=new URLSearchParams({action,...params}).toString();
+  const opts={headers:{}};
+  if(CloudSave.token)opts.headers['Authorization']='Bearer '+CloudSave.token;
+  if(postBody){
+    opts.method='POST';
+    opts.headers['Content-Type']='application/json';
+    opts.body=JSON.stringify({playerId:CloudSave.user?.id||'',playerName:GS.lbName||GS.heroName||'Necromancer',playerLevel:GS.necroLv||1,...postBody});
+  }
+  const r=await fetch(`${GUILD_API}?${qs}`,opts);
+  return r.json();
+}
+
+async function _guildRefresh(){
+  if(!GS.guildId)return null;
+  try{
+    const d=await _guildFetch('get',{guildId:GS.guildId});
+    if(d.error){GS.guildId=null;GS.guildCache=null;return null;}
+    GS.guildCache=d.guild;GS.guildLastFetch=Date.now();
+    return d.guild;
+  }catch(e){console.warn('Guild refresh failed:',e);return GS.guildCache;}
+}
+
+// ── Get active guild bonuses (called by combat/reward systems) ──
+function getGuildBonuses(){
+  const g=GS.guildCache;
+  if(!g||!g.level)return{xpBonus:0,goldBonus:0,lootBonus:0};
+  // Return the highest-tier bonus active at this guild level
+  const PERKS=[
+    {level:1,xpBonus:0.03},{level:5,xpBonus:0.05},{level:9,xpBonus:0.08},
+    {level:2,goldBonus:0.03},{level:6,goldBonus:0.05},{level:10,goldBonus:0.08},
+    {level:7,lootBonus:0.05}
+  ];
+  let xpBonus=0,goldBonus=0,lootBonus=0;
+  for(const p of PERKS){
+    if(g.level>=p.level){
+      if(p.xpBonus)xpBonus=p.xpBonus;
+      if(p.goldBonus)goldBonus=p.goldBonus;
+      if(p.lootBonus)lootBonus=p.lootBonus;
+    }
+  }
+  return{xpBonus,goldBonus,lootBonus};
+}
+
+// ── Main Guild Panel ──
+function openGuildPanel(){
+  SND.tap?.();
+  if(!CloudSave.enabled||!CloudSave.token){
+    CloudSave.openLoginModal();
+    showToast('☁️ Log in to access guilds');
+    return;
+  }
+  let el=document.getElementById('guildOverlay');
+  if(!el){
+    el=document.createElement('div');
+    el.id='guildOverlay';
+    el.style.cssText='display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.88);align-items:center;justify-content:center;backdrop-filter:blur(6px)';
+    document.body.appendChild(el);
+  }
+  el.style.display='flex';
+  if(GS.guildId){
+    _guildRefresh().then(()=>_guildRenderMain());
+  }else{
+    _guildRenderLobby();
+  }
+}
+
+function closeGuildPanel(){
+  const el=document.getElementById('guildOverlay');
+  if(el)el.style.display='none';
+}
+
+// ── Lobby (no guild yet) ──
+function _guildRenderLobby(){
+  const el=document.getElementById('guildOverlay');if(!el)return;
+  _guildCreateStep=false;
+  el.innerHTML=`
+  <div style="background:linear-gradient(180deg,#0d0b1a 0%,#1a0f2e 100%);border:1px solid rgba(139,92,246,.35);border-radius:16px;padding:0;max-width:420px;width:94%;max-height:85vh;display:flex;flex-direction:column;position:relative;overflow:hidden">
+    <div style="padding:18px 20px 10px;text-align:center;flex-shrink:0">
+      <div style="font-family:'Cinzel Decorative',serif;font-size:18px;color:#a78bfa">👥 Guild Hall</div>
+      <div style="font-family:'Cinzel',serif;font-size:10px;color:#6b7280;margin-top:4px">Join or create a guild</div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:12px 16px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="_guildShowCreate()" style="padding:14px;font-family:'Cinzel',serif;font-size:12px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.4);border-radius:10px;color:#a78bfa;cursor:pointer;text-align:left">
+          ⚔ <strong>Create Guild</strong><br><span style="font-size:9px;color:#6b7280">Cost: 10,000 GP · Name your guild, choose a banner</span>
+        </button>
+        <button onclick="_guildShowBrowse()" style="padding:14px;font-family:'Cinzel',serif;font-size:12px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);border-radius:10px;color:#60a5fa;cursor:pointer;text-align:left">
+          🔍 <strong>Browse Guilds</strong><br><span style="font-size:9px;color:#6b7280">Find an open guild to join</span>
+        </button>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+          <input id="guildInviteInput" placeholder="Invite code" maxlength="6" spellcheck="false"
+            style="flex:1;background:#060412;border:1px solid rgba(139,92,246,.3);color:#a78bfa;font-family:'Cinzel',serif;font-size:11px;padding:10px;border-radius:8px;outline:none;text-transform:uppercase;text-align:center" />
+          <button onclick="_guildJoinByCode()" style="padding:10px 16px;font-family:'Cinzel',serif;font-size:11px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:8px;color:#22c55e;cursor:pointer">Join</button>
+        </div>
+      </div>
+      <div id="guildLobbyContent" style="margin-top:12px"></div>
+    </div>
+    <div style="padding:10px 16px 14px;flex-shrink:0;border-top:1px solid rgba(255,255,255,.06)">
+      <button onclick="closeGuildPanel()" style="width:100%;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.3);border-radius:10px;color:#9ca3af;cursor:pointer">✕ Close</button>
+    </div>
+  </div>`;
+}
+
+// ── Create Guild Form ──
+function _guildShowCreate(){
+  const ct=document.getElementById('guildLobbyContent');if(!ct)return;
+  const colors=['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#6b7280','#fbbf24','#14b8a6'];
+  _guildCreateStep=true;
+  ct.innerHTML=`
+  <div style="background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.2);border-radius:10px;padding:14px">
+    <div style="font-family:'Cinzel',serif;font-size:11px;color:#a78bfa;margin-bottom:10px">⚔ Create Your Guild</div>
+    <div style="margin-bottom:8px">
+      <label style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Guild Name</label>
+      <input id="gcName" maxlength="24" placeholder="Enter guild name…"
+        style="width:100%;box-sizing:border-box;background:#060412;border:1px solid rgba(139,92,246,.3);color:#e2e8f0;font-family:'Cinzel',serif;font-size:11px;padding:8px;border-radius:6px;outline:none;margin-top:2px" />
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Motto (optional)</label>
+      <input id="gcMotto" maxlength="60" placeholder="Guild motto…"
+        style="width:100%;box-sizing:border-box;background:#060412;border:1px solid rgba(139,92,246,.3);color:#e2e8f0;font-family:'Cinzel',serif;font-size:11px;padding:8px;border-radius:6px;outline:none;margin-top:2px" />
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Banner Color</label>
+      <div id="gcColors" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+        ${colors.map((c,i)=>`<div onclick="_gcPickColor('${c}')" id="gcc_${i}" style="width:24px;height:24px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${i===0?'#fff':'transparent'}" data-color="${c}"></div>`).join('')}
+      </div>
+    </div>
+    <div style="font-family:'Cinzel',serif;font-size:9px;color:#f59e0b;margin-bottom:8px">Cost: 10,000 GP (you have ${GS.wallet.gp||0} GP)</div>
+    <button onclick="_guildDoCreate()" id="gcCreateBtn" style="width:100%;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.4);border-radius:8px;color:#a78bfa;cursor:pointer${(GS.wallet.gp||0)<10000?' ;opacity:.5':''}">
+      ${(GS.wallet.gp||0)>=10000?'⚔ Found Guild':'Not enough gold'}
+    </button>
+  </div>`;
+}
+
+let _gcSelectedColor='#ef4444';
+function _gcPickColor(c){
+  _gcSelectedColor=c;
+  document.querySelectorAll('#gcColors div').forEach(d=>{
+    d.style.borderColor=d.dataset.color===c?'#fff':'transparent';
+  });
+}
+
+async function _guildDoCreate(){
+  if((GS.wallet.gp||0)<10000){showToast('Need 10,000 GP to create a guild');return;}
+  const name=(document.getElementById('gcName')?.value||'').trim();
+  if(name.length<2){showToast('Name must be 2+ characters');return;}
+  const motto=(document.getElementById('gcMotto')?.value||'').trim();
+  const btn=document.getElementById('gcCreateBtn');
+  if(btn){btn.textContent='Creating…';btn.style.opacity='.6';}
+  try{
+    const d=await _guildFetch('create',{},{name,motto,bannerColor:_gcSelectedColor});
+    if(d.error){showToast('❌ '+d.error);if(btn){btn.textContent='⚔ Found Guild';btn.style.opacity='1';}return;}
+    GS.wallet.gp-=10000;
+    GS.guildId=d.guildId;
+    GS.guildCache=d.guild;
+    saveGame(false);
+    showToast('⚔ Guild "'+name+'" founded! Invite code: '+d.inviteCode);
+    _guildRenderMain();
+  }catch(e){
+    showToast('Failed: '+e.message);
+    if(btn){btn.textContent='⚔ Found Guild';btn.style.opacity='1';}
+  }
+}
+
+// ── Browse Guilds ──
+async function _guildShowBrowse(){
+  const ct=document.getElementById('guildLobbyContent');if(!ct)return;
+  ct.innerHTML='<div style="text-align:center;color:#6b7280;font-family:\'Cinzel\',serif;font-size:11px;padding:20px">Loading guilds…</div>';
+  try{
+    const d=await _guildFetch('browse');
+    const guilds=d.guilds||[];
+    if(guilds.length===0){
+      ct.innerHTML='<div style="text-align:center;color:#6b7280;font-family:\'Cinzel\',serif;font-size:11px;padding:20px">No guilds found. Be the first!</div>';
+      return;
+    }
+    ct.innerHTML=guilds.map(g=>`
+      <div style="background:rgba(0,0,0,.3);border:1px solid ${g.bannerColor}33;border-radius:8px;padding:10px;margin-bottom:6px;display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:50%;background:${g.bannerColor};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👥</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Cinzel',serif;font-size:11px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.name}</div>
+          <div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">${g.motto||'No motto'}</div>
+          <div style="font-family:'Cinzel',serif;font-size:9px;color:#9ca3af">Lv${g.level} · ${g.memberCount}/${g.maxMembers} · Leader: ${g.leaderName}</div>
+        </div>
+        ${g.isOpen&&g.memberCount<g.maxMembers?`<button onclick="_guildJoinById('${g.id}')" style="padding:6px 12px;font-family:'Cinzel',serif;font-size:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:6px;color:#22c55e;cursor:pointer;flex-shrink:0">Join</button>`:'<span style="font-family:\'Cinzel\',serif;font-size:9px;color:#6b7280">Full</span>'}
+      </div>
+    `).join('');
+  }catch(e){
+    ct.innerHTML='<div style="text-align:center;color:#f87171;font-family:\'Cinzel\',serif;font-size:10px;padding:20px">Failed to load guilds</div>';
+  }
+}
+
+async function _guildJoinById(gid){
+  try{
+    const d=await _guildFetch('join',{},{guildId:gid});
+    if(d.error){showToast('❌ '+d.error);return;}
+    GS.guildId=d.guildId;GS.guildCache=d.guild;saveGame(false);
+    showToast('✓ Joined '+d.guild.name+'!');
+    _guildRenderMain();
+  }catch(e){showToast('Failed: '+e.message);}
+}
+
+async function _guildJoinByCode(){
+  const code=(document.getElementById('guildInviteInput')?.value||'').trim().toUpperCase();
+  if(code.length<4){showToast('Enter a valid invite code');return;}
+  try{
+    const d=await _guildFetch('join',{},{inviteCode:code});
+    if(d.error){showToast('❌ '+d.error);return;}
+    GS.guildId=d.guildId;GS.guildCache=d.guild;saveGame(false);
+    showToast('✓ Joined '+d.guild.name+'!');
+    _guildRenderMain();
+  }catch(e){showToast('Failed: '+e.message);}
+}
+
+// ── Main Guild View (member of a guild) ──
+function _guildRenderMain(){
+  const el=document.getElementById('guildOverlay');if(!el)return;
+  const g=GS.guildCache;
+  if(!g){_guildRenderLobby();return;}
+  const me=g.members?.find(m=>m.id===(CloudSave.user?.id||''));
+  const myRole=me?.role||'member';
+  const tabs=[
+    {id:'overview',label:'Overview',ico:'📊'},
+    {id:'chat',label:'Chat',ico:'💬'},
+    {id:'members',label:'Members',ico:'👥'},
+    {id:'perks',label:'Perks',ico:'⭐'},
+    {id:'raids',label:'Raids',ico:'⚔️'}
+  ];
+  if(myRole==='leader'||myRole==='officer')tabs.push({id:'settings',label:'Settings',ico:'⚙'});
+
+  el.innerHTML=`
+  <div style="background:linear-gradient(180deg,#0d0b1a 0%,#1a0f2e 100%);border:1px solid ${g.bannerColor||'rgba(139,92,246,.35)'};border-radius:16px;padding:0;max-width:440px;width:94%;max-height:85vh;display:flex;flex-direction:column;position:relative;overflow:hidden">
+    <div style="padding:14px 16px 8px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:36px;height:36px;border-radius:50%;background:${g.bannerColor||'#8b5cf6'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👥</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Cinzel Decorative',serif;font-size:15px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.name}</div>
+        <div style="font-family:'Cinzel',serif;font-size:9px;color:#9ca3af">${g.motto||''} · Lv ${g.level}</div>
+      </div>
+      <button onclick="closeGuildPanel()" style="background:none;border:none;color:#6b7280;font-size:18px;cursor:pointer;padding:4px">✕</button>
+    </div>
+    <div style="display:flex;gap:2px;padding:4px 12px 0;flex-shrink:0;overflow-x:auto">
+      ${tabs.map(t=>`<button onclick="_guildTab='${t.id}';_guildRenderTab()" id="gt_${t.id}" style="padding:6px 10px;font-family:'Cinzel',serif;font-size:9px;border-radius:6px 6px 0 0;cursor:pointer;white-space:nowrap;border:1px solid ${_guildTab===t.id?'rgba(139,92,246,.5)':'rgba(107,114,128,.2)'};border-bottom:none;background:${_guildTab===t.id?'rgba(139,92,246,.12)':'transparent'};color:${_guildTab===t.id?'#a78bfa':'#6b7280'}">${t.ico} ${t.label}</button>`).join('')}
+    </div>
+    <div id="guildTabContent" style="flex:1;overflow-y:auto;padding:12px 16px;border-top:1px solid rgba(139,92,246,.15);min-height:180px"></div>
+  </div>`;
+  _guildRenderTab();
+}
+
+function _guildRenderTab(){
+  const ct=document.getElementById('guildTabContent');if(!ct)return;
+  const g=GS.guildCache;if(!g)return;
+  // Highlight active tab
+  document.querySelectorAll('[id^="gt_"]').forEach(b=>{
+    const active=b.id==='gt_'+_guildTab;
+    b.style.background=active?'rgba(139,92,246,.12)':'transparent';
+    b.style.borderColor=active?'rgba(139,92,246,.5)':'rgba(107,114,128,.2)';
+    b.style.color=active?'#a78bfa':'#6b7280';
+  });
+
+  switch(_guildTab){
+    case 'overview': _guildRenderOverview(ct,g);break;
+    case 'chat': _guildRenderChat(ct,g);break;
+    case 'members': _guildRenderMembers(ct,g);break;
+    case 'perks': _guildRenderPerks(ct,g);break;
+    case 'raids': _guildRenderRaids(ct,g);break;
+    case 'settings': _guildRenderSettings(ct,g);break;
+  }
+}
+
+// ── Overview Tab ──
+function _guildRenderOverview(ct,g){
+  const xpNeeded=g.nextLevelXP||500;
+  const xpPct=Math.min(100,Math.round((g.xp/xpNeeded)*100));
+  const me=g.members?.find(m=>m.id===(CloudSave.user?.id||''));
+  const bonuses=getGuildBonuses();
+  ct.innerHTML=`
+    <div style="text-align:center;margin-bottom:12px">
+      <div style="font-family:'Cinzel Decorative',serif;font-size:22px;color:${g.bannerColor||'#a78bfa'};margin-bottom:4px">${g.name}</div>
+      <div style="font-family:'Cinzel',serif;font-size:10px;color:#9ca3af">${g.motto||'No motto set'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.15);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-family:'Cinzel',serif;font-size:18px;color:#a78bfa">${g.level}</div>
+        <div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Guild Level</div>
+      </div>
+      <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-family:'Cinzel',serif;font-size:18px;color:#60a5fa">${g.members?.length||0}/${g.maxMembers||20}</div>
+        <div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Members</div>
+      </div>
+    </div>
+    ${g.level<10?`<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-family:'Cinzel',serif;font-size:9px;color:#6b7280;margin-bottom:3px">
+        <span>Guild XP</span><span>${g.xp}/${xpNeeded}</span>
+      </div>
+      <div style="height:6px;background:rgba(139,92,246,.1);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${xpPct}%;background:linear-gradient(90deg,#8b5cf6,#a78bfa);border-radius:3px;transition:width .3s"></div>
+      </div>
+    </div>`:'<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:10px;color:#22c55e;margin-bottom:12px">✦ Max Guild Level!</div>'}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:8px;padding:8px;text-align:center">
+        <div style="font-family:'Cinzel',serif;font-size:14px;color:#fbbf24">🦴 ${g.pool?.bones||0}</div>
+        <div style="font-family:'Cinzel',serif;font-size:8px;color:#6b7280">Pool Bones</div>
+      </div>
+      <div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:8px;padding:8px;text-align:center">
+        <div style="font-family:'Cinzel',serif;font-size:14px;color:#fbbf24">💰 ${g.pool?.gold||0}</div>
+        <div style="font-family:'Cinzel',serif;font-size:8px;color:#6b7280">Pool Gold</div>
+      </div>
+    </div>
+    ${bonuses.xpBonus||bonuses.goldBonus||bonuses.lootBonus?`<div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:8px;padding:8px;margin-bottom:12px">
+      <div style="font-family:'Cinzel',serif;font-size:10px;color:#22c55e;margin-bottom:4px">Active Bonuses</div>
+      ${bonuses.xpBonus?`<div style="font-family:'Cinzel',serif;font-size:9px;color:#86efac">✦ +${Math.round(bonuses.xpBonus*100)}% XP</div>`:''}
+      ${bonuses.goldBonus?`<div style="font-family:'Cinzel',serif;font-size:9px;color:#86efac">✦ +${Math.round(bonuses.goldBonus*100)}% Gold</div>`:''}
+      ${bonuses.lootBonus?`<div style="font-family:'Cinzel',serif;font-size:9px;color:#86efac">✦ +${Math.round(bonuses.lootBonus*100)}% Loot Rarity</div>`:''}
+    </div>`:''}
+    <div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280;margin-bottom:6px">Invite Code: <span style="color:#a78bfa;font-size:12px;letter-spacing:2px">${g.inviteCode||'???'}</span></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="_guildContributePrompt()" style="flex:1;padding:8px;font-family:'Cinzel',serif;font-size:10px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;color:#fbbf24;cursor:pointer">💰 Contribute</button>
+      <button onclick="_guildRefresh().then(()=>_guildRenderMain())" style="flex:0 0 auto;padding:8px 12px;font-family:'Cinzel',serif;font-size:10px;background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.3);border-radius:8px;color:#9ca3af;cursor:pointer">↻</button>
+    </div>
+    <button onclick="_guildLeave()" style="width:100%;margin-top:10px;padding:8px;font-family:'Cinzel',serif;font-size:10px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;color:#f87171;cursor:pointer">Leave Guild</button>
+  `;
+}
+
+// ── Contribute prompt ──
+function _guildContributePrompt(){
+  const ct=document.getElementById('guildTabContent');if(!ct)return;
+  ct.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:12px;color:#fbbf24;margin-bottom:12px">💰 Contribute to Guild Pool</div>
+    <div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280;margin-bottom:8px">Your resources: 🦴 ${GS.bones} bones · 💰 ${GS.wallet.gp||0} GP</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div style="flex:1">
+        <label style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Bones</label>
+        <input id="gcBones" type="number" min="0" max="${GS.bones}" value="0"
+          style="width:100%;box-sizing:border-box;background:#060412;border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-family:'Cinzel',serif;font-size:12px;padding:8px;border-radius:6px;outline:none;margin-top:2px" />
+      </div>
+      <div style="flex:1">
+        <label style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Gold (GP)</label>
+        <input id="gcGold" type="number" min="0" max="${GS.wallet.gp||0}" value="0"
+          style="width:100%;box-sizing:border-box;background:#060412;border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-family:'Cinzel',serif;font-size:12px;padding:8px;border-radius:6px;outline:none;margin-top:2px" />
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="_guildDoContribute()" style="flex:1;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:8px;color:#fbbf24;cursor:pointer">Contribute</button>
+      <button onclick="_guildRenderTab()" style="flex:0 0 70px;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.3);border-radius:8px;color:#9ca3af;cursor:pointer">Cancel</button>
+    </div>
+  `;
+}
+
+async function _guildDoContribute(){
+  const bones=Math.max(0,parseInt(document.getElementById('gcBones')?.value)||0);
+  const gold=Math.max(0,parseInt(document.getElementById('gcGold')?.value)||0);
+  if(bones<=0&&gold<=0){showToast('Enter an amount to contribute');return;}
+  if(bones>GS.bones){showToast('Not enough bones');return;}
+  if(gold>(GS.wallet.gp||0)){showToast('Not enough gold');return;}
+  try{
+    const d=await _guildFetch('contribute',{},{guildId:GS.guildId,bones,gold});
+    if(d.error){showToast('❌ '+d.error);return;}
+    GS.bones-=bones;GS.wallet.gp=(GS.wallet.gp||0)-gold;
+    if(GS.guildCache){GS.guildCache.pool=d.pool;GS.guildCache.level=d.guildLevel;}
+    saveGame(false);
+    showToast(`✓ Contributed ${bones?bones+' bones':''}${bones&&gold?' + ':''}${gold?gold+' GP':''}`+(d.leveledUp?' 🎉 Guild leveled up!':''));
+    _guildTab='overview';_guildRenderMain();
+  }catch(e){showToast('Failed: '+e.message);}
+}
+
+// ── Chat Tab ──
+function _guildRenderChat(ct,g){
+  const msgs=g.chat||[];
+  ct.innerHTML=`
+    <div id="guildChatLog" style="max-height:220px;overflow-y:auto;margin-bottom:8px;display:flex;flex-direction:column;gap:3px">
+      ${msgs.length===0?'<div style="text-align:center;color:#6b7280;font-family:\'Cinzel\',serif;font-size:10px;padding:20px">No messages yet</div>':''}
+      ${msgs.map(m=>{
+        if(m.system)return`<div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280;text-align:center;padding:2px 0">⚔ ${m.text}</div>`;
+        const isMe=m.fromId===(CloudSave.user?.id||'');
+        return`<div style="font-family:'Cinzel',serif;font-size:10px;color:${isMe?'#a78bfa':'#e2e8f0'}"><span style="color:#6b7280;font-size:8px">${new Date(m.at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span> <strong style="color:${isMe?'#c4b5fd':'#94a3b8'}">${m.from}:</strong> ${m.text}</div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:6px">
+      <input id="guildChatInput" maxlength="200" placeholder="Type a message…"
+        style="flex:1;background:#060412;border:1px solid rgba(139,92,246,.3);color:#e2e8f0;font-family:'Cinzel',serif;font-size:11px;padding:8px;border-radius:6px;outline:none"
+        onkeydown="if(event.key==='Enter')_guildSendChat()" />
+      <button onclick="_guildSendChat()" style="padding:8px 14px;font-family:'Cinzel',serif;font-size:10px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.4);border-radius:6px;color:#a78bfa;cursor:pointer">Send</button>
+    </div>
+    <button onclick="_guildRefresh().then(()=>{_guildTab='chat';_guildRenderTab()})" style="width:100%;margin-top:6px;padding:6px;font-family:'Cinzel',serif;font-size:9px;background:none;border:1px solid rgba(107,114,128,.2);border-radius:6px;color:#6b7280;cursor:pointer">↻ Refresh</button>
+  `;
+  // Auto-scroll to bottom
+  const log=document.getElementById('guildChatLog');
+  if(log)log.scrollTop=log.scrollHeight;
+}
+
+async function _guildSendChat(){
+  const inp=document.getElementById('guildChatInput');if(!inp)return;
+  const msg=inp.value.trim();if(!msg)return;
+  inp.value='';
+  try{
+    const d=await _guildFetch('chat',{},{guildId:GS.guildId,message:msg});
+    if(d.error){showToast('❌ '+d.error);return;}
+    if(GS.guildCache&&d.chat)GS.guildCache.chat=d.chat;
+    _guildRenderChat(document.getElementById('guildTabContent'),GS.guildCache);
+  }catch(e){showToast('Failed: '+e.message);}
+}
+
+// ── Members Tab ──
+function _guildRenderMembers(ct,g){
+  const me=g.members?.find(m=>m.id===(CloudSave.user?.id||''));
+  const myRole=me?.role||'member';
+  const roleIco={leader:'👑',officer:'⚔',member:'🛡'};
+  const roleCol={leader:'#fbbf24',officer:'#60a5fa',member:'#9ca3af'};
+  const sorted=[...g.members].sort((a,b)=>{const o={leader:0,officer:1,member:2};return(o[a.role]||2)-(o[b.role]||2);});
+  ct.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:11px;color:#a78bfa;margin-bottom:8px">👥 Members (${g.members.length}/${g.maxMembers||20})</div>
+    ${sorted.map(m=>{
+      const isMe=m.id===(CloudSave.user?.id||'');
+      const canManage=(myRole==='leader'||(myRole==='officer'&&m.role==='member'))&&!isMe;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:rgba(0,0,0,.2);border-radius:6px;border:1px solid ${isMe?'rgba(139,92,246,.3)':'rgba(107,114,128,.1)'}">
+        <span style="font-size:14px">${roleIco[m.role]||'🛡'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Cinzel',serif;font-size:10px;color:${roleCol[m.role]||'#9ca3af'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}${isMe?' (you)':''}</div>
+          <div style="font-family:'Cinzel',serif;font-size:8px;color:#6b7280">Lv${m.level||1} · ${m.role} · Contributed: ${m.contributed||0}</div>
+        </div>
+        ${canManage?`<div style="display:flex;gap:3px">
+          ${myRole==='leader'&&m.role==='member'?`<button onclick="_guildPromote('${m.id}')" style="padding:3px 6px;font-size:8px;font-family:'Cinzel',serif;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:4px;color:#60a5fa;cursor:pointer" title="Promote to Officer">⬆</button>`:''}
+          ${myRole==='leader'&&m.role==='officer'?`<button onclick="_guildDemote('${m.id}')" style="padding:3px 6px;font-size:8px;font-family:'Cinzel',serif;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:4px;color:#fbbf24;cursor:pointer" title="Demote to Member">⬇</button>`:''}
+          ${canManage?`<button onclick="_guildKick('${m.id}')" style="padding:3px 6px;font-size:8px;font-family:'Cinzel',serif;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:4px;color:#f87171;cursor:pointer" title="Kick">✕</button>`:''}
+        </div>`:''}
+      </div>`;
+    }).join('')}
+  `;
+}
+
+async function _guildPromote(tid){
+  const d=await _guildFetch('promote',{},{guildId:GS.guildId,targetPlayerId:tid});
+  if(d.error){showToast('❌ '+d.error);return;}
+  showToast('✓ Promoted');_guildRefresh().then(()=>{_guildTab='members';_guildRenderTab();});
+}
+async function _guildDemote(tid){
+  const d=await _guildFetch('demote',{},{guildId:GS.guildId,targetPlayerId:tid});
+  if(d.error){showToast('❌ '+d.error);return;}
+  showToast('✓ Demoted');_guildRefresh().then(()=>{_guildTab='members';_guildRenderTab();});
+}
+async function _guildKick(tid){
+  if(!confirm('Remove this member from the guild?'))return;
+  const d=await _guildFetch('kick',{},{guildId:GS.guildId,targetPlayerId:tid});
+  if(d.error){showToast('❌ '+d.error);return;}
+  showToast('✓ Removed');_guildRefresh().then(()=>{_guildTab='members';_guildRenderTab();});
+}
+
+// ── Perks Tab ──
+function _guildRenderPerks(ct,g){
+  const PERKS=[
+    {level:1,id:'xp_i',label:'+3% XP bonus',ico:'📈'},
+    {level:2,id:'gold_i',label:'+3% gold bonus',ico:'💰'},
+    {level:3,id:'pool_i',label:'Shared resource pool',ico:'🏦'},
+    {level:4,id:'raid_i',label:'Guild raids (4-player)',ico:'⚔️'},
+    {level:5,id:'xp_ii',label:'+5% XP bonus (total)',ico:'📈'},
+    {level:6,id:'gold_ii',label:'+5% gold bonus (total)',ico:'💰'},
+    {level:7,id:'loot_i',label:'+5% loot rarity',ico:'🎁'},
+    {level:8,id:'cap_i',label:'+5 member cap (25)',ico:'👥'},
+    {level:9,id:'xp_iii',label:'+8% XP bonus (total)',ico:'📈'},
+    {level:10,id:'gold_iii',label:'+8% gold bonus (total)',ico:'💰'}
+  ];
+  ct.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:11px;color:#a78bfa;margin-bottom:10px">⭐ Guild Perks</div>
+    ${PERKS.map(p=>{
+      const active=g.level>=p.level;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:4px;background:${active?'rgba(34,197,94,.06)':'rgba(0,0,0,.2)'};border:1px solid ${active?'rgba(34,197,94,.2)':'rgba(107,114,128,.1)'};border-radius:6px">
+        <span style="font-size:14px;opacity:${active?1:.4}">${p.ico}</span>
+        <div style="flex:1">
+          <div style="font-family:'Cinzel',serif;font-size:10px;color:${active?'#22c55e':'#6b7280'}">${p.label}</div>
+          <div style="font-family:'Cinzel',serif;font-size:8px;color:#4b5563">Unlocks at Guild Level ${p.level}</div>
+        </div>
+        <span style="font-family:'Cinzel',serif;font-size:10px;color:${active?'#22c55e':'#4b5563'}">${active?'✓ Active':'🔒'}</span>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// ── Raids Tab ──
+function _guildRenderRaids(ct,g){
+  const raidsUnlocked=g.level>=4;
+  const recentRaids=(g.raidLog||[]).slice(-10).reverse();
+  ct.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:11px;color:#a78bfa;margin-bottom:8px">⚔️ Guild Raids</div>
+    ${!raidsUnlocked?`<div style="text-align:center;padding:30px 0">
+      <div style="font-size:28px;margin-bottom:8px">🔒</div>
+      <div style="font-family:'Cinzel',serif;font-size:11px;color:#6b7280">Guild raids unlock at Level 4</div>
+      <div style="font-family:'Cinzel',serif;font-size:9px;color:#4b5563;margin-top:4px">Current level: ${g.level}/4</div>
+    </div>`:`
+    <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-family:'Cinzel',serif;font-size:10px;color:#22c55e;margin-bottom:4px">Guild Raid Bonuses</div>
+      <div style="font-family:'Cinzel',serif;font-size:9px;color:#86efac">✦ +5% XP for all participants</div>
+      <div style="font-family:'Cinzel',serif;font-size:9px;color:#86efac">✦ +5% Gold for all participants</div>
+      <div style="font-family:'Cinzel',serif;font-size:9px;color:#86efac">✦ Up to 4 guild members</div>
+    </div>
+    <div style="font-family:'Cinzel',serif;font-size:10px;color:#6b7280;margin-bottom:6px">Start a guild raid from the Aviary (🐦 Co-op Raid) with guild members online.</div>
+    ${recentRaids.length>0?`<div style="font-family:'Cinzel',serif;font-size:10px;color:#9ca3af;margin-top:10px;margin-bottom:6px">Recent Raids</div>
+    ${recentRaids.map(r=>`<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;margin-bottom:3px;background:rgba(0,0,0,.2);border-radius:4px;font-family:'Cinzel',serif;font-size:9px">
+      <span style="color:${r.success?'#22c55e':'#f87171'}">${r.success?'✓':'✗'}</span>
+      <span style="color:#9ca3af;flex:1">${r.region}</span>
+      <span style="color:#6b7280">${new Date(r.startedAt).toLocaleDateString()}</span>
+    </div>`).join('')}`:'<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#4b5563;text-align:center;padding:12px">No raids yet</div>'}
+    `}
+  `;
+}
+
+// ── Settings Tab ──
+function _guildRenderSettings(ct,g){
+  ct.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:11px;color:#a78bfa;margin-bottom:10px">⚙ Guild Settings</div>
+    <div style="margin-bottom:10px">
+      <label style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">Motto</label>
+      <input id="gsMottoInput" maxlength="60" value="${g.motto||''}"
+        style="width:100%;box-sizing:border-box;background:#060412;border:1px solid rgba(139,92,246,.3);color:#e2e8f0;font-family:'Cinzel',serif;font-size:11px;padding:8px;border-radius:6px;outline:none;margin-top:2px" />
+    </div>
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <label style="font-family:'Cinzel',serif;font-size:10px;color:#9ca3af">Open to join:</label>
+      <button onclick="_guildToggleOpen()" id="gsOpenBtn" style="padding:6px 14px;font-family:'Cinzel',serif;font-size:10px;border-radius:6px;cursor:pointer;border:1px solid ${g.isOpen?'rgba(34,197,94,.4)':'rgba(239,68,68,.3)'};background:${g.isOpen?'rgba(34,197,94,.1)':'rgba(239,68,68,.06)'};color:${g.isOpen?'#22c55e':'#f87171'}">${g.isOpen?'Open':'Invite Only'}</button>
+    </div>
+    <button onclick="_guildSaveSettings()" style="width:100%;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.4);border-radius:8px;color:#a78bfa;cursor:pointer">Save Settings</button>
+    <div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280;margin-top:12px;text-align:center">Invite Code: <span style="color:#a78bfa;font-size:13px;letter-spacing:2px">${g.inviteCode||'???'}</span></div>
+  `;
+}
+
+let _gsOpenState=null;
+function _guildToggleOpen(){
+  const g=GS.guildCache;if(!g)return;
+  if(_gsOpenState===null)_gsOpenState=g.isOpen;
+  _gsOpenState=!_gsOpenState;
+  const btn=document.getElementById('gsOpenBtn');
+  if(btn){
+    btn.textContent=_gsOpenState?'Open':'Invite Only';
+    btn.style.borderColor=_gsOpenState?'rgba(34,197,94,.4)':'rgba(239,68,68,.3)';
+    btn.style.background=_gsOpenState?'rgba(34,197,94,.1)':'rgba(239,68,68,.06)';
+    btn.style.color=_gsOpenState?'#22c55e':'#f87171';
+  }
+}
+
+async function _guildSaveSettings(){
+  const motto=(document.getElementById('gsMottoInput')?.value||'').trim();
+  const isOpen=_gsOpenState!==null?_gsOpenState:(GS.guildCache?.isOpen??true);
+  try{
+    const d=await _guildFetch('update-settings',{},{guildId:GS.guildId,motto,isOpen});
+    if(d.error){showToast('❌ '+d.error);return;}
+    if(GS.guildCache){GS.guildCache.motto=motto;GS.guildCache.isOpen=isOpen;}
+    showToast('✓ Settings saved');_gsOpenState=null;
+  }catch(e){showToast('Failed: '+e.message);}
+}
+
+// ── Leave Guild ──
+async function _guildLeave(){
+  if(!confirm('Leave this guild? This cannot be undone.'))return;
+  try{
+    const d=await _guildFetch('leave',{},{});
+    if(d.error){showToast('❌ '+d.error);return;}
+    GS.guildId=null;GS.guildCache=null;saveGame(false);
+    showToast('Left the guild');
+    _guildRenderLobby();
+  }catch(e){showToast('Failed: '+e.message);}
+}
+
+// ── Auto-refresh guild data on cloud load ──
+const _origCloudLoad=CloudSave.loadFromCloud?.bind(CloudSave);
+if(_origCloudLoad){
+  CloudSave.loadFromCloud=async function(){
+    const r=await _origCloudLoad();
+    // After cloud load, refresh guild data if player has a guild
+    if(GS.guildId){_guildRefresh().catch(()=>{});}
     return r;
   };
 }
