@@ -3072,6 +3072,249 @@ const TransitionManager=(function(){
   return{play,isActive,skip};
 })();
 
+// ═══════════════════════════════════════════════════════
+//  TACTICAL OVERLAY — Fire Emblem-style grid + range
+// ═══════════════════════════════════════════════════════
+const TacticalOverlay=(function(){
+  // State
+  let _enabled=false;      // master toggle (G key)
+  let _gridOn=true;        // sub-toggle: grid lines
+  let _moveRangeOn=true;   // sub-toggle: blue movement range
+  let _threatOn=true;      // sub-toggle: red enemy threat
+  let _cursorOn=true;      // sub-toggle: cursor tile highlight
+  let _spellRangeOn=true;  // sub-toggle: spell range indicator
+
+  // Cursor tile tracking (world coords)
+  let _curTileCol=-1, _curTileRow=-1;
+  let _curWorldX=-1, _curWorldY=-1;
+
+  // Cached BFS results (invalidated each frame the necro moves)
+  let _moveCache=null;  // Set of "row,col" strings
+  let _moveCacheKey=''; // "nx,ny" of necro when cache was built
+  let _threatCache=null;
+  let _threatCacheKey='';
+
+  // Movement range: how many tiles the necro can reach in ~2 seconds
+  const MOVE_TIME_WINDOW=2.0; // seconds of movement to visualize
+
+  // ── BFS flood-fill on walkable tiles ──
+  function bfsRange(startCol,startRow,maxTiles,grid){
+    const visited=new Set();
+    const q=[{c:startCol,r:startRow,d:0}];
+    visited.add(`${startRow},${startCol}`);
+    while(q.length){
+      const{c,r,d}=q.shift();
+      if(d>=maxTiles)continue;
+      const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+      for(const[dc,dr] of dirs){
+        const nc=c+dc, nr=r+dr;
+        if(nc<0||nc>=COLS||nr<0||nr>=ROWS)continue;
+        const key=`${nr},${nc}`;
+        if(visited.has(key))continue;
+        const tile=grid[nr]?.[nc];
+        // Walkable: floor, stair, stair_up
+        if(tile===1||tile===2||tile===3){
+          visited.add(key);
+          q.push({c:nc,r:nr,d:d+1});
+        }
+      }
+    }
+    return visited;
+  }
+
+  // ── Calculate enemy threat tiles ──
+  function calcThreatTiles(enemies,grid){
+    const threat=new Set();
+    if(!enemies)return threat;
+    for(const e of enemies){
+      if(e.dead)continue;
+      const ec=Math.floor(e.x/TILE_SIZE);
+      const er=Math.floor(e.y/TILE_SIZE);
+      // Threat range = aggro range in tiles (aggro is in pixels)
+      const aggroTiles=Math.ceil((e.aggro||160)/TILE_SIZE);
+      const eThreat=bfsRange(ec,er,aggroTiles,grid);
+      for(const k of eThreat)threat.add(k);
+    }
+    return threat;
+  }
+
+  // ── Draw subtle grid lines (only on visible floor tiles) ──
+  function drawGrid(ctx,t){
+    if(!_gridOn)return;
+    const startCol=Math.max(0,Math.floor(RS.camX/TILE_SIZE));
+    const startRow=Math.max(0,Math.floor(RS.camY/TILE_SIZE));
+    const endCol=Math.min(COLS-1,Math.ceil((RS.camX+RS.VW)/TILE_SIZE));
+    const endRow=Math.min(ROWS-1,Math.ceil((RS.camY+RS.VH)/TILE_SIZE));
+
+    ctx.save();
+    ctx.strokeStyle='rgba(168,85,247,0.08)';
+    ctx.lineWidth=0.5;
+    for(let r=startRow;r<=endRow;r++){
+      for(let c=startCol;c<=endCol;c++){
+        const tile=RS.grid[r]?.[c];
+        if(tile===1||tile===2||tile===3){
+          ctx.strokeRect(c*TILE_SIZE,r*TILE_SIZE,TILE_SIZE,TILE_SIZE);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // ── Draw movement range overlay (blue) ──
+  function drawMoveRange(ctx,t){
+    if(!_moveRangeOn||!RS.necro||RS.necro.dead)return;
+    const n=RS.necro;
+    const nc=Math.floor(n.x/TILE_SIZE);
+    const nr=Math.floor(n.y/TILE_SIZE);
+    const cacheKey=`${nc},${nr}`;
+
+    if(!_moveCache||_moveCacheKey!==cacheKey){
+      // Calculate range in tiles: base speed 200 px/s * time / TILE_SIZE
+      const spdMult=1+(RS.speedBuff||0);
+      const rangePx=200*spdMult*MOVE_TIME_WINDOW;
+      const rangeTiles=Math.floor(rangePx/TILE_SIZE);
+      _moveCache=bfsRange(nc,nr,rangeTiles,RS.grid);
+      _moveCacheKey=cacheKey;
+    }
+
+    ctx.save();
+    const pulse=0.06+Math.sin(t*2)*0.02;
+    ctx.fillStyle=`rgba(96,165,250,${pulse})`;
+    for(const key of _moveCache){
+      const[r,c]=key.split(',').map(Number);
+      // Skip the tile the necro is standing on
+      if(r===nr&&c===nc)continue;
+      // Frustum cull
+      const wx=c*TILE_SIZE,wy=r*TILE_SIZE;
+      if(wx+TILE_SIZE<RS.camX||wx>RS.camX+RS.VW)continue;
+      if(wy+TILE_SIZE<RS.camY||wy>RS.camY+RS.VH)continue;
+      ctx.fillRect(wx+1,wy+1,TILE_SIZE-2,TILE_SIZE-2);
+    }
+    ctx.restore();
+  }
+
+  // ── Draw enemy threat range overlay (red) ──
+  function drawThreatRange(ctx,t){
+    if(!_threatOn||!RS.enemies)return;
+    // Rebuild threat cache when enemy positions change significantly
+    // Use a coarse key: count of alive enemies + first alive enemy tile
+    const alive=RS.enemies.filter(e=>!e.dead);
+    let tKey=alive.length+'';
+    if(alive.length>0){
+      tKey+=`,${Math.floor(alive[0].x/TILE_SIZE)},${Math.floor(alive[0].y/TILE_SIZE)}`;
+    }
+    if(!_threatCache||_threatCacheKey!==tKey){
+      _threatCache=calcThreatTiles(alive,RS.grid);
+      _threatCacheKey=tKey;
+    }
+
+    ctx.save();
+    const pulse=0.05+Math.sin(t*2.5+1)*0.02;
+    ctx.fillStyle=`rgba(239,68,68,${pulse})`;
+    for(const key of _threatCache){
+      const[r,c]=key.split(',').map(Number);
+      const wx=c*TILE_SIZE,wy=r*TILE_SIZE;
+      if(wx+TILE_SIZE<RS.camX||wx>RS.camX+RS.VW)continue;
+      if(wy+TILE_SIZE<RS.camY||wy>RS.camY+RS.VH)continue;
+      ctx.fillRect(wx+1,wy+1,TILE_SIZE-2,TILE_SIZE-2);
+    }
+    ctx.restore();
+  }
+
+  // ── Draw cursor tile highlight ──
+  function drawCursor(ctx,t){
+    if(!_cursorOn||_curTileCol<0||_curTileRow<0)return;
+    const tile=RS.grid[_curTileRow]?.[_curTileCol];
+    if(tile===undefined)return;
+    const wx=_curTileCol*TILE_SIZE, wy=_curTileRow*TILE_SIZE;
+
+    ctx.save();
+    // Pulsing highlight border
+    const pulse=0.5+Math.sin(t*4)*0.2;
+    const isWall=(tile===0);
+    ctx.strokeStyle=isWall?`rgba(239,68,68,${pulse})`:`rgba(250,204,21,${pulse})`;
+    ctx.lineWidth=1.5;
+    ctx.strokeRect(wx+0.5,wy+0.5,TILE_SIZE-1,TILE_SIZE-1);
+    // Subtle fill
+    ctx.fillStyle=isWall?`rgba(239,68,68,0.06)`:`rgba(250,204,21,0.06)`;
+    ctx.fillRect(wx+1,wy+1,TILE_SIZE-2,TILE_SIZE-2);
+    ctx.restore();
+  }
+
+  // ── Draw tile info tooltip (shows tile type + coords near cursor) ──
+  function drawTooltip(ctx){
+    if(!_cursorOn||_curTileCol<0||_curTileRow<0)return;
+    const tile=RS.grid[_curTileRow]?.[_curTileCol];
+    if(tile===undefined)return;
+    const names={0:'Wall',1:'Floor',2:'Stairs ↓',3:'Stairs ↑'};
+    const label=`${names[tile]||'?'} (${_curTileCol},${_curTileRow})`;
+    const wx=_curTileCol*TILE_SIZE+TILE_SIZE/2;
+    const wy=_curTileRow*TILE_SIZE-6;
+
+    ctx.save();
+    ctx.font='bold 8px "Cinzel",serif';
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    const tw=ctx.measureText(label).width+8;
+    // Background pill
+    ctx.fillStyle='rgba(8,1,21,0.85)';
+    const rx=wx-tw/2, ry=wy-12;
+    ctx.beginPath();
+    ctx.roundRect(rx,ry,tw,13,3);
+    ctx.fill();
+    ctx.strokeStyle='rgba(168,85,247,0.4)';ctx.lineWidth=0.5;ctx.stroke();
+    // Text
+    ctx.fillStyle='#c4b5fd';
+    ctx.fillText(label,wx,wy-1);
+    ctx.restore();
+  }
+
+  // ── Draw spell range indicator (tile-based circle around necro) ──
+  function drawSpellRange(ctx,t){
+    if(!_spellRangeOn||!RS.necro||RS.necro.dead)return;
+    // Already drawn by drawSpellRanges() — this adds tile-snapped version
+    // Skip if the existing circle indicators are visible
+  }
+
+  // ── Public API ──
+  function render(ctx,t){
+    if(!_enabled||!RS||!RS.grid)return;
+    drawGrid(ctx,t);
+    drawMoveRange(ctx,t);
+    drawThreatRange(ctx,t);
+    drawCursor(ctx,t);
+    drawTooltip(ctx);
+  }
+
+  function updateCursor(screenX,screenY,canvasRect){
+    if(!RS)return;
+    // Convert screen coords to world coords
+    const sx=(screenX-canvasRect.left)/canvasRect.width;
+    const sy=(screenY-canvasRect.top)/canvasRect.height;
+    _curWorldX=RS.camX+sx*RS.VW;
+    _curWorldY=RS.camY+sy*RS.VH;
+    _curTileCol=Math.floor(_curWorldX/TILE_SIZE);
+    _curTileRow=Math.floor(_curWorldY/TILE_SIZE);
+    // Clamp
+    if(_curTileCol<0||_curTileCol>=COLS)_curTileCol=-1;
+    if(_curTileRow<0||_curTileRow>=ROWS)_curTileRow=-1;
+  }
+
+  function clearCursor(){_curTileCol=-1;_curTileRow=-1;}
+
+  function toggle(){
+    _enabled=!_enabled;
+    if(!_enabled){_moveCache=null;_threatCache=null;}
+    return _enabled;
+  }
+
+  function isEnabled(){return _enabled;}
+
+  // Invalidate caches (call when floor changes, new enemies spawn, etc.)
+  function invalidate(){_moveCache=null;_threatCache=null;_moveCacheKey='';_threatCacheKey='';}
+
+  return{render,updateCursor,clearCursor,toggle,isEnabled,invalidate};
+})();
+
 // ── SPELL DEFINITIONS ──
 const SPELLS={
   staffStrike:  {name:'Staff Strike',    ico:'🪄',lv:1,cd:0.8,tgt:'single',rng:160,dmg:8, color:'#a78bfa',desc:'Medium-range strike. Auto-fires on cooldown. Always available.',isStrike:true},
@@ -14755,6 +14998,7 @@ function safeSpawnPos(wx, wy, maxR, _grid) {
 
 
 function initRaid(raidKey,floorNum,opts){
+  TacticalOverlay.invalidate(); // clear cached BFS on new floor/raid
   cacheHUDRefs(); // cache HUD element refs for fast per-frame update
   canvas=document.getElementById('gameCanvas');
   mmCanvas=document.getElementById('minimapCanvas');
@@ -15735,8 +15979,11 @@ function _tickAutoOverrideResume(t){
   }
 }
 function onCanvasHover(e){
-  if(!RS||!_pendingAOESpell)return;
+  if(!RS)return;
   const r=canvas.getBoundingClientRect();
+  // Update tactical overlay cursor tracking
+  TacticalOverlay.updateCursor(e.clientX,e.clientY,r);
+  if(!_pendingAOESpell)return;
   RS._aoePreviewX=RS.camX+(e.clientX-r.left)/r.width*RS.VW;
   RS._aoePreviewY=RS.camY+(e.clientY-r.top)/r.height*RS.VH;
 }
@@ -19344,6 +19591,7 @@ function draw(t,dt){
   ctx.clearRect(0,0,RS.VW*GAME_ZOOM,RS.VH*GAME_ZOOM);
   ctx.save();ctx.scale(GAME_ZOOM,GAME_ZOOM);ctx.translate(-RS.camX,-RS.camY);
   drawMap(t);
+  TacticalOverlay.render(ctx,t);
   RS.enemies.forEach(e=>{if(!e.dead||e.corpse)drawEnemy(e,t);});
   
   // Draw NPCs
@@ -31702,6 +31950,17 @@ document.addEventListener('keydown',e=>{
       else if(_esojActive&&GS.necroLv>=20)toggleEntForm();
       else if(GS.hasPassive(10))toggleSammaelForm();
     }break;
+    case 'g':{
+      // Toggle tactical grid overlay
+      const on=TacticalOverlay.toggle();
+      const _tMsg=document.createElement('div');
+      _tMsg.textContent=`⬡ Tactical Grid: ${on?'ON':'OFF'}`;
+      _tMsg.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(8,1,21,.9);border:1px solid rgba(168,85,247,.6);color:#c4b5fd;font:bold 13px "Cinzel",serif;padding:8px 18px;border-radius:8px;z-index:9999;pointer-events:none;transition:opacity .4s';
+      document.body.appendChild(_tMsg);
+      setTimeout(()=>{_tMsg.style.opacity='0';},800);
+      setTimeout(()=>{_tMsg.remove();},1300);
+      break;
+    }
   }
 });
 document.addEventListener('keyup',e=>{
@@ -31726,6 +31985,7 @@ renderHub();
     <span style="color:#fcd34d;font-family:monospace">Esc</span><span>Disengage / clear target</span>
     <span style="color:#fcd34d;font-family:monospace">1 2 3 4</span><span>Cast skill 1–4</span>
     <span style="color:#fcd34d;font-family:monospace">6</span><span>Rise — summon fallen bosses</span>
+    <span style="color:#fcd34d;font-family:monospace">G</span><span>Toggle tactical grid overlay</span>
     <span style="color:#fcd34d;font-family:monospace">Alt</span><span>Open Spell Book popup</span>
     <span style="color:#fcd34d;font-family:monospace">Ctrl</span><span>Show this (hold)</span>
   </div>
