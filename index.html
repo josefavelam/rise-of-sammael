@@ -15052,12 +15052,41 @@ const MUSIC_TRACKS={
     {f:330,d:.5},{f:294,d:.25},{f:330,d:.25},
     {f:247,d:.5},{f:294,d:.25},{f:330,d:.75},
   ],bass:[165,139,147,123],pad:[165,196,247]},
+  village:{bpm:85,key:'C',notes:[
+    {f:523,d:.5},{f:587,d:.25},{f:659,d:.75},{f:587,d:.25},{f:523,d:.25},
+    {f:494,d:.5},{f:440,d:.5},{f:523,d:1},
+    {f:659,d:.5},{f:587,d:.25},{f:523,d:.5},{f:494,d:.25},
+    {f:440,d:.5},{f:494,d:.25},{f:523,d:.75},
+  ],bass:[262,220,247,196],pad:[262,330,392]},
+  worldmap:{bpm:65,key:'F',notes:[
+    {f:349,d:.75},{f:440,d:.5},{f:523,d:.75},{f:494,d:.25},
+    {f:440,d:.5},{f:392,d:.5},{f:349,d:1},
+    {f:330,d:.5},{f:349,d:.5},{f:440,d:1},
+    {f:392,d:.5},{f:349,d:.5},{f:330,d:.5},{f:294,d:.5},
+  ],bass:[175,220,262,233],pad:[175,262,349]},
+  victory:{bpm:110,key:'G',notes:[
+    {f:392,d:.25},{f:494,d:.25},{f:587,d:.5},{f:784,d:.75},
+    {f:659,d:.25},{f:587,d:.5},{f:494,d:.5},{f:587,d:.25},{f:659,d:.75},
+    {f:784,d:.5},{f:880,d:.75},{f:784,d:.5},{f:659,d:.5},
+  ],bass:[196,247,294,330],pad:[392,494,587]},
+  catacomb:{bpm:55,key:'Bbm',notes:[
+    {f:233,d:.75},{f:277,d:.5},{f:311,d:.75},{f:277,d:.5},
+    {f:233,d:1},{f:220,d:.5},{f:208,d:.75},
+    {f:233,d:.5},{f:262,d:.5},{f:233,d:1},
+  ],bass:[117,139,104,93],pad:[233,277,311]},
 };
 
 function startMusic(track){
   const ac=getACtx();if(!ac||!SETTINGS.musicVol)return;
   if(MUS.playing&&MUS.track===track)return;
-  stopMusic();
+  // Crossfade: fade out current music over 400ms before starting new track
+  if(MUS.playing&&MUS.nodes.length>0){
+    const oldNodes=[...MUS.nodes];const oldTimer=MUS._seqTimer;
+    MUS.nodes=[];MUS._seqTimer=null;MUS.playing=false;MUS.track=null;
+    oldNodes.forEach(n=>{try{if(n.context){const g=ac.createGain();n.disconnect();n.connect(g);g.connect(SFX.musicGain);g.gain.setValueAtTime(g.gain.value||0.015,ac.currentTime);g.gain.linearRampToValueAtTime(0,ac.currentTime+0.4);}}catch(e){}});
+    setTimeout(()=>{if(oldTimer)clearInterval(oldTimer);oldNodes.forEach(n=>{try{n.stop();}catch(e){}try{n.disconnect();}catch(e){}});},450);
+    for(let i=0;i<8;i++){delete MUS['_bassG'+i];delete MUS['_bassO'+i];}
+  }else{stopMusic();}
   const td=MUSIC_TRACKS[track];if(!td)return;
   MUS.track=track;MUS.playing=true;
   const dest=SFX.musicGain;
@@ -15126,8 +15155,10 @@ function stopCatRoom(){if(typeof _catAnimId!=='undefined'){clearInterval(_catAni
 function showScreen(id){if(id!=='village')stopVilCanvas();if(id!=='castle')stopCastleRoom();if(id!=='catacombs')stopCatRoom();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=document.getElementById(id);if(el)el.classList.add('active');
   // ── Audio scene transitions ──
   if(id==='castle'){startAmbience('castle');startMusic('menu');}
-  else if(id==='village'){startAmbience('village');startMusic('menu');}
-  else if(id==='hub'||id==='spellbook'||id==='army'||id==='worldMapScreen'||id==='prestigeScreen'||id==='aviary'){startAmbience('castle');startMusic('menu');}
+  else if(id==='village'){startAmbience('village');startMusic('village');}
+  else if(id==='worldMapScreen'){startAmbience('castle');startMusic('worldmap');}
+  else if(id==='catacombs'){startAmbience('dungeon');startMusic('catacomb');}
+  else if(id==='hub'||id==='spellbook'||id==='army'||id==='prestigeScreen'||id==='aviary'){startAmbience('castle');startMusic('menu');}
 }
 // ── INIT on load ──
 function initGame(){
@@ -22441,7 +22472,7 @@ function finishRaid(){
   // Horizontal sweep transition back to castle
   TransitionManager.play('hSweep',700,{
     onMid:()=>{
-      RS=null;stopAmbience();startAmbience('castle');startMusic('menu');if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
+      RS=null;stopAmbience();startAmbience('castle');startMusic(_wasDefeat?'menu':'victory');if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
       const kbHUD=document.getElementById('kbTargetHUD');if(kbHUD)kbHUD.style.display='none';
       if(_wasDefeat)CR=null;
       if(typeof checkAchievements==='function')checkAchievements();
@@ -30109,7 +30140,7 @@ function initSurvival() {
   _survCanvas.addEventListener('mousedown', survMouse);
 
   buildSpellBar();
-  startAmbience('dungeon');startMusic('combat');
+  startAmbience('dungeon');startMusic('catacomb');
   cancelAnimationFrame(animId);
 
   // Start first wave
@@ -31040,7 +31071,7 @@ function endSurvival(result) {
   devPetGainXP(SV.xpGained);
   GS.necroHP = GS.necroMaxHP; // Full heal on exit
   cancelAnimationFrame(_svAnimId);
-  stopAmbience();startAmbience('castle');startMusic('menu');
+  stopAmbience();startAmbience('castle');startMusic(result==='victory'?'victory':'menu');
 
   // Restore returnBtn to default raid behavior (survival had overridden it)
   const _retBtn=document.getElementById('returnBtn');
@@ -31717,7 +31748,7 @@ function initPlatformer(region) {
   _pfCanvas.addEventListener('mouseup',pfMouseUp);
 
   buildSpellBar();
-  startAmbience('dungeon');startMusic('combat');
+  startAmbience('dungeon');startMusic('catacomb');
   cancelAnimationFrame(animId);
   // Camera snap to player
   const _pfVW0 = GAME_ZOOM>1 ? W/GAME_ZOOM : W;
@@ -32046,7 +32077,7 @@ function endPlatformer(result){
   devPetGainXP(PF.xpGained);
   GS.necroHP=GS.necroMaxHP;
   cancelAnimationFrame(_pfAnimId);
-  stopAmbience();startAmbience('castle');startMusic('menu');
+  stopAmbience();startAmbience('castle');startMusic(result==='victory'?'victory':'menu');
   _pfCanvas.removeEventListener('touchstart',pfTouchStart);
   _pfCanvas.removeEventListener('touchend',pfTouchEnd);
   _pfCanvas.removeEventListener('mousedown',pfMouseDown);
