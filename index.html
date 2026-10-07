@@ -551,6 +551,8 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
+<!-- ── TRANSITION OVERLAY CANVAS (z-index above everything) ── -->
+<canvas id="transitionCanvas" style="position:fixed;inset:0;z-index:99999;pointer-events:none;display:none;width:100%;height:100%"></canvas>
 
 <!-- ═══════════════════ PORTRAIT ORIENTATION OVERLAY ═════════════════════ -->
 <div id="portraitOverlay">
@@ -2841,6 +2843,233 @@ const Analytics=(function(){
     achievementUnlock,minionEvolve,ngPlusStart,pvpMatch,
     castleUpgrade,villageUpgrade
   };
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── TRANSITION MANAGER (canvas-based screen transition effects) ─────────────
+// ══════════════════════════════════════════════════════════════════════════════
+const TransitionManager=(function(){
+  let _cv=null, _ctx=null;
+  let _active=false, _queue=[];
+  let _cur=null; // {type, t0, dur, onMid, onDone, opts}
+  let _rafId=null;
+
+  function _ensureCanvas(){
+    if(_cv)return;
+    _cv=document.getElementById('transitionCanvas');
+    if(!_cv)return;
+    _ctx=_cv.getContext('2d');
+  }
+
+  function _resize(){
+    if(!_cv)return;
+    const dpr=window.devicePixelRatio||1;
+    _cv.width=window.innerWidth*dpr;
+    _cv.height=window.innerHeight*dpr;
+    _ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function _show(){_ensureCanvas();if(!_cv)return;_resize();_cv.style.display='block';}
+  function _hide(){if(_cv)_cv.style.display='none';_active=false;}
+
+  // ── Effect renderers (progress 0→1) ──
+
+  function _drawFadeBlack(p,opts){
+    // Fade to black (0→0.5) then from black (0.5→1)
+    const w=window.innerWidth,h=window.innerHeight;
+    let alpha;
+    if(opts&&opts.direction==='in'){
+      alpha=1-p; // from black to clear
+    } else if(opts&&opts.direction==='out'){
+      alpha=p; // from clear to black
+    } else {
+      // full cycle: fade out then in
+      alpha=p<0.5?p*2:(1-p)*2;
+    }
+    _ctx.clearRect(0,0,w,h);
+    _ctx.fillStyle=`rgba(0,0,0,${alpha})`;
+    _ctx.fillRect(0,0,w,h);
+  }
+
+  function _drawBattleFlash(p,opts){
+    // Pokémon-style BW flicker: rapid alternating black/white flashes
+    const w=window.innerWidth,h=window.innerHeight;
+    _ctx.clearRect(0,0,w,h);
+    const flickerCount=6; // number of BW alternations
+    const flickerPhase=Math.floor(p*flickerCount*2);
+    if(p>=1)return;
+    // Intensity fades out toward the end
+    const intensity=1-p*0.6;
+    if(flickerPhase%2===0){
+      _ctx.fillStyle=`rgba(255,255,255,${intensity})`;
+    } else {
+      _ctx.fillStyle=`rgba(0,0,0,${intensity*0.9})`;
+    }
+    _ctx.fillRect(0,0,w,h);
+  }
+
+  function _drawIrisWipe(p,opts){
+    // Circle iris closing in (0→0.5) then opening (0.5→1)
+    const w=window.innerWidth,h=window.innerHeight;
+    const cx=w/2,cy=h/2;
+    const maxR=Math.hypot(cx,cy);
+    let r;
+    if(opts&&opts.direction==='close'){
+      r=maxR*(1-p);
+    } else if(opts&&opts.direction==='open'){
+      r=maxR*p;
+    } else {
+      r=p<0.5?maxR*(1-p*2):maxR*((p-0.5)*2);
+    }
+    _ctx.clearRect(0,0,w,h);
+    // Draw black everywhere except a circle
+    _ctx.fillStyle='#000';
+    _ctx.beginPath();
+    _ctx.rect(0,0,w,h);
+    _ctx.arc(cx,cy,Math.max(0,r),0,Math.PI*2,true);
+    _ctx.fill('evenodd');
+  }
+
+  function _drawHSweep(p,opts){
+    // Horizontal sweep: black bar sweeps left→right then clears
+    const w=window.innerWidth,h=window.innerHeight;
+    _ctx.clearRect(0,0,w,h);
+    if(p<0.5){
+      // Sweep covering: bar moves from left
+      const edge=p*2*w;
+      _ctx.fillStyle='#000';
+      _ctx.fillRect(0,0,edge,h);
+    } else {
+      // Sweep uncovering: bar retreats to the right
+      const edge=(p-0.5)*2*w;
+      _ctx.fillStyle='#000';
+      _ctx.fillRect(edge,0,w-edge,h);
+    }
+  }
+
+  function _drawDeathFade(p,opts){
+    // Red tint that deepens, then fades to black
+    const w=window.innerWidth,h=window.innerHeight;
+    _ctx.clearRect(0,0,w,h);
+    if(p<0.5){
+      // Red tint intensifying
+      const a=p*2*0.7;
+      _ctx.fillStyle=`rgba(139,0,0,${a})`;
+      _ctx.fillRect(0,0,w,h);
+    } else {
+      // Cross-fade red→black
+      const t2=(p-0.5)*2;
+      _ctx.fillStyle=`rgba(139,0,0,${0.7*(1-t2)})`;
+      _ctx.fillRect(0,0,w,h);
+      _ctx.fillStyle=`rgba(0,0,0,${t2*0.9})`;
+      _ctx.fillRect(0,0,w,h);
+    }
+  }
+
+  function _drawVictoryFlash(p,opts){
+    // Gold/white glow burst then fade
+    const w=window.innerWidth,h=window.innerHeight;
+    _ctx.clearRect(0,0,w,h);
+    if(p<0.3){
+      // Quick white flash
+      const a=(p/0.3)*0.6;
+      _ctx.fillStyle=`rgba(255,248,220,${a})`;
+      _ctx.fillRect(0,0,w,h);
+    } else {
+      // Gold glow fading out
+      const t2=(p-0.3)/0.7;
+      const a=0.6*(1-t2);
+      _ctx.fillStyle=`rgba(252,211,77,${a*0.5})`;
+      _ctx.fillRect(0,0,w,h);
+      _ctx.fillStyle=`rgba(255,255,255,${a*0.3})`;
+      _ctx.fillRect(0,0,w,h);
+    }
+  }
+
+  const EFFECTS={
+    fadeBlack:_drawFadeBlack,
+    battleFlash:_drawBattleFlash,
+    irisWipe:_drawIrisWipe,
+    hSweep:_drawHSweep,
+    deathFade:_drawDeathFade,
+    victoryFlash:_drawVictoryFlash
+  };
+
+  // ── Animation loop ──
+  function _tick(ts){
+    if(!_cur){_processQueue();return;}
+    const elapsed=ts-_cur.t0;
+    const p=Math.min(1,elapsed/_cur.dur);
+    const drawFn=EFFECTS[_cur.type];
+    if(drawFn)drawFn(p,_cur.opts);
+    // Fire onMid callback at midpoint (once)
+    if(p>=0.5&&_cur.onMid&&!_cur._midFired){
+      _cur._midFired=true;
+      try{_cur.onMid();}catch(e){console.warn('TransitionManager onMid error',e);}
+    }
+    if(p>=1){
+      _ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+      if(_cur.onDone){try{_cur.onDone();}catch(e){console.warn('TransitionManager onDone error',e);}}
+      _cur=null;
+      _processQueue();
+      return;
+    }
+    _rafId=requestAnimationFrame(_tick);
+  }
+
+  function _processQueue(){
+    if(_queue.length>0){
+      _cur=_queue.shift();
+      _cur.t0=performance.now();
+      _show();
+      _rafId=requestAnimationFrame(_tick);
+    } else {
+      _hide();
+    }
+  }
+
+  // ── Public API ──
+  function play(type,dur,opts){
+    // type: 'fadeBlack'|'battleFlash'|'irisWipe'|'hSweep'|'deathFade'|'victoryFlash'
+    // dur: duration in ms (default 600)
+    // opts: {onMid, onDone, direction, ...}
+    if(!EFFECTS[type])return;
+    const entry={
+      type,
+      dur:dur||600,
+      onMid:(opts&&opts.onMid)||null,
+      onDone:(opts&&opts.onDone)||null,
+      opts:opts||{},
+      _midFired:false,
+      t0:0
+    };
+    if(_active&&_cur){
+      _queue.push(entry);
+    } else {
+      _active=true;
+      _cur=entry;
+      _cur.t0=performance.now();
+      _show();
+      _rafId=requestAnimationFrame(_tick);
+    }
+  }
+
+  function isActive(){return _active&&!!_cur;}
+
+  // Skip current transition immediately
+  function skip(){
+    if(!_cur)return;
+    if(_cur.onMid&&!_cur._midFired){try{_cur.onMid();}catch(e){}}
+    if(_cur.onDone){try{_cur.onDone();}catch(e){}}
+    _cur=null;
+    if(_ctx)_ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+    _processQueue();
+  }
+
+  // Handle window resize during transitions
+  window.addEventListener('resize',()=>{if(_active)_resize();});
+
+  return{play,isActive,skip};
 })();
 
 // ── SPELL DEFINITIONS ──
@@ -14296,8 +14525,13 @@ function selectRaid(key){
   const _mods=_ngSelectedMods.size?new Set(_ngSelectedMods):null;
   if(_mods)Analytics.ngPlusStart(_mods);
   closeRaidSelect();
-  showScreen('raid');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>initRaid(key,1,_mods?{ngMods:_mods}:undefined)));
+  // Battle encounter flash (Pokémon-style BW flicker) then fade in
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      requestAnimationFrame(()=>requestAnimationFrame(()=>initRaid(key,1,_mods?{ngMods:_mods}:undefined)));
+    }
+  });
 }
 
 function toggleAuto(){
@@ -16669,7 +16903,7 @@ function loop(ts){
       const _tmr=ngRule('floorTimer')||300;
       const _elapsed=(Date.now()-RS._raidStartTs)/1000;
       RS._ngTimerLeft=Math.max(0,_tmr-_elapsed);
-      if(RS._ngTimerLeft<=0){RS.necro.dead=true;flash('⏱️ TIME\'S UP! Speedrun failed!',22,'#f59e0b');setTimeout(()=>endRaid('defeat'),1200);}
+      if(RS._ngTimerLeft<=0){RS.necro.dead=true;flash('⏱️ TIME\'S UP! Speedrun failed!',22,'#f59e0b');TransitionManager.play('deathFade',1200,{onDone:()=>endRaid('defeat')});}
       // Update HUD with timer
       const _ngH=document.getElementById('ngHUD');
       if(_ngH){const m=Math.floor(RS._ngTimerLeft/60),s=Math.floor(RS._ngTimerLeft%60);_ngH.innerHTML=`⏱️ ${m}:${s<10?'0':''}${s}`;_ngH.style.color=RS._ngTimerLeft<30?'#ef4444':RS._ngTimerLeft<60?'#f59e0b':'#c084fc';}
@@ -16846,20 +17080,23 @@ function tickNecro(dt,t){
         RS.minions.forEach(mk=>{mk.ref.hp=mk.dead?0:mk.hp;});
         RS.minions.forEach(mk=>{if(mk._raised&&!mk.dead){GS.addToRoster(mk.type,mk.hp/mk.maxHP);}});
         GS.prune();GS.necroHP=Math.max(1,Math.round(n.hp));
-        setTimeout(()=>{
-          showScreen('raid');
-          RS.minions.forEach(mk=>{mk.ref.hp=mk.dead?0:mk.hp;});
-          GS.necroHP=RS.necro.hp;
-          const _savedAiMode=RS?RS.aiMode:'defense';
-          const _savedAutoMode=autoMode;
-          requestAnimationFrame(()=>requestAnimationFrame(()=>{
-            initRaid(RS?RS.raidKey:activeRaid,(RS?RS.floorNum:1)+1);
-            if(RS){RS.aiMode=_savedAiMode;setAiMode(_savedAiMode);}
-            autoMode=_savedAutoMode;
-            const _abtn2=document.getElementById('autoBtn');
-            if(_abtn2){_abtn2.className=_savedAutoMode?'auto':'manual';_abtn2.innerHTML=`<span style="font-size:16px;line-height:1">🤖</span><span>AUTO: ${_savedAutoMode?'ON':'OFF'}</span>`;}
-          }));
-        },900);
+        // Iris wipe transition between floors
+        TransitionManager.play('irisWipe',800,{
+          onMid:()=>{
+            showScreen('raid');
+            RS.minions.forEach(mk=>{mk.ref.hp=mk.dead?0:mk.hp;});
+            GS.necroHP=RS.necro.hp;
+            const _savedAiMode=RS?RS.aiMode:'defense';
+            const _savedAutoMode=autoMode;
+            requestAnimationFrame(()=>requestAnimationFrame(()=>{
+              initRaid(RS?RS.raidKey:activeRaid,(RS?RS.floorNum:1)+1);
+              if(RS){RS.aiMode=_savedAiMode;setAiMode(_savedAiMode);}
+              autoMode=_savedAutoMode;
+              const _abtn2=document.getElementById('autoBtn');
+              if(_abtn2){_abtn2.className=_savedAutoMode?'auto':'manual';_abtn2.innerHTML=`<span style="font-size:16px;line-height:1">🤖</span><span>AUTO: ${_savedAutoMode?'ON':'OFF'}</span>`;}
+            }));
+          }
+        });
       }else{
         // Final floor — boss already here, do nothing (boss spawns via checkVictory)
         RS.descending=false;
@@ -17352,7 +17589,7 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
     if(RS.necro.hp<=0&&!RS.necro.dead){
       // NG+ Ironman: instant death, no saves
       if(ngRule('instantDeath')){
-        RS.necro.dead=true;SND.necroDeath();flash('💀 IRONMAN — NO SECOND CHANCES!',22,'#ef4444');setTimeout(()=>endRaid('defeat'),1800);return;
+        RS.necro.dead=true;SND.necroDeath();flash('💀 IRONMAN — NO SECOND CHANCES!',22,'#ef4444');TransitionManager.play('deathFade',1800,{onDone:()=>endRaid('defeat')});return;
       }
       // Shadow Hound intercept
       if(RS.activePet?.type==='shadow_hound'&&!RS.famHoundUsed){
@@ -17365,7 +17602,7 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
       if(RS.revive){RS.revive=false;if(GS.inv.consumables.revive_dust>0)GS.inv.consumables.revive_dust--;RS.necro.hp=Math.round(RS.necro.maxHP*.3);flash('✨ Revive Dust activates!\nYou rise again!',16,'#fcd34d');return;}
       // Revivify from hero
       if(RS._activeHeroes){const revH=RS._activeHeroes.find(h2=>!h2.dead&&h2._skillFlags&&h2._skillFlags._revivifyReady&&!h2._skillFlags._revivifyUsed);if(revH){revH._skillFlags._revivifyUsed=true;revH._skillFlags._revivifyReady=false;RS.necro.hp=Math.round(RS.necro.maxHP*.25);const rDef=HERO_DEFS[revH.heroId];flash('🌟 '+(rDef?.name||'Hero')+' casts Revivify!\nYou rise again!',16,'#fef08a');return;}}
-      RS.necro.dead=true;SND.necroDeath();flash('💀 THE NECROMANCER FALLS!',22,'#ef4444');setTimeout(()=>endRaid('defeat'),1800);
+      RS.necro.dead=true;SND.necroDeath();flash('💀 THE NECROMANCER FALLS!',22,'#ef4444');TransitionManager.play('deathFade',1800,{onDone:()=>endRaid('defeat')});
     }
   } else if(tgt===RS.activePet){
     // Pet targeted directly — damage it, consume if dead
@@ -17632,7 +17869,7 @@ function onBossKilled(){
     // Auto-end after 45 s if player never attempts to Rise
     RS._riseAutoEndTimer=setTimeout(()=>{if(RS&&!RS.done)endRaid('victory');},45000);
   } else {
-    setTimeout(()=>endRaid('victory'),1800);
+    TransitionManager.play('victoryFlash',1200,{onDone:()=>endRaid('victory')});
   }
 }
 
@@ -20837,13 +21074,16 @@ function finishRaid(){
   const _wasDefeat=RS&&RS.result==='defeat';
   const _wasCatRaid=RS&&RS.isCatacombRaid;
   if(_wasCatRaid&&!_wasDefeat)GS.catacombRuns=(GS.catacombRuns||0)+1;
-  RS=null;stopAmbience();startAmbience('castle');startMusic('menu');if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
-  // Clear target HUD when leaving raid
-  const kbHUD=document.getElementById('kbTargetHUD');if(kbHUD)kbHUD.style.display='none';
-  if(_wasDefeat)CR=null; // necro died — wake in bed
-  // Check achievements after raid
-  if(typeof checkAchievements==='function')checkAchievements();
-  openCastle();
+  // Horizontal sweep transition back to castle
+  TransitionManager.play('hSweep',700,{
+    onMid:()=>{
+      RS=null;stopAmbience();startAmbience('castle');startMusic('menu');if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
+      const kbHUD=document.getElementById('kbTargetHUD');if(kbHUD)kbHUD.style.display='none';
+      if(_wasDefeat)CR=null;
+      if(typeof checkAchievements==='function')checkAchievements();
+      openCastle();
+    }
+  });
 }
 
 
@@ -22305,14 +22545,17 @@ function startRegionRaid(region, raidDef) {
   closeWorldMap();
   activeRaid = raidDef.key;
   _pendingRegionRaid = {region, raidDef};
-  showScreen('raid');
-  setTimeout(() => {
-    // Use RAID_CONFIGS directly — each has correct floors/enemies already
-    initRaid(raidDef.key, 1, {
-      regionId: region.id,
-      diff: raidDef.diffStyle || raidDef.diff.toLowerCase(),
-    });
-  }, 50);
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      setTimeout(() => {
+        initRaid(raidDef.key, 1, {
+          regionId: region.id,
+          diff: raidDef.diffStyle || raidDef.diff.toLowerCase(),
+        });
+      }, 50);
+    }
+  });
 }
 let _pendingRegionRaid = null;
 
@@ -28385,8 +28628,12 @@ let _survCamX = 0, _survCamY = 0; // survival camera (world coords)
 // Survival uses the main game canvas + raid HUD
 function startSurvivalFromCatacombs(){
   stopCatRoom();
-  showScreen('raid');
-  setTimeout(()=>startSurvival(),80);
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      setTimeout(()=>startSurvival(),80);
+    }
+  });
 }
 function startSurvival() {
   if(!GS.fallenSummons||GS.fallenSummons.length===0){
@@ -28394,8 +28641,12 @@ function startSurvival() {
     return;
   }
   const m=document.getElementById('castleMenu');if(m)m.style.display='none';
-  showScreen('raid');
-  setTimeout(initSurvival, 50);
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      setTimeout(initSurvival, 50);
+    }
+  });
 }
 
 function initSurvival() {
@@ -29980,8 +30231,12 @@ function startPlatformerRaid(regionId) {
   const region = WORLD_REGIONS.find(r=>r.id===regionId);
   if(!region||GS.necroLv<region.lv) return;
   closeCastle_menu();
-  showScreen('raid');
-  setTimeout(()=>initPlatformer(region), 50);
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      setTimeout(()=>initPlatformer(region), 50);
+    }
+  });
 }
 
 function initPlatformer(region) {
@@ -30468,10 +30723,12 @@ function endPlatformer(result){
 
 function startCatacombRaid(){
   closeCatacombs();
-  setTimeout(()=>{
-    showScreen('raid');
-    setTimeout(initCatacombRaid, 60);
-  }, 80);
+  TransitionManager.play('irisWipe',800,{
+    onMid:()=>{
+      showScreen('raid');
+      setTimeout(initCatacombRaid, 60);
+    }
+  });
 }
 
 function initCatacombRaid(){
@@ -31993,10 +32250,12 @@ function _guestOnData(data) {
     MP.raidKey = data.raidKey;
     MP.playerIdx = data.playerIdx ?? MP.playerIdx;
     _playDoorOpen();
-    setTimeout(() => {
-      showScreen('raid');
-      _initRaidFromHostData(data);
-    }, 600);
+    TransitionManager.play('battleFlash',500,{
+      onMid:()=>{
+        showScreen('raid');
+        _initRaidFromHostData(data);
+      }
+    });
   }
 
   if (data.type === 'welcome_back') {
@@ -32014,10 +32273,12 @@ function _guestOnData(data) {
     flash(`🪜 Descending to Floor ${data.floorNum || ''}...`, 16, '#fcd34d');
     // Save current HP so initRaid doesn't start the new floor at full health
     if (RS && RS.necro) GS.necroHP = Math.max(1, Math.round(RS.necro.hp));
-    setTimeout(() => {
-      showScreen('raid');
-      _initRaidFromHostData(data);
-    }, 400);
+    TransitionManager.play('irisWipe',800,{
+      onMid:()=>{
+        showScreen('raid');
+        _initRaidFromHostData(data);
+      }
+    });
   }
 
   // ── FIX: Host ended the raid — guests must follow ─────────────────────────
@@ -32284,11 +32545,13 @@ function _checkAllReady() {
   _playDoorOpen();
 
   // Start raid, then serialize map for guests
-  setTimeout(() => {
-    showScreen('raid');
-    initRaid(MP.raidKey, 1);
-    // After initRaid has built RS, serialize and send to guests
-    setTimeout(() => {
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      initRaid(MP.raidKey, 1);
+    },
+    onDone:()=>{
+      // After initRaid has built RS, serialize and send to guests
       MP._mapData = _serializeMap();
       const msg = {
         type: 'start', raidKey: MP.raidKey,
@@ -32303,8 +32566,8 @@ function _checkAllReady() {
         const guestPlayer = MP.players.find(p => p.id === c.peer);
         try { c.send({ ...msg, playerIdx: guestPlayer?.playerIdx ?? (ci + 1) }); } catch (_) {}
       });
-    }, 100); // small delay so RS is initialized
-  }, 600);
+    }
+  });
 }
 
 // ── Door-open visual ──────────────────────────────────────────────────────────
@@ -36832,8 +37095,12 @@ function tauFireRaid(region,diff){
   tauCloseAllPanels();closeTauriMap();
   activeRaid=rdKey;
   _pendingRegionRaid={region:{...region},raidDef:{key:rdKey,diff,diffStyle:diff,floors:cfg.floors||3,scale:1.0,minLv:region.lv,name:cfg.name,ico:cfg.ico,bossKey:cfg.bossKey}};
-  showScreen('raid');
-  setTimeout(()=>{initRaid(rdKey,1,{regionId:region.id,diff});},50);
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      setTimeout(()=>{initRaid(rdKey,1,{regionId:region.id,diff});},50);
+    }
+  });
 }
 
 // ── Draw Tau'ri Map (Pangaea) ──
@@ -38567,8 +38834,12 @@ function swFireRaid(region,diff){
   swCloseAllPanels();closeStarWarsMap();
   activeRaid=rdKey;
   _pendingRegionRaid={region:{...region,id:ck},raidDef:{key:rdKey,diff,diffStyle:diff,floors:cfg.floors||3,scale:1.0,minLv:region.lv,name:cfg.name,ico:cfg.ico,bossKey:cfg.bossKey}};
-  showScreen('raid');
-  setTimeout(()=>{initRaid(rdKey,1,{regionId:ck,diff});},50);
+  TransitionManager.play('battleFlash',500,{
+    onMid:()=>{
+      showScreen('raid');
+      setTimeout(()=>{initRaid(rdKey,1,{regionId:ck,diff});},50);
+    }
+  });
 }
 </script>
 <script>
