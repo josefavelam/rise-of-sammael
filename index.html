@@ -1772,26 +1772,26 @@ const REGION_BOSSES={
 //        'debuff' = weaken player units, 'volley' = multi-projectile barrage
 const BOSS_ABILITIES={
   // ── Tau'ri Easy bosses — 1 ability each ──
-  barrow_king:  [{type:'aoe',cd:12,dmg:12,radius:100,ico:'💥',msg:'Tomb Burst!',col:'#6b7280'}],
-  inn_revenant: [{type:'dot',cd:14,dmg:4,ticks:4,interval:1.5,radius:80,ico:'🔥',msg:'Spectral Flames!',col:'#92400e'}],
-  barrow_specter:[{type:'debuff',cd:16,pct:0.25,dur:5,ico:'👻',msg:'Chilling Wail!',col:'#94a3b8'}],
-  great_troll:  [{type:'aoe',cd:10,dmg:14,radius:120,ico:'🪨',msg:'Boulder Slam!',col:'#65a30d'}],
-  river_spirit: [{type:'dot',cd:13,dmg:3,ticks:5,interval:1.2,radius:90,ico:'🌊',msg:'Drowning Tide!',col:'#60a5fa'}],
-  goblin_king:  [{type:'summon',cd:15,count:3,type2:'cultist',ico:'👺',msg:'Goblin Rush!',col:'#7c7c9a'}],
-  spider_brood: [{type:'dot',cd:11,dmg:5,ticks:3,interval:1.5,radius:70,ico:'🕸️',msg:'Web Venom!',col:'#7e22ce'}],
-  mirror_phantom:[{type:'debuff',cd:14,pct:0.30,dur:4,ico:'🪞',msg:'Shattered Reflection!',col:'#d4b54a'}],
-  oathbreaker_lord:[{type:'aoe',cd:12,dmg:16,radius:110,ico:'⚔️',msg:'Oathbreaker\'s Fury!',col:'#d97706'}],
-  siege_revenant:[{type:'volley',cd:13,count:4,dmg:8,ico:'🏹',msg:'Siege Barrage!',col:'#94a3b8'}],
-  uruk_overseer:[{type:'enrage',cd:18,mult:1.5,dur:6,ico:'💪',msg:'Uruk Frenzy!',col:'#c2410c'}],
-  elder_tree:   [{type:'heal',cd:20,pct:0.15,ico:'🌿',msg:'Ancient Roots heal!',col:'#166534'}],
-  fell_rider:   [{type:'aoe',cd:11,dmg:18,radius:100,ico:'🐴',msg:'Trampling Charge!',col:'#ea580c'}],
-  stone_revenant:[{type:'debuff',cd:15,pct:0.20,dur:6,ico:'🗿',msg:'Stone Curse!',col:'#6d28d9'}],
-  citadel_guardian:[{type:'volley',cd:14,count:5,dmg:10,ico:'🛡️',msg:'Guardian Salvo!',col:'#cbd5e1'}],
-  ranger_captain:[{type:'summon',cd:16,count:2,type2:'forest_wolf',ico:'🐺',msg:'Call the Pack!',col:'#4ade80'}],
-  ash_daemon:   [{type:'dot',cd:10,dmg:6,ticks:4,interval:1.2,radius:100,ico:'🌋',msg:'Magma Pools!',col:'#ef4444'}],
-  morgul_captain:[{type:'aoe',cd:12,dmg:20,radius:90,ico:'💀',msg:'Morgul Blast!',col:'#10b981'}],
-  gate_guardian: [{type:'enrage',cd:20,mult:1.6,dur:5,ico:'🔒',msg:'Gate Warden\'s Rage!',col:'#dc2626'}],
-  flame_warden: [{type:'dot',cd:9,dmg:7,ticks:5,interval:1.0,radius:110,ico:'🔥',msg:'Flame Cascade!',col:'#f97316'}],
+  barrow_king:  [{type:'aoe',cd:12,dmg:12,radius:100,ico:'💥',msg:'Tomb Burst!',col:'#6b7280'},{type:'debuff',cd:20,pct:0.20,dur:5,ico:'👻',msg:'Cursed Chill!',col:'#6b7280'}],
+  inn_revenant: [{type:'dot',cd:14,dmg:4,ticks:4,interval:1.5,radius:80,ico:'🔥',msg:'Spectral Flames!',col:'#92400e'},{type:'summon',cd:20,count:2,type2:'zombie_e',ico:'☠️',msg:'Risen Guests!',col:'#92400e'}],
+  barrow_specter:[{type:'debuff',cd:16,pct:0.25,dur:5,ico:'👻',msg:'Chilling Wail!',col:'#94a3b8'},{type:'aoe',cd:20,dmg:14,radius:90,ico:'💨',msg:'Phantom Blast!',col:'#94a3b8'}],
+  great_troll:  [{type:'aoe',cd:10,dmg:14,radius:120,ico:'🪨',msg:'Boulder Slam!',col:'#65a30d'},{type:'enrage',cd:22,mult:1.4,dur:5,ico:'💢',msg:'Troll Frenzy!',col:'#65a30d'}],
+  river_spirit: [{type:'dot',cd:13,dmg:3,ticks:5,interval:1.2,radius:90,ico:'🌊',msg:'Drowning Tide!',col:'#60a5fa'},{type:'area_denial',cd:20,dmg:4,dur:5,radius:70,interval:1,ico:'🌀',msg:'Whirlpool Zone!',col:'#60a5fa'}],
+  goblin_king:  [{type:'summon',cd:15,count:3,type2:'cultist',ico:'👺',msg:'Goblin Rush!',col:'#7c7c9a'},{type:'volley',cd:20,count:4,dmg:7,ico:'🗡️',msg:'Knife Barrage!',col:'#7c7c9a'}],
+  spider_brood: [{type:'dot',cd:11,dmg:5,ticks:3,interval:1.5,radius:70,ico:'🕸️',msg:'Web Venom!',col:'#7e22ce'},{type:'debuff',cd:20,pct:0.25,dur:4,ico:'🕷️',msg:'Paralyzing Bite!',col:'#7e22ce'}],
+  mirror_phantom:[{type:'debuff',cd:14,pct:0.30,dur:4,ico:'🪞',msg:'Shattered Reflection!',col:'#d4b54a'},{type:'minion_target',cd:22,dmg:9999,ico:'💀',msg:'Mirror Doom!',col:'#d4b54a'}],
+  oathbreaker_lord:[{type:'aoe',cd:12,dmg:16,radius:110,ico:'⚔️',msg:'Oathbreaker\'s Fury!',col:'#d97706'},{type:'enrage',cd:22,mult:1.5,dur:5,ico:'💢',msg:'Wrathful Charge!',col:'#d97706'}],
+  siege_revenant:[{type:'volley',cd:13,count:4,dmg:8,ico:'🏹',msg:'Siege Barrage!',col:'#94a3b8'},{type:'aoe',cd:20,dmg:15,radius:100,ico:'💣',msg:'Catapult Strike!',col:'#94a3b8'}],
+  uruk_overseer:[{type:'enrage',cd:18,mult:1.5,dur:6,ico:'💪',msg:'Uruk Frenzy!',col:'#c2410c'},{type:'summon',cd:22,count:2,type2:'death_knight',ico:'⚔️',msg:'Uruk Vanguard!',col:'#c2410c'}],
+  elder_tree:   [{type:'heal',cd:20,pct:0.15,ico:'🌿',msg:'Ancient Roots heal!',col:'#166534'},{type:'buff',cd:24,armor:0.3,dur:6,ico:'🛡️',msg:'Bark Shield!',col:'#166534'}],
+  fell_rider:   [{type:'aoe',cd:11,dmg:18,radius:100,ico:'🐴',msg:'Trampling Charge!',col:'#ea580c'},{type:'area_denial',cd:22,dmg:5,dur:5,radius:80,interval:1,ico:'🔥',msg:'Flaming Trail!',col:'#ea580c'}],
+  stone_revenant:[{type:'debuff',cd:15,pct:0.20,dur:6,ico:'🗿',msg:'Stone Curse!',col:'#6d28d9'},{type:'dot',cd:22,dmg:5,ticks:4,interval:1.2,radius:80,ico:'💎',msg:'Crystal Shards!',col:'#6d28d9'}],
+  citadel_guardian:[{type:'volley',cd:14,count:5,dmg:10,ico:'🛡️',msg:'Guardian Salvo!',col:'#cbd5e1'},{type:'buff',cd:24,armor:0.25,dur:6,ico:'🏰',msg:'Citadel Armor!',col:'#cbd5e1'}],
+  ranger_captain:[{type:'summon',cd:16,count:2,type2:'forest_wolf',ico:'🐺',msg:'Call the Pack!',col:'#4ade80'},{type:'volley',cd:20,count:3,dmg:9,ico:'🏹',msg:'Aimed Shots!',col:'#4ade80'}],
+  ash_daemon:   [{type:'dot',cd:10,dmg:6,ticks:4,interval:1.2,radius:100,ico:'🌋',msg:'Magma Pools!',col:'#ef4444'},{type:'area_denial',cd:22,dmg:5,dur:5,radius:90,interval:1,ico:'🔥',msg:'Lava Field!',col:'#ef4444'}],
+  morgul_captain:[{type:'aoe',cd:12,dmg:20,radius:90,ico:'💀',msg:'Morgul Blast!',col:'#10b981'},{type:'debuff',cd:20,pct:0.25,dur:5,ico:'🗡️',msg:'Morgul Blade!',col:'#10b981'}],
+  gate_guardian: [{type:'enrage',cd:20,mult:1.6,dur:5,ico:'🔒',msg:'Gate Warden\'s Rage!',col:'#dc2626'},{type:'minion_target',cd:24,dmg:9999,ico:'⚡',msg:'Guardian\'s Execution!',col:'#dc2626'}],
+  flame_warden: [{type:'dot',cd:9,dmg:7,ticks:5,interval:1.0,radius:110,ico:'🔥',msg:'Flame Cascade!',col:'#f97316'},{type:'aoe',cd:20,dmg:18,radius:100,ico:'💥',msg:'Eruption Blast!',col:'#f97316'}],
   // ── Tau'ri Medium bosses — 2 abilities each ──
   mill_ghost:   [{type:'aoe',cd:11,dmg:14,radius:100,ico:'💨',msg:'Ghostly Whirlwind!',col:'#9ca3af'},{type:'debuff',cd:18,pct:0.20,dur:5,ico:'😱',msg:'Terror!',col:'#9ca3af'}],
   road_wraith:  [{type:'volley',cd:12,count:5,dmg:9,ico:'🗡️',msg:'Shadow Blades!',col:'#b45309'},{type:'dot',cd:16,dmg:4,ticks:4,interval:1.2,radius:90,ico:'🌑',msg:'Creeping Darkness!',col:'#b45309'}],
@@ -1834,6 +1834,70 @@ const BOSS_ABILITIES={
   witchking_shadow:[{type:'debuff',cd:8,pct:0.45,dur:6,ico:'👑',msg:'Crown of Despair!',col:'#065f46'},{type:'summon',cd:12,count:4,type2:'wraith_e',ico:'👻',msg:'Wraith Choir!',col:'#065f46'}],
   dark_tower_lord:[{type:'aoe',cd:7,dmg:40,radius:120,ico:'🗼',msg:'Tower\'s Wrath!',col:'#991b1b'},{type:'volley',cd:12,count:10,dmg:18,ico:'👁️',msg:'Eye Beams!',col:'#991b1b'}],
   dark_lord:    [{type:'aoe',cd:6,dmg:44,radius:140,ico:'👁️',msg:'Tiamat\'s Apocalypse!',col:'#c2410c'},{type:'summon',cd:10,count:5,type2:'shadow_demon',ico:'😈',msg:'Demon Host!',col:'#c2410c'}],
+
+  // ── Skyriver Easy bosses — 2 abilities each ──
+  sw_sand_daemon:[{type:'aoe',cd:12,dmg:14,radius:100,ico:'🏜️',msg:'Sandstorm Blast!',col:'#f59e0b'},{type:'debuff',cd:20,pct:0.20,dur:5,ico:'😵',msg:'Sand Blind!',col:'#f59e0b'}],
+  sw_gungan_shade:[{type:'dot',cd:13,dmg:4,ticks:4,interval:1.2,radius:80,ico:'💧',msg:'Plasma Leak!',col:'#22c55e'},{type:'debuff',cd:20,pct:0.22,dur:5,ico:'⚡',msg:'Energy Drain!',col:'#22c55e'}],
+  sw_senate_ghost:[{type:'volley',cd:14,count:4,dmg:8,ico:'🗳️',msg:'Spectral Decree!',col:'#60a5fa'},{type:'debuff',cd:20,pct:0.22,dur:5,ico:'📜',msg:'Bureaucratic Daze!',col:'#60a5fa'}],
+  sw_geonosis_queen:[{type:'summon',cd:14,count:3,type2:'ghoul_e',ico:'🐛',msg:'Hive Drones!',col:'#d97706'},{type:'dot',cd:20,dmg:4,ticks:4,interval:1.3,radius:80,ico:'🧪',msg:'Hive Acid!',col:'#d97706'}],
+  sw_kaminoan_specter:[{type:'debuff',cd:15,pct:0.22,dur:5,ico:'🧬',msg:'Clone Decay!',col:'#93c5fd'},{type:'aoe',cd:20,dmg:14,radius:100,ico:'⚡',msg:'Lightning Surge!',col:'#93c5fd'}],
+  sw_wookiee_berserker:[{type:'enrage',cd:16,mult:1.4,dur:6,ico:'💢',msg:'Berserker Rage!',col:'#16a34a'},{type:'aoe',cd:20,dmg:16,radius:110,ico:'🤛',msg:'Ground Pound!',col:'#16a34a'}],
+  sw_sinkhole_daemon:[{type:'area_denial',cd:14,dmg:5,dur:5,radius:70,interval:1,ico:'🕳️',msg:'Sinkhole Opens!',col:'#a78bfa'},{type:'dot',cd:20,dmg:4,ticks:4,interval:1.2,radius:80,ico:'☁️',msg:'Toxic Gas!',col:'#a78bfa'}],
+  sw_lava_wraith:[{type:'dot',cd:12,dmg:5,ticks:4,interval:1.2,radius:90,ico:'🌋',msg:'Lava Burn!',col:'#ef4444'},{type:'aoe',cd:20,dmg:16,radius:100,ico:'🔥',msg:'Eruption!',col:'#ef4444'}],
+  sw_alderaan_ghost:[{type:'debuff',cd:14,pct:0.25,dur:5,ico:'😢',msg:'Phantom Grief!',col:'#7dd3fc'},{type:'volley',cd:20,count:4,dmg:8,ico:'🪨',msg:'Debris Shower!',col:'#7dd3fc'}],
+  sw_rebel_shade:[{type:'volley',cd:13,count:4,dmg:8,ico:'🔫',msg:'Blaster Shots!',col:'#86efac'},{type:'summon',cd:20,count:2,type2:'skeleton_e',ico:'👻',msg:'Rebel Spirits Rise!',col:'#86efac'}],
+  sw_ice_revenant:[{type:'aoe',cd:12,dmg:14,radius:100,ico:'❄️',msg:'Ice Burst!',col:'#e2e8f0'},{type:'debuff',cd:20,pct:0.25,dur:5,ico:'🥶',msg:'Deep Freeze!',col:'#e2e8f0'}],
+  sw_bog_daemon:[{type:'dot',cd:13,dmg:4,ticks:5,interval:1.2,radius:80,ico:'🌿',msg:'Swamp Rot!',col:'#4ade80'},{type:'area_denial',cd:20,dmg:4,dur:5,radius:70,interval:1,ico:'🕳️',msg:'Quicksand!',col:'#4ade80'}],
+  sw_cloud_shade:[{type:'debuff',cd:14,pct:0.22,dur:5,ico:'☁️',msg:'Cloud Blind!',col:'#fcd34d'},{type:'volley',cd:20,count:4,dmg:8,ico:'💨',msg:'Gas Jets!',col:'#fcd34d'}],
+  sw_ewok_shade:[{type:'summon',cd:14,count:3,type2:'cultist',ico:'🐻',msg:'Dark Ewoks!',col:'#15803d'},{type:'dot',cd:20,dmg:4,ticks:4,interval:1.3,radius:70,ico:'🏹',msg:'Poison Arrows!',col:'#15803d'}],
+  sw_station_horror:[{type:'aoe',cd:12,dmg:16,radius:100,ico:'⚡',msg:'Reactor Pulse!',col:'#6b7280'},{type:'debuff',cd:20,pct:0.22,dur:5,ico:'☢️',msg:'Radiation Surge!',col:'#6b7280'}],
+  sw_storm_revenant:[{type:'volley',cd:12,count:5,dmg:8,ico:'🔫',msg:'Blaster Volley!',col:'#fbbf24'},{type:'aoe',cd:20,dmg:16,radius:90,ico:'💣',msg:'Thermal Detonator!',col:'#fbbf24'}],
+  sw_hutt_shade:[{type:'debuff',cd:14,pct:0.25,dur:5,ico:'💰',msg:"Crime Lord's Grip!",col:'#b45309'},{type:'summon',cd:20,count:2,type2:'ghoul_e',ico:'🐍',msg:'Palace Guards!',col:'#b45309'}],
+  sw_destroyer_daemon:[{type:'volley',cd:13,count:5,dmg:9,ico:'🔴',msg:'Turbolaser Burst!',col:'#4b5563'},{type:'aoe',cd:20,dmg:16,radius:110,ico:'💥',msg:'Hull Breach!',col:'#4b5563'}],
+  sw_ds2_guardian:[{type:'aoe',cd:12,dmg:16,radius:100,ico:'⚡',msg:'Station Shock!',col:'#374151'},{type:'buff',cd:22,armor:0.25,dur:6,ico:'🛡️',msg:'Shield Boost!',col:'#374151'}],
+  sw_bunker_daemon:[{type:'dot',cd:12,dmg:5,ticks:4,interval:1.2,radius:80,ico:'💣',msg:'Explosive Trap!',col:'#166534'},{type:'enrage',cd:22,mult:1.4,dur:5,ico:'💢',msg:'Last Stand!',col:'#166534'}],
+  // ── Skyriver Medium bosses — 2 abilities each ──
+  sw_krayt_specter:[{type:'aoe',cd:11,dmg:18,radius:110,ico:'🐉',msg:'Tail Swipe!',col:'#d97706'},{type:'dot',cd:17,dmg:6,ticks:4,interval:1.2,radius:90,ico:'🧪',msg:'Acid Spit!',col:'#d97706'}],
+  sw_viceroy_wraith:[{type:'volley',cd:11,count:5,dmg:10,ico:'⚙️',msg:'Droid Volley!',col:'#4ade80'},{type:'debuff',cd:18,pct:0.28,dur:5,ico:'📜',msg:'Trade Sanctions!',col:'#4ade80'}],
+  sw_chancellor_shade:[{type:'debuff',cd:11,pct:0.30,dur:5,ico:'🌑',msg:'Dark Influence!',col:'#3b82f6'},{type:'aoe',cd:16,dmg:22,radius:110,ico:'⚡',msg:'Force Lightning!',col:'#3b82f6'}],
+  sw_droid_overlord:[{type:'summon',cd:12,count:3,type2:'skeleton_e',ico:'🤖',msg:'Deploy Battle Droids!',col:'#b45309'},{type:'volley',cd:16,count:6,dmg:11,ico:'🔫',msg:'Laser Barrage!',col:'#b45309'}],
+  sw_clone_revenant:[{type:'volley',cd:10,count:6,dmg:10,ico:'🔫',msg:'Dual Blasters!',col:'#7dd3fc'},{type:'enrage',cd:18,mult:1.5,dur:6,ico:'💢',msg:'Clone Protocol 66!',col:'#7dd3fc'}],
+  sw_grievous_shade:[{type:'aoe',cd:10,dmg:20,radius:120,ico:'⚔️',msg:'Lightsaber Spin!',col:'#15803d'},{type:'minion_target',cd:18,dmg:9999,ico:'💀',msg:'Grievous Strike!',col:'#15803d'}],
+  sw_pau_city_horror:[{type:'dot',cd:11,dmg:6,ticks:4,interval:1.2,radius:90,ico:'🧪',msg:'Acid Pools!',col:'#8b5cf6'},{type:'area_denial',cd:18,dmg:5,dur:5,radius:80,interval:1,ico:'🕳️',msg:'Sinkhole Collapse!',col:'#8b5cf6'}],
+  sw_fire_daemon:[{type:'dot',cd:10,dmg:7,ticks:5,interval:1.0,radius:100,ico:'🔥',msg:'Fire Rain!',col:'#dc2626'},{type:'aoe',cd:16,dmg:24,radius:100,ico:'🌋',msg:'Magma Wave!',col:'#dc2626'}],
+  sw_senator_shade:[{type:'debuff',cd:12,pct:0.28,dur:5,ico:'👻',msg:'Force Suppress!',col:'#60a5fa'},{type:'heal',cd:18,pct:0.12,ico:'🖤',msg:'Life Drain!',col:'#60a5fa'}],
+  sw_xwing_wraith:[{type:'volley',cd:10,count:6,dmg:12,ico:'🔴',msg:'Laser Cannons!',col:'#4ade80'},{type:'aoe',cd:16,dmg:22,radius:110,ico:'💥',msg:'Proton Torpedo!',col:'#4ade80'}],
+  sw_wampa_horror:[{type:'enrage',cd:16,mult:1.5,dur:6,ico:'🐻',msg:'Wampa Fury!',col:'#cbd5e1'},{type:'aoe',cd:12,dmg:22,radius:120,ico:'❄️',msg:'Ice Slam!',col:'#cbd5e1'}],
+  sw_darkside_echo:[{type:'debuff',cd:11,pct:0.30,dur:5,ico:'😨',msg:'Dark Vision!',col:'#22c55e'},{type:'area_denial',cd:18,dmg:5,dur:5,radius:80,interval:1,ico:'🌑',msg:'Shadow Pool!',col:'#22c55e'}],
+  sw_tibanna_wraith:[{type:'dot',cd:10,dmg:6,ticks:5,interval:1.0,radius:100,ico:'☁️',msg:'Gas Cloud!',col:'#f59e0b'},{type:'debuff',cd:18,pct:0.28,dur:5,ico:'😵',msg:'Poisoned Air!',col:'#f59e0b'}],
+  sw_endor_daemon:[{type:'summon',cd:12,count:3,type2:'treant',ico:'🌲',msg:'Dark Treants Rise!',col:'#166534'},{type:'dot',cd:18,dmg:5,ticks:4,interval:1.2,radius:90,ico:'🍄',msg:'Forest Blight!',col:'#166534'}],
+  sw_superlaser_wraith:[{type:'aoe',cd:10,dmg:24,radius:120,ico:'💥',msg:'Reactor Beam!',col:'#4b5563'},{type:'debuff',cd:16,pct:0.30,dur:5,ico:'☢️',msg:'Radiation Burn!',col:'#4b5563'}],
+  sw_carbon_wraith:[{type:'debuff',cd:11,pct:0.32,dur:5,ico:'🥶',msg:'Carbon Freeze!',col:'#f59e0b'},{type:'aoe',cd:16,dmg:22,radius:100,ico:'❄️',msg:'Cryo Blast!',col:'#f59e0b'}],
+  sw_rancor_specter:[{type:'aoe',cd:10,dmg:24,radius:120,ico:'🦎',msg:'Rancor Slam!',col:'#92400e'},{type:'enrage',cd:18,mult:1.5,dur:6,ico:'💢',msg:'Beast Rage!',col:'#92400e'}],
+  sw_executor_shade:[{type:'volley',cd:9,count:7,dmg:12,ico:'🔴',msg:'Turbolaser Salvo!',col:'#374151'},{type:'summon',cd:16,count:3,type2:'death_knight',ico:'🪖',msg:'Storm Troopers!',col:'#374151'}],
+  sw_throne_specter:[{type:'debuff',cd:10,pct:0.35,dur:5,ico:'⚡',msg:'Force Drain!',col:'#1f2937'},{type:'aoe',cd:16,dmg:26,radius:120,ico:'⚡',msg:'Lightning Storm!',col:'#1f2937'}],
+  sw_shield_horror:[{type:'buff',cd:18,armor:0.30,dur:6,ico:'🛡️',msg:'Shield Overcharge!',col:'#15803d'},{type:'aoe',cd:12,dmg:22,radius:110,ico:'💥',msg:'Generator Burst!',col:'#15803d'}],
+  // ── Skyriver Hard bosses — 3 abilities (3rd unlocks Phase 3 at 25% HP) ──
+  sw_tusken_warlord:[{type:'aoe',cd:10,dmg:20,radius:120,ico:'⚔️',msg:'War Cry!',col:'#b45309'},{type:'enrage',cd:16,mult:1.6,dur:7,ico:'💢',msg:'Blood Frenzy!',col:'#b45309'},{type:'minion_target',cd:20,dmg:9999,ico:'💀',msg:'Ritual Kill!',col:'#b45309'}],
+  sw_maul_shade:[{type:'aoe',cd:9,dmg:22,radius:110,ico:'☯️',msg:'Double Blade Spin!',col:'#dc2626'},{type:'area_denial',cd:14,dmg:7,dur:5,radius:80,interval:1,ico:'🌀',msg:'Force Vortex!',col:'#dc2626'},{type:'minion_target',cd:18,dmg:9999,ico:'💀',msg:'Impale!',col:'#dc2626'}],
+  sw_sith_phantom:[{type:'debuff',cd:10,pct:0.35,dur:5,ico:'⚡',msg:'Sith Lightning!',col:'#1d4ed8'},{type:'aoe',cd:14,dmg:26,radius:130,ico:'🌀',msg:'Force Storm!',col:'#1d4ed8'},{type:'area_denial',cd:18,dmg:7,dur:6,radius:90,interval:1,ico:'🌑',msg:'Dark Nexus!',col:'#1d4ed8'}],
+  sw_dooku_shade:[{type:'volley',cd:9,count:6,dmg:14,ico:'⚡',msg:'Force Lightning Chain!',col:'#92400e'},{type:'debuff',cd:14,pct:0.35,dur:5,ico:'🗡️',msg:'Elegant Mastery!',col:'#92400e'},{type:'minion_target',cd:18,dmg:9999,ico:'💀',msg:'Duelist Strike!',col:'#92400e'}],
+  sw_jango_risen:[{type:'volley',cd:8,count:7,dmg:14,ico:'🔫',msg:'Dual Pistols!',col:'#0ea5e9'},{type:'aoe',cd:14,dmg:28,radius:110,ico:'🚀',msg:'Rocket Barrage!',col:'#0ea5e9'},{type:'area_denial',cd:18,dmg:7,dur:5,radius:80,interval:1,ico:'🔥',msg:'Flame Wall!',col:'#0ea5e9'}],
+  sw_kashyyyk_titan:[{type:'aoe',cd:10,dmg:28,radius:130,ico:'🌳',msg:'Tree Slam!',col:'#166534'},{type:'summon',cd:14,count:3,type2:'treant',ico:'🌲',msg:'Corrupted Wookiees!',col:'#166534'},{type:'enrage',cd:18,mult:1.7,dur:7,ico:'💢',msg:'Forest Fury!',col:'#166534'}],
+  sw_grievous_risen:[{type:'aoe',cd:8,dmg:30,radius:120,ico:'⚔️',msg:'4-Saber Whirl!',col:'#6d28d9'},{type:'minion_target',cd:14,dmg:9999,ico:'💀',msg:'Jedi Killer!',col:'#6d28d9'},{type:'enrage',cd:18,mult:1.7,dur:6,ico:'💢',msg:'Cough Rage!',col:'#6d28d9'}],
+  sw_vader_shadow:[{type:'aoe',cd:8,dmg:32,radius:120,ico:'🖤',msg:'Force Choke Wave!',col:'#b91c1c'},{type:'area_denial',cd:14,dmg:8,dur:6,radius:90,interval:1,ico:'🌑',msg:'Dark Meditation!',col:'#b91c1c'},{type:'minion_target',cd:18,dmg:9999,ico:'💀',msg:'Force Crush!',col:'#b91c1c'}],
+  sw_organa_revenant:[{type:'debuff',cd:10,pct:0.35,dur:6,ico:'😢',msg:'Noble Despair!',col:'#3b82f6'},{type:'summon',cd:14,count:3,type2:'banshee',ico:'👻',msg:'Alderaan Ghosts!',col:'#3b82f6'},{type:'heal',cd:18,pct:0.15,ico:'💙',msg:'Memory Restore!',col:'#3b82f6'}],
+  sw_gold_leader:[{type:'volley',cd:8,count:8,dmg:14,ico:'🚀',msg:'Proton Torpedoes!',col:'#22c55e'},{type:'aoe',cd:14,dmg:30,radius:120,ico:'💥',msg:'Trench Run Blast!',col:'#22c55e'},{type:'buff',cd:18,armor:0.30,dur:6,ico:'✈️',msg:'Attack Formation!',col:'#22c55e'}],
+  sw_atat_specter:[{type:'aoe',cd:8,dmg:34,radius:130,ico:'🦶',msg:'Walker Stomp!',col:'#94a3b8'},{type:'volley',cd:14,count:8,dmg:16,ico:'🔴',msg:'Heavy Cannons!',col:'#94a3b8'},{type:'area_denial',cd:18,dmg:8,dur:6,radius:100,interval:1,ico:'💥',msg:'Ground Assault!',col:'#94a3b8'}],
+  sw_cave_horror:[{type:'debuff',cd:9,pct:0.40,dur:6,ico:'😨',msg:'Dark Vision!',col:'#166534'},{type:'area_denial',cd:14,dmg:8,dur:6,radius:90,interval:1,ico:'🌑',msg:'Shadow Tendrils!',col:'#166534'},{type:'minion_target',cd:18,dmg:9999,ico:'💀',msg:'Nightmare Consume!',col:'#166534'}],
+  sw_boba_risen:[{type:'volley',cd:8,count:8,dmg:16,ico:'🚀',msg:'Wrist Rockets!',col:'#d97706'},{type:'aoe',cd:14,dmg:34,radius:110,ico:'💣',msg:'Thermal Detonator!',col:'#d97706'},{type:'enrage',cd:18,mult:1.7,dur:6,ico:'💢',msg:'No Disintegrations!',col:'#d97706'}],
+  sw_endor_titan:[{type:'aoe',cd:8,dmg:36,radius:130,ico:'🌳',msg:'Root Slam!',col:'#14532d'},{type:'summon',cd:14,count:4,type2:'treant',ico:'🌲',msg:'Dark Saplings!',col:'#14532d'},{type:'buff',cd:18,armor:0.35,dur:7,ico:'🛡️',msg:'Bark Armor!',col:'#14532d'}],
+  sw_tarkin_shade:[{type:'volley',cd:8,count:9,dmg:16,ico:'🔴',msg:'Orbital Strikes!',col:'#374151'},{type:'debuff',cd:14,pct:0.40,dur:6,ico:'😱',msg:'Fear of Station!',col:'#374151'},{type:'aoe',cd:18,dmg:38,radius:120,ico:'💥',msg:'Superlaser Charge!',col:'#374151'}],
+  sw_ugnaught_risen:[{type:'summon',cd:10,count:4,type2:'ghoul_e',ico:'👷',msg:'Ugnaught Swarm!',col:'#d97706'},{type:'dot',cd:14,dmg:8,ticks:5,interval:1.0,radius:110,ico:'☁️',msg:'Gas Leak!',col:'#d97706'},{type:'area_denial',cd:18,dmg:7,dur:6,radius:90,interval:1,ico:'🔥',msg:'Furnace Zone!',col:'#d97706'}],
+  sw_sarlacc_horror:[{type:'dot',cd:8,dmg:9,ticks:6,interval:0.8,radius:120,ico:'🧪',msg:'Digestive Acid!',col:'#78350f'},{type:'area_denial',cd:14,dmg:8,dur:6,radius:100,interval:1,ico:'🐙',msg:'Tentacle Zone!',col:'#78350f'},{type:'minion_target',cd:18,dmg:9999,ico:'💀',msg:'Devour!',col:'#78350f'}],
+  sw_vader_risen:[{type:'aoe',cd:7,dmg:38,radius:130,ico:'🖤',msg:'Force Storm!',col:'#dc2626'},{type:'minion_target',cd:12,dmg:9999,ico:'💀',msg:'Force Choke!',col:'#dc2626'},{type:'area_denial',cd:16,dmg:9,dur:6,radius:100,interval:1,ico:'🌑',msg:'Dark Side Nexus!',col:'#dc2626'}],
+  sw_palpatine_risen:[{type:'aoe',cd:6,dmg:44,radius:140,ico:'⚡',msg:'UNLIMITED POWER!',col:'#6b21a8'},{type:'area_denial',cd:12,dmg:10,dur:7,radius:100,interval:0.8,ico:'⚡',msg:'Lightning Field!',col:'#6b21a8'},{type:'summon',cd:16,count:4,type2:'death_knight',ico:'💂',msg:'Royal Guard Ghosts!',col:'#6b21a8'}],
+  sw_palpatine_shade:[{type:'debuff',cd:8,pct:0.45,dur:6,ico:'🌑',msg:'Sith Corruption!',col:'#4c1d95'},{type:'aoe',cd:12,dmg:40,radius:130,ico:'⚡',msg:'Force Lightning Burst!',col:'#4c1d95'},{type:'minion_target',cd:16,dmg:9999,ico:'💀',msg:'Execute Order 66!',col:'#4c1d95'}],
 };
 
 let activeRaid=null; // key into RAID_CONFIGS
@@ -12085,7 +12149,7 @@ function initRaid(raidKey,floorNum,opts){
     raidKey,floorNum,floorTotal:_floorTotal,isFinalFloor,cfg,
     grid,stairX,stairY,rooms,
     necro:{x:startX,y:startY,tx:startX,ty:startY,hp:GS.necroHP,maxHP:GS.necroMaxHP,dead:false,regenAcc:0},
-    minions,enemies,boss:null,bossReady:false,bossPhase:1,bossPhaseAnn:false,
+    minions,enemies,boss:null,bossReady:false,bossPhase:1,bossPhaseAnn:false,_phase3Ann:false,
     bossDef,onFinalFloor:isFinalFloor,
     parts:[],bonesGained:RS?RS.bonesGained:0,wGained:RS?RS.wGained:{pp:0,gp:0,sp:0,cp:0},
     xpGained:RS?RS.xpGained:0,
@@ -14455,6 +14519,7 @@ function tickBoss(t,dt){
   const b=RS.boss;const bd=b.def||BOSSES.lich;
   const bCol=bd.color||'#22ff44';
   if(!RS.bossPhaseAnn&&b.hp<=bd.phase2HP){RS.bossPhase=2;RS.bossPhaseAnn=true;flash(`💀 ${bd.name} ENRAGES!\nPhase II begins!`,18,bCol);}
+  if(!RS._phase3Ann&&RS.bossPhase>=2&&b.hp<=Math.round(bd.maxHP*0.25)){RS.bossPhase=3;RS._phase3Ann=true;flash(`☠️ ${bd.name} enters DEATH PHASE!`,20,'#dc2626');RS.parts.push({k:'aoe',x:b.x,y:b.y,r:10,maxR:200,col:'#dc2626',life:1,ml:1});}
   const dist=hyp(b.x,b.y,RS.necro.x,RS.necro.y);
   if(!RS.necro.dead){
     if(dist<160){
@@ -14476,7 +14541,7 @@ function tickBoss(t,dt){
     if(RS._activeHeroes){RS._activeHeroes.forEach(h=>{if(h.dead)return;if(h.heroId==='meruem'&&h._ghostActive)return;const d=hyp(b.x,b.y,h.x,h.y);if(d<nd&&d<bd.rng){nd=d;tgt=h;}});}
     // Co-op: boss targets remote necros too
     if(MP?.started&&MP._remoteNecros){Object.values(MP._remoteNecros).forEach(rn=>{if(!rn||rn.dead)return;const d=hyp(b.x,b.y,rn.x,rn.y);if(d<nd&&d<bd.rng){nd=d;tgt={x:rn.x,y:rn.y,hp:rn.hp,maxHP:rn.maxHP,_isRemote:true,playerIdx:rn.playerIdx};}});}
-    if(tgt)attackTarget(tgt,bd.dmg,t);
+    if(tgt){let _bDmg=bd.dmg;if(b._buffArmor&&b._buffUntil&&t<b._buffUntil)_bDmg=Math.round(_bDmg*(1+b._buffArmor));attackTarget(tgt,_bDmg,t);}
     if(tgt&&nd>55){RS.parts.push({k:'proj',x:b.x,y:b.y,tx:tgt.x,ty:tgt.y,prog:0,spd:3.5,col:bCol,life:1,ml:1});}
   }
   // ── BOSS_ABILITIES system: unique abilities per boss ──
@@ -14487,7 +14552,7 @@ function tickBoss(t,dt){
       const ab=_bossAbils[ai];
       if(t-b._abCDs[ai]<ab.cd)continue;
       // Phase-gate: first ability always available, subsequent abilities unlock in Phase 2
-      if(ai>0&&RS.bossPhase!==2)continue;
+      if(ai===1&&RS.bossPhase<2)continue;if(ai>=2&&RS.bossPhase<3)continue;
       b._abCDs[ai]=t;
       const ac=ab.col||bCol;
       switch(ab.type){
@@ -14574,6 +14639,47 @@ function tickBoss(t,dt){
             attackTarget(vt,ab.dmg||8,t);
           }
           flash(`${ab.ico} ${ab.msg}`,12,ac);
+          break;
+        }
+        case'area_denial':{
+          const adX=b.x+(Math.random()-.5)*200,adY=b.y+(Math.random()-.5)*200;
+          const adR=ab.radius||80,adDmg=ab.dmg||6,adDur=ab.dur||6,adInt=ab.interval||1;
+          let adTick=0;const adMax=Math.ceil(adDur/adInt);
+          RS.parts.push({k:'aoe',x:adX,y:adY,r:adR*.3,maxR:adR,col:ac+'60',life:1,ml:1});
+          flash(`${ab.ico} ${ab.msg}`,13,ac);
+          setTimeout(()=>{
+            const adId=setInterval(()=>{
+              if(++adTick>adMax||!RS||RS.state!=='combat'){clearInterval(adId);return;}
+              const adT=[...RS.minions.filter(m=>!m.dead),...(RS._activeHeroes||[]).filter(h=>!h.dead)];
+              if(!RS.necro.dead)adT.push(RS.necro);
+              adT.forEach(u=>{if(hyp(adX,adY,u.x,u.y)<=adR){u.hp-=adDmg;if(u.ref)u.ref.hp=u.hp;RS.parts.push({k:'dmg',x:u.x,y:u.y-22,txt:`-${adDmg}`,col:ac,life:.6,ml:.6,vy:-20});if(u!==RS.necro&&u.hp<=0&&!u.heroId)killMinion(u);}});
+              RS.parts.push({k:'aoe',x:adX,y:adY,r:adR*.5,maxR:adR*.7,col:ac+'40',life:.3,ml:.3});
+            },adInt*1000);
+          },1000);
+          break;
+        }
+        case'minion_target':{
+          const mtT=RS.minions.filter(m=>!m.dead).sort((a2,b2)=>a2.hp-b2.hp);
+          if(!mtT.length)break;
+          const mtV=mtT[0];
+          RS.parts.push({k:'dmg',x:mtV.x,y:mtV.y-30,txt:'💀 MARKED',col:'#dc2626',life:1.5,ml:1.5,vy:-15});
+          flash(`${ab.ico} ${ab.msg}`,13,ac);
+          setTimeout(()=>{
+            if(!RS||RS.state!=='combat'||mtV.dead)return;
+            const execDmg=ab.dmg||9999;
+            mtV.hp-=execDmg;if(mtV.ref)mtV.ref.hp=mtV.hp;
+            RS.parts.push({k:'dmg',x:mtV.x,y:mtV.y-22,txt:`-${execDmg}`,col:'#dc2626',life:1,ml:1,vy:-30});
+            if(mtV.hp<=0&&!mtV.heroId)killMinion(mtV);
+          },1500);
+          break;
+        }
+        case'buff':{
+          if(!b._buffUntil||t>b._buffUntil){
+            b._buffArmor=ab.armor||0;b._buffSpd=ab.spdMult||1;b._buffUntil=t+(ab.dur||6);
+            flash(`${ab.ico} ${ab.msg}`,14,ac);
+            RS.parts.push({k:'aoe',x:b.x,y:b.y,r:10,maxR:60,col:ac,life:.6,ml:.6});
+            setTimeout(()=>{b._buffArmor=0;b._buffSpd=1;b._buffUntil=0;},ab.dur*1000);
+          }
           break;
         }
       }
