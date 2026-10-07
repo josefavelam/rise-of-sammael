@@ -38535,16 +38535,19 @@ async function _lbSubmitAndRefresh(){
   if(ok) _lbLoadCategory(_lbCurrentCat);
 }
 
-// Auto-submit scores on cloud save (piggyback)
-const _origCloudSave=CloudSave.saveToCloud?.bind(CloudSave);
-if(_origCloudSave){
-  CloudSave.saveToCloud=async function(gsj){
-    const r=await _origCloudSave(gsj);
-    // Fire-and-forget leaderboard submit
-    if(r) _lbSubmitAll().catch(()=>{});
-    return r;
-  };
-}
+// Auto-submit scores on cloud save (piggyback) — deferred until CloudSave is ready
+(function _patchCloudSave(){
+  if(typeof CloudSave==='undefined'||!CloudSave){setTimeout(_patchCloudSave,500);return;}
+  const _origCloudSave=CloudSave.saveToCloud?.bind(CloudSave);
+  if(_origCloudSave){
+    CloudSave.saveToCloud=async function(gsj){
+      const r=await _origCloudSave(gsj);
+      // Fire-and-forget leaderboard submit
+      if(r) _lbSubmitAll().catch(()=>{});
+      return r;
+    };
+  }
+})();
 
 // ═══════════════════════════════════════════════════════════════
 //  GUILD SYSTEM
@@ -39115,16 +39118,19 @@ async function _guildLeave(){
   }catch(e){showToast('Failed: '+e.message);}
 }
 
-// ── Auto-refresh guild data on cloud load ──
-const _origCloudLoad=CloudSave.loadFromCloud?.bind(CloudSave);
-if(_origCloudLoad){
-  CloudSave.loadFromCloud=async function(){
-    const r=await _origCloudLoad();
-    // After cloud load, refresh guild data if player has a guild
-    if(GS.guildId){_guildRefresh().catch(()=>{});}
-    return r;
-  };
-}
+// ── Auto-refresh guild data on cloud load — deferred until CloudSave is ready ──
+(function _patchCloudLoad(){
+  if(typeof CloudSave==='undefined'||!CloudSave){setTimeout(_patchCloudLoad,500);return;}
+  const _origCloudLoad=CloudSave.loadFromCloud?.bind(CloudSave);
+  if(_origCloudLoad){
+    CloudSave.loadFromCloud=async function(){
+      const r=await _origCloudLoad();
+      // After cloud load, refresh guild data if player has a guild
+      if(GS.guildId){_guildRefresh().catch(()=>{});}
+      return r;
+    };
+  }
+})();
 
 // ═══════════════════════════════════════════════════════════════
 //  DEV GIFT SYSTEM
