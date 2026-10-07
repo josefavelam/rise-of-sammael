@@ -2319,6 +2319,18 @@ const SHOP_ITEMS={
     {id:'lore_scroll',  name:'Lore Scroll',          ico:'📜',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Knowledge from an ancient tome. Grants +30% XP for one raid.',effect:'xpBuff',val:0.3},
     {id:'dwarven_axe',  name:'Dwarven Axe',          ico:'⚔️',price:{gp:0},  type:'quest_item',qty:true, shopHidden:true, desc:'A legendary Dwarven weapon stolen by the Great Troll. Return it to the Dwarf.',effect:'none',val:0},
     {id:'dwarven_ale',  name:'Dwarven Ale',           ico:'🍺',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Hearty Dwarven brew. Heals 80 HP and grants +15% ATK for one raid.',effect:'healAndAtk',val:80},
+    // ── Crafted Potions ──
+    {id:'elixir_shadows',name:'Elixir of Shadows',    ico:'👤',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Become invisible for 10s. Enemies ignore you.',effect:'invisibility',val:10},
+    {id:'necro_vigor',   name:"Necromancer's Vigor",   ico:'💪',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'+50% max HP for 1 raid.',effect:'hpBuff',val:0.5},
+    {id:'soul_drain',    name:'Soul Drain Tonic',      ico:'🩸',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Lifesteal 20% of damage dealt for 60s.',effect:'lifesteal',val:0.2},
+    {id:'swift_brew',    name:'Swiftness Brew',        ico:'💨',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'+30% movement speed for 1 raid.',effect:'speedBuff',val:0.3},
+    {id:'minion_frenzy', name:'Minion Frenzy',         ico:'⚡',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'All minions +25% attack speed for 60s.',effect:'minionSpeed',val:0.25},
+    // ── Crafted Minion Items ──
+    {id:'raise_scroll',  name:'Raise Dead Scroll',     ico:'📜',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Instantly raise a random fallen minion during a raid.',effect:'raiseDead',val:1},
+    {id:'bone_armor_kit',name:'Bone Armor Kit',        ico:'🛡️',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'+20% HP to all minions for 1 raid.',effect:'minionHP',val:0.2},
+    {id:'dark_binding',  name:'Dark Binding',          ico:'⛓️',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Convert first enemy killed into a temporary minion for 30s.',effect:'convert',val:30},
+    {id:'spirit_anchor', name:'Spirit Anchor',         ico:'⚓',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Prevent 1 minion death per raid.',effect:'minionShield',val:1},
+    {id:'mass_summon',   name:'Mass Summon Tome',      ico:'📖',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Summon 3 random minions at start of raid.',effect:'massSummon',val:3},
   ],
   equipment:[
     {id:'staff_bone',   name:'Bone Staff',          ico:'🦴',price:{gp:0},   type:'staff',unique:true,  desc:'Starting staff. Basic necrotic channel.',stats:{dmgMult:1.0,cdMult:1.0,label:'Starter'}},
@@ -2327,6 +2339,12 @@ const SHOP_ITEMS={
     {id:'robe_dark',    name:'Dark Acolyte Robes',  ico:'🧥',price:{gp:15},  type:'armor',unique:true,  desc:'Ethereal protection. +20 max HP.',stats:{maxHP:20,label:'+20 HP'}},
     {id:'robe_lich',    name:"Lich's Raiment",      ico:'🌌',price:{gp:60},  type:'armor',unique:true,  desc:'Undead fabric. +50 max HP, 10% dmg reduction.',stats:{maxHP:50,dmgReduce:.1,label:'+50 HP / 10% DR'}},
     {id:'amulet_bone',  name:'Amulet of Bones',     ico:'📿',price:{gp:30},  type:'accessory',unique:true, desc:'Bone resonance. All bones gained +25%.',stats:{boneBonus:.25,label:'+25% Bones'}},
+    // ── Crafted Equipment ──
+    {id:'bone_shield',     name:'Bone Shield',          ico:'🛡',price:{gp:0},  type:'armor', unique:true, shopHidden:true, desc:'Sturdy bone barrier. +15% damage reduction.',stats:{dmgReduce:0.15,label:'+15% DR'}},
+    {id:'spectral_gauntlets',name:'Spectral Gauntlets', ico:'🧤',price:{gp:0},  type:'accessory',unique:true, shopHidden:true, desc:'Ghostly handwraps. +10% spell damage.',stats:{spellDmg:0.10,label:'+10% Spell DMG'}},
+    {id:'crypt_boots',     name:'Crypt Walker Boots',   ico:'👢',price:{gp:0},  type:'accessory',unique:true, shopHidden:true, desc:'Silent tomb-treaders. +20% movement speed.',stats:{moveSpeed:0.20,label:'+20% Move Speed'}},
+    {id:'soulweave_cloak', name:'Soulweave Cloak',      ico:'🧣',price:{gp:0},  type:'armor', unique:true, shopHidden:true, desc:'Woven from spirit threads. +10% XP gain.',stats:{xpBonus:0.10,label:'+10% XP'}},
+    {id:'deathgrip_staff', name:'Deathgrip Staff',      ico:'💀',price:{gp:0},  type:'staff', unique:true, shopHidden:true, desc:'Staff of necromantic command. +15% minion damage.',stats:{dmgMult:1.0,cdMult:1.0,minionDmg:0.15,label:'+15% Minion DMG'}},
     // ── Dev Gift cosmetics (given by code, not purchased) ──────────────────
     {id:'staff_white',  name:'White Bone Staff',    ico:'🪄',price:{gp:0},  type:'staff',  unique:true, devOnly:true, desc:'A radiant staff of pure bone. Cosmetic variant.',stats:{dmgMult:1.0,cdMult:1.0,label:'Starter'}},
     {id:'robe_white',   name:'White Necromancer Robes',ico:'🥼',price:{gp:0},type:'armor',  unique:true, devOnly:true, desc:'Pristine white necromantic vestments.',stats:{maxHP:0,label:'Cosmetic'}},
@@ -2502,7 +2520,7 @@ const LOOT_TABLES={
 // ── Loot Roll Functions ─────────────────────────────────────────────────────
 function getLootLuck(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.lootLuck||0)+getTavernBuff('lootMult')+getCastleBonus('lootMult');}
 function getGoldBonus(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.goldBonus||0)+getCastleBonus('goldMult');}
-function getXPBonus(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return a?.stats?.xpBonus||0;}
+function getXPBonus(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);const ar=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.armor);return (a?.stats?.xpBonus||0)+(ar?.stats?.xpBonus||0);}
 
 function _weightedPick(pool){
   if(!pool||!pool.length)return null;
@@ -3799,15 +3817,30 @@ const CRAFT_RECIPES={
     {id:'c_bone_pack',  name:'Bone Pack',           ico:'🦴',result:'bone_pack_s',desc:'Grants 10 bones.',cost:{bones:8,herbs:1},output:3},
     {id:'c_fury',       name:'Potion of Fury',      ico:'🔥',result:'atk_potion',desc:'+50% minion dmg next raid.',cost:{herbs:4,wood:2},output:1},
     {id:'c_shield',     name:'Energy Shield',       ico:'🛡️',result:'def_shield',desc:'Absorbs 50% max HP damage.',cost:{wood:4,herbs:3},output:1},
+    {id:'c_elixir_shadow',name:'Elixir of Shadows', ico:'👤',result:'elixir_shadows',desc:'Invisibility for 10s during raid.',cost:{herbs:5,bones:3},output:1},
+    {id:'c_vigor',      name:"Necromancer's Vigor",  ico:'💪',result:'necro_vigor',desc:'+50% max HP for 1 raid.',cost:{herbs:3,currency_gp:5},output:1},
+    {id:'c_soul_drain', name:'Soul Drain Tonic',     ico:'🩸',result:'soul_drain',desc:'Lifesteal 20% for 60s.',cost:{bones:5,herbs:2},output:1},
+    {id:'c_swift',      name:'Swiftness Brew',       ico:'💨',result:'swift_brew',desc:'+30% move speed for 1 raid.',cost:{herbs:4,wood:2},output:1},
+    {id:'c_frenzy',     name:'Minion Frenzy',        ico:'⚡',result:'minion_frenzy',desc:'Minions +25% atk speed 60s.',cost:{bones:4,herbs:3},output:1},
   ],
   equipment:[
     {id:'c_staff2', name:'Staff of Shadows',   ico:'🌑',result:'equip_staff_shadow',  desc:'-15% spell CD.',cost:{wood:8,bones:20,currency_gp:10},output:1,equip:'staff_shadow'},
     {id:'c_armor1', name:'Dark Acolyte Robes', ico:'🧥',result:'equip_robe_dark',     desc:'+20 max HP.',  cost:{wood:5,herbs:4},output:1,equip:'robe_dark'},
     {id:'c_armor2', name:"Lich's Raiment",     ico:'🌌',result:'equip_robe_lich',     desc:'+50 HP, 10% DR.',cost:{wood:15,herbs:10,bones:30},output:1,equip:'robe_lich'},
+    {id:'c_bone_shield',name:'Bone Shield',       ico:'🛡',result:'equip_bone_shield', desc:'+15% damage reduction.',cost:{bones:20,currency_gp:10},output:1,equip:'bone_shield'},
+    {id:'c_gauntlets',name:'Spectral Gauntlets',   ico:'🧤',result:'equip_gauntlets',  desc:'+10% spell damage.',cost:{bones:15,herbs:5,currency_gp:8},output:1,equip:'spectral_gauntlets'},
+    {id:'c_boots',    name:'Crypt Walker Boots',   ico:'👢',result:'equip_boots',      desc:'+20% move speed.',cost:{wood:10,bones:10,currency_gp:6},output:1,equip:'crypt_boots'},
+    {id:'c_cloak',    name:'Soulweave Cloak',      ico:'🧣',result:'equip_cloak',      desc:'+10% XP gain.',cost:{herbs:10,bones:10,currency_gp:12},output:1,equip:'soulweave_cloak'},
+    {id:'c_deathgrip',name:'Deathgrip Staff',      ico:'💀',result:'equip_deathgrip',  desc:'+15% minion damage.',cost:{wood:15,bones:20,currency_gp:15},output:1,equip:'deathgrip_staff'},
   ],
   minions:[
     {id:'c_bone_upgrade', name:'Bone Reinforcement',ico:'🦴',result:'upgrade_bones',desc:'+2 max HP to all skeletons.',cost:{bones:15,wood:3},output:0},
     {id:'c_speed_rune',   name:'Speed Rune',        ico:'⚡',result:'upgrade_speed',desc:'+10% movement speed (this session).',cost:{herbs:5,wood:5},output:0},
+    {id:'c_raise_scroll', name:'Raise Dead Scroll',  ico:'📜',result:'raise_scroll',desc:'Raise a fallen minion in raid.',cost:{bones:8,herbs:3},output:1},
+    {id:'c_bone_armor',   name:'Bone Armor Kit',     ico:'🛡️',result:'bone_armor_kit',desc:'+20% HP to all minions in raid.',cost:{bones:12,wood:5},output:1},
+    {id:'c_dark_binding', name:'Dark Binding',        ico:'⛓️',result:'dark_binding',desc:'Convert first killed enemy to temp minion.',cost:{bones:15,herbs:5},output:1},
+    {id:'c_spirit_anchor',name:'Spirit Anchor',       ico:'⚓',result:'spirit_anchor',desc:'Prevent 1 minion death per raid.',cost:{herbs:10,currency_gp:20},output:1},
+    {id:'c_mass_summon',  name:'Mass Summon Tome',    ico:'📖',result:'mass_summon',desc:'Summon 3 random minions at once.',cost:{bones:25,currency_gp:30},output:1},
   ],
 };
 
@@ -10138,6 +10171,9 @@ function getStaffMult(){
   }
   const staff=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.staff);
   let dmg=staff?.stats?.dmgMult||1;
+  // Spectral Gauntlets: +spell damage from accessory
+  const _accSpell=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);
+  if(_accSpell?.stats?.spellDmg)dmg*=(1+_accSpell.stats.spellDmg);
   // Set bonus damage
   const sb=GS._setBonus||getSetBonuses();
   if(sb.dmgBonus)dmg*=(1+sb.dmgBonus);
@@ -10181,6 +10217,28 @@ function applyPreRaidBuffs(){
   // Tavern buff: HP multiplier
   const _tavHP=getTavernBuff('hpMult');
   if(_tavHP>0){buffs.hpMult=1+_tavHP;}
+  // ── Crafted potion buffs ──
+  // Elixir of Shadows — invisibility at raid start
+  if(GS.inv.consumables.elixir_shadows>0){GS.inv.consumables.elixir_shadows--;buffs.invisibility=10;}
+  // Necromancer's Vigor — +50% max HP
+  if(GS.inv.consumables.necro_vigor>0){GS.inv.consumables.necro_vigor--;buffs.hpMult=(buffs.hpMult||1)*1.5;}
+  // Soul Drain Tonic — lifesteal 20%
+  if(GS.inv.consumables.soul_drain>0){GS.inv.consumables.soul_drain--;buffs.lifesteal=0.2;}
+  // Swiftness Brew — +30% move speed
+  if(GS.inv.consumables.swift_brew>0){GS.inv.consumables.swift_brew--;buffs.speedBuff=0.3;}
+  // Minion Frenzy — +25% minion atk speed
+  if(GS.inv.consumables.minion_frenzy>0){GS.inv.consumables.minion_frenzy--;buffs.minionSpeed=0.25;}
+  // ── Crafted minion consumables ──
+  // Raise Dead Scroll — auto-revive a fallen minion
+  if(GS.inv.consumables.raise_scroll>0){GS.inv.consumables.raise_scroll--;buffs.raiseScroll=true;}
+  // Bone Armor Kit — +20% minion HP
+  if(GS.inv.consumables.bone_armor_kit>0){GS.inv.consumables.bone_armor_kit--;buffs.minionHPBoost=0.2;}
+  // Dark Binding — convert first kill to temp ally
+  if(GS.inv.consumables.dark_binding>0){GS.inv.consumables.dark_binding--;buffs.darkBinding=true;}
+  // Spirit Anchor — prevent 1 minion death
+  if(GS.inv.consumables.spirit_anchor>0){GS.inv.consumables.spirit_anchor--;buffs.spiritAnchor=1;}
+  // Mass Summon Tome — summon 3 random minions
+  if(GS.inv.consumables.mass_summon>0){GS.inv.consumables.mass_summon--;buffs.massSummon=3;}
   return buffs;
 }
 
@@ -11289,7 +11347,9 @@ function initRaid(raidKey,floorNum,opts){
     const msp=safeSpawnPos(rawX, rawY, 5, grid);
     const mx=msp.x, my=msp.y;
     const _md=MINIONS[s.type]||{};
-    const _mhp=Math.round((_md.maxHP||20)*_lScale);
+    let _mhp=Math.round((_md.maxHP||20)*_lScale);
+    // Bone Armor Kit: +20% HP to all minions
+    if(raidBuffs.minionHPBoost)_mhp=Math.round(_mhp*(1+raidBuffs.minionHPBoost));
     const mk={type:s.type,ref:s,x:mx,y:my,tx:mx,ty:my,hp:_mhp,maxHP:_mhp,dmgBonus:Math.round((_md.dmg||5)*_lScale)-(_md.dmg||5),lat:0,dead:false,buffEnd:0};
     // Restore individual AI mode from previous floor
     if(_prevMinionModes[s.i])mk._aiMode=_prevMinionModes[s.i];
@@ -11376,7 +11436,7 @@ function initRaid(raidKey,floorNum,opts){
   if(_br)_br.style.display='flex';
 
   // Apply pre-raid consumable buffs (only on floor 1)
-  const raidBuffs=floorNum===1?applyPreRaidBuffs():(RS?{atkMult:RS.atkMult,defMult:RS.defMult,shield:RS.shield,revive:RS.revive}:{});
+  const raidBuffs=floorNum===1?applyPreRaidBuffs():(RS?{atkMult:RS.atkMult,defMult:RS.defMult,shield:RS.shield,revive:RS.revive,lifesteal:RS.lifesteal,speedBuff:RS.speedBuff,minionSpeed:RS.minionSpeed,raiseScroll:RS.raiseScroll,minionHPBoost:RS.minionHPBoost,darkBinding:RS.darkBinding,spiritAnchor:RS.spiritAnchor,invisibility:RS._invisTimer>0&&RS._invisStart>0?Math.max(0,RS._invisTimer-(RS.lastTs/1000-RS._invisStart)):0}:{});
 
   window._activeRaidBuffs=[];
   RS={
@@ -11400,6 +11460,16 @@ function initRaid(raidKey,floorNum,opts){
     defMult:raidBuffs.defMult||1,
     shield:raidBuffs.shield||0,
     revive:raidBuffs.revive||false,
+    // ── Crafted buff state ──
+    lifesteal:raidBuffs.lifesteal||0,
+    speedBuff:raidBuffs.speedBuff||0,
+    minionSpeed:raidBuffs.minionSpeed||0,
+    raiseScroll:raidBuffs.raiseScroll||false,
+    minionHPBoost:raidBuffs.minionHPBoost||0,
+    darkBinding:raidBuffs.darkBinding||false,
+    spiritAnchor:raidBuffs.spiritAnchor||0,
+    _invisTimer:raidBuffs.invisibility||0,
+    _invisStart:0,
     famLastBat:0,famLastSkull:0,famLastHound:0,famHoundUsed:false,
     _activeHeroes:(floorNum>1&&RS&&RS._activeHeroes?RS._activeHeroes.map((h,hi)=>{const a=hi/Math.max(1,RS._activeHeroes.length)*Math.PI*2;const sp=safeSpawnPos(startX+Math.cos(a)*40,startY+Math.sin(a)*40,4,grid);return{...h,x:sp.x,y:sp.y,tx:sp.x,ty:sp.y,_dialogueTimer:Date.now()+8000};}):[]),_heroMode:_heroMode||'defend',
   };
@@ -11419,6 +11489,22 @@ function initRaid(raidKey,floorNum,opts){
   buildSpellBar();
   // Show raise animation on floor 1
   if(floorNum===1) RS._raiseAnim={t:0,done:false,phase:0};
+
+  // Mass Summon Tome: summon 3 random minions at raid start (floor 1 only)
+  if(floorNum===1&&raidBuffs.massSummon>0){
+    const _msTypes=Object.keys(MINIONS).filter(k=>{const m=MINIONS[k];return m&&m.cost&&(!m.passiveReq||GS.hasPassive(m.passiveReq))&&(!m.lv||GS.necroLv>=m.lv);});
+    for(let _mi=0;_mi<raidBuffs.massSummon&&_msTypes.length;_mi++){
+      const _mType=_msTypes[Math.floor(Math.random()*_msTypes.length)];
+      const _mDef=MINIONS[_mType];if(!_mDef)continue;
+      const _msHP=Math.round((_mDef.maxHP||20)*_lScale*(1+(raidBuffs.minionHPBoost||0)));
+      const _msSp=safeSpawnPos(startX+rnd(-50,50),startY+rnd(-50,50),4,grid);
+      const _msSkelRef={type:_mType,hp:_msHP,i:GS.skeletons.length};
+      GS.skeletons.push(_msSkelRef);
+      const _msMk={type:_mType,ref:_msSkelRef,x:_msSp.x,y:_msSp.y,tx:_msSp.x,ty:_msSp.y,hp:_msHP,maxHP:_msHP,dmgBonus:Math.round((_mDef.dmg||5)*_lScale)-(_mDef.dmg||5),lat:0,dead:false,buffEnd:0,_massSummoned:true,_aiMode:'defense'};
+      RS.minions.push(_msMk);
+      RS.parts.push({k:'flt',x:_msSp.x,y:_msSp.y-20,txt:'📖 '+(_mDef.name||_mType)+'!',col:'#c084fc',life:1.5,ml:1.5,vy:-24});
+    }
+  }
 
   // Auto mode and AI: only reset on fresh raid start (floor 1)
   if(floorNum===1){
@@ -13254,6 +13340,8 @@ function loop(ts){
   if(!RS||SV)return;
   const dt=RS.lastTs?Math.min((ts-RS.lastTs)/1000,.05):.016;
   RS.lastTs=ts;const t=ts/1000;
+  // Lazy-init invisibility start time on first tick (can't use Date.now — must use raid loop time)
+  if(RS._invisTimer>0&&RS._invisStart===0)RS._invisStart=t;
   if(!RS.done){
     // ── Per-frame caches (avoid redundant recomputation across tick functions) ──
     RS._liveE=[...RS.enemies.filter(e=>!e.dead),...(RS.boss&&!RS.boss.dead?[RS.boss]:[])];
@@ -13412,8 +13500,10 @@ function tickNecro(dt,t){
   }
   const dx=n.tx-n.x,dy=n.ty-n.y,d=Math.hypot(dx,dy);
   const nMoving=d>8;
-  if(d>4){ 
-    moveWithPath(n,n.tx,n.ty,Math.min(200*dt,d));
+  // Swiftness Brew & Crypt Walker Boots: movement speed buffs
+  const _necroSpdMult=1+(RS.speedBuff||0)+(SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory)?.stats?.moveSpeed||0);
+  if(d>4){
+    moveWithPath(n,n.tx,n.ty,Math.min(200*_necroSpdMult*dt,d));
     // Clamp necromancer to world bounds to prevent clipping into greenzone
     n.x=Math.max(20,Math.min(MAP-20,n.x));
     n.y=Math.max(20,Math.min(MAP-20,n.y));
@@ -13483,15 +13573,21 @@ function tickMinions(t,dt){
 
   RS.minions.forEach((mk,i)=>{
     if(mk.dead)return;
+    // Dark Binding converted minion: expire after 30s
+    if(mk._converted&&mk._convertExpire&&t>mk._convertExpire){mk.dead=true;RS.parts.push({k:'flt',x:mk.x,y:mk.y-20,txt:'⛓️ Faded',col:'#6b7280',life:1,ml:1,vy:-20});return;}
     // Boss minions use their own override stats instead of MINIONS table
     const md=mk._overrideMd||MINIONS[mk.type];
     if(!md)return;
     const buffed=t<mk.buffEnd;
-    const spd=md.spd*(buffed?1.35:1)*90*dt;
+    const _mSpdBuff=RS.minionSpeed||0; // Minion Frenzy crafted buff
+    const spd=md.spd*(buffed?1.35:1)*(1+_mSpdBuff)*90*dt;
     const dmgBonus=(buffed?10:0)+(GS.hasPassive(7)?10:0)+(mk.dmgBonus||0);
     const _sbM=GS._setBonus||getSetBonuses();
     const _dbM=(mk._debuffUntil&&t<mk._debuffUntil)?mk._debuffMult:1;
-    const dmg=Math.round((md.dmg+dmgBonus)*getAtkMult()*(1+(_sbM.minionDmg||0)+getCastleBonus('minionAtk'))*_dbM);
+    // Deathgrip Staff: +15% minion damage via minionDmg stat on equipped staff
+    const _staffM=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.staff);
+    const _staffMinionDmg=_staffM?.stats?.minionDmg||0;
+    const dmg=Math.round((md.dmg+dmgBonus)*getAtkMult()*(1+(_sbM.minionDmg||0)+_staffMinionDmg+getCastleBonus('minionAtk'))*_dbM);
 
     // Formation slot (spiral around necromancer)
     const liveCount=Math.max((RS._liveMinions||RS.minions.filter(m=>!m.dead)).length,1);
@@ -13532,7 +13628,8 @@ function tickMinions(t,dt){
 
     // In attack range — strike from current position
     if(nd2<=md.rng){
-      if(t-mk.lat>=md.cd){mk.lat=t;hitTarget(near,dmg,mk.x,mk.y,md.rng>60,t,mk);} // mk passed as attacker
+      const _mCd=md.cd/(1+_mSpdBuff); // Minion Frenzy reduces cooldown
+      if(t-mk.lat>=_mCd){mk.lat=t;hitTarget(near,dmg,mk.x,mk.y,md.rng>60,t,mk);} // mk passed as attacker
       // Orbit slightly so multiple attackers can reach same target
       const desiredDist=md.rng*.7;
       const ax=near.x+Math.cos(angle)*desiredDist;
@@ -13645,8 +13742,10 @@ function tickEnemies(t,dt){
       return;
     }
     // Pick nearest of: necro, minions, active pet, heroes, co-op allies
-    let tgt=RS.necro.dead?null:RS.necro;
-    let td=RS.necro.dead?Infinity:hyp(en.x,en.y,RS.necro.x,RS.necro.y);
+    // Elixir of Shadows: necro invisible — enemies ignore
+    const _necroInvis=RS._invisTimer>0&&(t-RS._invisStart)<RS._invisTimer;
+    let tgt=(RS.necro.dead||_necroInvis)?null:RS.necro;
+    let td=(RS.necro.dead||_necroInvis)?Infinity:hyp(en.x,en.y,RS.necro.x,RS.necro.y);
     (RS._liveMinions||RS.minions.filter(m=>!m.dead)).forEach(m=>{const dd=hyp(en.x,en.y,m.x,m.y);if(dd<td){td=dd;tgt=m;}});
     if(RS.activePet&&!RS.activePet.dead){const dd=hyp(en.x,en.y,RS.activePet.x,RS.activePet.y);if(dd<td){td=dd;tgt=RS.activePet;}}
     // Heroes as valid targets
@@ -13699,7 +13798,8 @@ function tickBoss(t,dt){
   if(t-b.lat>=atkCD){
     b.lat=t;
     let tgt=null,nd=Infinity;
-    if(!RS.necro.dead){const d=hyp(b.x,b.y,RS.necro.x,RS.necro.y);if(d<nd&&d<bd.rng){nd=d;tgt=RS.necro;}}
+    const _bInvis=RS._invisTimer>0&&(t-RS._invisStart)<RS._invisTimer;
+    if(!RS.necro.dead&&!_bInvis){const d=hyp(b.x,b.y,RS.necro.x,RS.necro.y);if(d<nd&&d<bd.rng){nd=d;tgt=RS.necro;}}
     (RS._liveMinions||RS.minions.filter(m=>!m.dead)).forEach(m=>{const d=hyp(b.x,b.y,m.x,m.y);if(d<nd&&d<bd.rng){nd=d;tgt=m;}});
     if(RS._activeHeroes){RS._activeHeroes.forEach(h=>{if(h.dead)return;if(h.heroId==='meruem'&&h._ghostActive)return;const d=hyp(b.x,b.y,h.x,h.y);if(d<nd&&d<bd.rng){nd=d;tgt=h;}});}
     // Co-op: boss targets remote necros too
@@ -14002,6 +14102,12 @@ function hitTarget(tgt,dmg,fx,fy,ranged,t,attacker){
     const _lsHeal=Math.max(1,Math.round(_finalDmg*_lsSb.lifesteal));
     RS.necro.hp=Math.min(RS.necro.maxHP,RS.necro.hp+_lsHeal);
   }
+  // Soul Drain Tonic: lifesteal on ALL damage (necro + minions)
+  if(RS&&RS.lifesteal>0&&RS.necro&&!RS.necro.dead){
+    const _sdHeal=Math.max(1,Math.round(_finalDmg*RS.lifesteal));
+    RS.necro.hp=Math.min(RS.necro.maxHP,RS.necro.hp+_sdHeal);
+    if(_sdHeal>=3)RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-14,txt:'+'+_sdHeal,col:'#86efac',life:.4,ml:.4,vy:-16});
+  }
   if(tgt.hp<=0){
     if(RS.enemies.includes(tgt)){onEnemyKilled(tgt,t);}
     else if(tgt===RS.boss){}
@@ -14064,6 +14170,19 @@ function onEnemyKilled(en,t){
   }
   en.corpse=!GS.hasPassive(5)||Math.random()<.2?true:Math.random()<.5;
   en.deadAt=RS.lastTs/1000;
+  // Dark Binding: convert first killed enemy into a temporary minion
+  if(RS.darkBinding){
+    RS.darkBinding=false;
+    const _dbType=en.type;const _dbDef=EDEF[_dbType];
+    if(_dbDef){
+      const sp=safeSpawnPos(en.x,en.y,3);
+      const _dbHP=Math.round((_dbDef.hp||30)*0.5);
+      const _dbMk={type:'skeleton',ref:null,x:sp.x,y:sp.y,tx:sp.x,ty:sp.y,hp:_dbHP,maxHP:_dbHP,dmgBonus:Math.round((_dbDef.dmg||5)*0.5),lat:0,dead:false,buffEnd:0,_converted:true,_convertExpire:(RS.lastTs/1000)+30,_aiMode:'attack',_overrideMd:{name:'Converted '+(_dbDef.name||_dbType),ico:'⛓️',maxHP:_dbHP,dmg:Math.round((_dbDef.dmg||5)*0.5),spd:(_dbDef.spd||1),rng:(_dbDef.rng||40),cd:(_dbDef.cd||1),cat:'shadow'}};
+      RS.minions.push(_dbMk);
+      RS.parts.push({k:'flt',x:en.x,y:en.y-20,txt:'⛓️ Bound!',col:'#818cf8',life:1.5,ml:1.5,vy:-24});
+      RS.parts.push({k:'aoe',x:en.x,y:en.y,r:4,maxR:35,col:'#818cf8',life:.5,ml:.5});
+    }
+  }
 }
 
 function onBossKilled(){
@@ -14490,6 +14609,14 @@ function summonRaisedBoss(idx){
 }
 
 function killMinion(mk){
+  // Spirit Anchor: prevent first minion death per raid
+  if(RS&&RS.spiritAnchor>0){
+    RS.spiritAnchor--;
+    mk.hp=Math.round(mk.maxHP*0.1); // survive at 10% HP
+    if(mk.ref)mk.ref.hp=mk.hp;
+    RS.parts.push({k:'flt',x:mk.x,y:mk.y-30,txt:'⚓ Spirit Anchor!',col:'#60a5fa',life:1.5,ml:1.5,vy:-22});
+    return;
+  }
   mk.dead=true;
   if(mk.ref) mk.ref.hp=0;
   // Remove from raidParty
@@ -14506,6 +14633,17 @@ function killMinion(mk){
   // Death particle — works in both raid (RS) and survival (SV)
   const parts=(RS&&RS.parts)||(SV&&SV.parts);
   if(parts) parts.push({k:'flt',x:mk.x,y:mk.y,txt:'☠',col:'#ef4444',life:.8,ml:.8,vy:-30});
+  // Raise Dead Scroll: auto-revive first fallen minion
+  if(RS&&RS.raiseScroll){
+    RS.raiseScroll=false;
+    setTimeout(()=>{
+      if(!RS||RS.done)return;
+      mk.dead=false;mk.hp=Math.round(mk.maxHP*0.5);
+      if(mk.ref){mk.ref.hp=mk.hp;GS.raidParty.add(mk.ref.i);}
+      RS.parts.push({k:'flt',x:mk.x,y:mk.y-20,txt:'📜 Raised!',col:'#c084fc',life:1.5,ml:1.5,vy:-24});
+      RS.parts.push({k:'aoe',x:mk.x,y:mk.y,r:4,maxR:40,col:'#c084fc',life:.5,ml:.5});
+    },800);
+  }
 }
 
 function tickFamiliars(t,dt){
@@ -16784,6 +16922,27 @@ function updateBuffBar(){
     const petNames={bat_familiar:'Bat Familiar',skull_seer:'Skull Seer',shadow_hound:'Shadow Hound',fire_salamander:'Salamander',hedgehog:'Paprika'};
     const pt=RS.activePet.type;
     BUFFS.push({id:'buff_pet', ico:petIcos[pt]||'🐾', label:'Pet', col:'rgba(192,132,252,.45)', name:petNames[pt]||'Familiar', desc:'Your familiar fights alongside you.', stats:`HP: ${RS.activePet.hp}/${RS.activePet.maxHP}`});
+  }
+  // ── Crafted consumable buffs ──
+  if(RS){
+    if(RS.lifesteal>0)
+      BUFFS.push({id:'buff_lifesteal',ico:'🩸',label:'Drain',col:'rgba(134,239,172,.5)',name:'Soul Drain Tonic',desc:'All damage heals the necromancer.',stats:`${Math.round(RS.lifesteal*100)}% lifesteal`});
+    if(RS.speedBuff>0)
+      BUFFS.push({id:'buff_speed',ico:'💨',label:'Swift',col:'rgba(96,165,250,.5)',name:'Swiftness Brew',desc:'Necromancer moves faster.',stats:`+${Math.round(RS.speedBuff*100)}% speed`});
+    if(RS.minionSpeed>0)
+      BUFFS.push({id:'buff_mspd',ico:'⚡',label:'Frenzy',col:'rgba(251,191,36,.5)',name:'Minion Frenzy',desc:'Minions move and attack faster.',stats:`+${Math.round(RS.minionSpeed*100)}% speed`});
+    if(RS.minionHPBoost>0)
+      BUFFS.push({id:'buff_mhp',ico:'💪',label:'Armor',col:'rgba(163,163,163,.5)',name:'Bone Armor Kit',desc:'All minions have bonus HP.',stats:`+${Math.round(RS.minionHPBoost*100)}% HP`});
+    if(RS._invisTimer>0&&RS._invisStart>0){
+      const _iRem=Math.max(0,RS._invisTimer-((RS.lastTs/1000)-RS._invisStart));
+      if(_iRem>0)BUFFS.push({id:'buff_invis',ico:'👻',label:'Invis',col:'rgba(192,132,252,.5)',name:'Elixir of Shadows',desc:'Enemies cannot target the necromancer.',stats:Math.ceil(_iRem)+'s remaining'});
+    }
+    if(RS.raiseScroll)
+      BUFFS.push({id:'buff_raise',ico:'📜',label:'Raise',col:'rgba(192,132,252,.5)',name:'Raise Dead Scroll',desc:'First fallen minion auto-revives at 50% HP.',stats:'1 charge'});
+    if(RS.darkBinding)
+      BUFFS.push({id:'buff_dbind',ico:'⛓️',label:'Bind',col:'rgba(129,140,248,.5)',name:'Dark Binding',desc:'Next enemy killed is converted to fight for you.',stats:'1 charge'});
+    if(RS.spiritAnchor>0)
+      BUFFS.push({id:'buff_anchor',ico:'⚓',label:'Anchor',col:'rgba(96,165,250,.5)',name:'Spirit Anchor',desc:'Prevents minion death — restores to 10% HP instead.',stats:`${RS.spiritAnchor} charge${RS.spiritAnchor>1?'s':''}`});
   }
   // Active spell/skill buffs
   const _t2=RS?(RS.lastTs||Date.now())/1000:0;
