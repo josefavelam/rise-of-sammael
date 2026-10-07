@@ -3816,11 +3816,14 @@ const GS={
     this.necroXP+=n;
     const cap=Math.round(XP_TABLE[Math.min(this.necroLv,19)]*this.prestXPMult()); // Ascended: 2× XP per tier
     if(this.necroXP>=cap&&this.necroLv<20){
+      const _oldLv=this.necroLv,_oldMaxHP=this.necroMaxHP;
       this.necroLv++;
       Analytics.levelUp(this.necroLv);
       this.necroMaxHP=Math.round((100+this.necroLv*12+(this.hasPassive(8)?50:0))*this.prestHPMult());
       this.necroXP-=cap;
       SND.level();
+      // Phase 7: Level-up stat panel
+      if(typeof CombatPresentation!=='undefined')CombatPresentation.levelUpPanel(_oldLv,this.necroLv,_oldMaxHP,this.necroMaxHP);
       if(typeof checkAchievements==='function')setTimeout(()=>checkAchievements(),500);
       return true;
     }
@@ -17514,7 +17517,7 @@ function tickNecro(dt,t){
     if(sd<28){
       RS.descending=true;
       if(RS.floorNum<RS.floorTotal){
-        SND.stair();flash(`🪜 Descending to Floor ${RS.floorNum+1}...`,16,'#fcd34d');
+        SND.stair();CombatPresentation.floorBanner(`FLOOR ${RS.floorNum+1}`,RS.cfg&&RS.cfg.name?RS.cfg.name.toUpperCase():'','#fcd34d');flash(`🪜 Descending to Floor ${RS.floorNum+1}...`,16,'#fcd34d');
         // Ascended auto-heal between floors (prestige 16+)
         const _ahPct=GS.prestAutoHealPct();
         if(_ahPct>0){
@@ -18000,11 +18003,13 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
     if(!RS.famHoundUsed&&RS.activePet?.type==='shadow_hound'){
       RS.famHoundUsed=true;
       RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-35,txt:'🐾 Hound intercepts!',col:'#a855f7',life:1.5,ml:1.5,vy:-22});
+      if(typeof CombatPresentation!=='undefined'){const _hX=((RS.necro.x-RS.camX)*GAME_ZOOM)||0;const _hY=((RS.necro.y-RS.camY)*GAME_ZOOM)||0;CombatPresentation.missText(_hX,_hY,'INTERCEPTED!');}
       return; // full block
     }
     // Meruem Lab Coat: periodic invincibility window
     if(_meruemActive&&(RS.lastTs/1000)<_meruemInvincibleUntil){
       RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-28,txt:'🥼 INVINCIBLE!',col:'#86efac',life:.6,ml:.6,vy:-24});
+      if(typeof CombatPresentation!=='undefined'){const _mX=((RS.necro.x-RS.camX)*GAME_ZOOM)||0;const _mY=((RS.necro.y-RS.camY)*GAME_ZOOM)||0;CombatPresentation.missText(_mX,_mY,'INVINCIBLE!');}
       return;
     }
     // Damage reduction from armor
@@ -18018,7 +18023,8 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
     // DEF buff (Rangers Cloak etc)
     if(RS.defMult&&RS.defMult>1){realDmg=Math.round(realDmg/RS.defMult);}
     // Shield absorb
-    if(RS.shield>0){const absorbed=Math.min(RS.shield,realDmg);RS.shield-=absorbed;realDmg-=absorbed;RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`🛡 ${absorbed}`,col:'#60a5fa',life:.7,ml:.7,vy:-28});}
+    if(RS.shield>0){const absorbed=Math.min(RS.shield,realDmg);RS.shield-=absorbed;realDmg-=absorbed;RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`🛡 ${absorbed}`,col:'#60a5fa',life:.7,ml:.7,vy:-28});
+      if(realDmg<=0&&typeof CombatPresentation!=='undefined'){const _bsX=((RS.necro.x-RS.camX)*GAME_ZOOM)||0;const _bsY=((RS.necro.y-RS.camY)*GAME_ZOOM)||0;CombatPresentation.missText(_bsX,_bsY,'BLOCKED!');}}
     RS.necro.hp=Math.max(0,RS.necro.hp-realDmg);RS.necro._hurtUntil=Date.now()+140;
     // Spirit Shroud: reflect damage to melee attackers
     const _shroudBuff=(window._activeRaidBuffs||[]).find(b=>b.id==='spirit_shroud');
@@ -18184,6 +18190,12 @@ function onEnemyKilled(en,t){
   devPetGainXP(d.xp);heroGainXP(d.xp);purchasablePetGainXP(d.xp);
   RS.parts.push({k:'flt',x:en.x,y:en.y,txt:`+${bones}🦴`,col:'#fcd34d',life:.9,ml:.9,vy:-38});
   en.dead=true;
+  // Phase 7: Kill callout for mini-bosses and named enemies
+  if(en.isMB&&typeof CombatPresentation!=='undefined'){
+    const _ksX=((en.x-RS.camX)*GAME_ZOOM)||window.innerWidth/2;
+    const _ksY=((en.y-RS.camY)*GAME_ZOOM)||window.innerHeight/2;
+    CombatPresentation.killCallout(_ksX,_ksY,d.name);
+  }
   // Death dissolve particle effect
   const _edCat=d.cat||'';
   const _dc1=_edCat==='undead'||_edCat==='skeleton'?'#d1c8b5':_edCat==='spirit'||_edCat==='wraith'?'#818cf8':_edCat==='beast'?'#7f1d1d':'#6b7280';
@@ -19175,11 +19187,15 @@ function spawnBoss(){
   RS.boss={x:bx,y:by,hp:bd.hp,maxHP:bd.maxHP,lat:0,dead:false,
     type:((RS.cfg&&RS.cfg.bossKey)||bd._swBossVisual||(RS.raidKey==='cemetery'?'wight_lord':RS.raidKey==='forest'?'forest_hag':'lich')),
     lastSummon:0,lastDisrupt:0,def:bd,fortitudeUsed:false};
-  document.getElementById('bossBar').style.display='flex';
-  document.getElementById('bossName').textContent=bd.name.toUpperCase();
   document.getElementById('bossFill').style.width='100%';
   const bColor=bd.color||'#22ff44';
-  SND.boss();startAmbience('boss');startMusic('boss');flash(`${RS.cfg.ico} ${bd.name} AWAKENS!\nSlay the ${bd.name} or perish!`,18,bColor);
+  // Phase 7: Boss intro name card before HUD reveal
+  CombatPresentation.bossIntro(bd.name,RS.cfg.ico||'💀',bColor,()=>{
+    document.getElementById('bossBar').style.display='flex';
+    document.getElementById('bossName').textContent=bd.name.toUpperCase();
+    SND.boss();startAmbience('boss');startMusic('boss');
+    flash(`${RS.cfg.ico} ${bd.name} AWAKENS!\nSlay the ${bd.name} or perish!`,18,bColor);
+  });
 }
 
 // ── Spell bar tooltip ──
@@ -19466,6 +19482,7 @@ function castSpell(key,t){
   // Hellforged/set crit bonus: chance to deal 1.5× damage
   const _critB=(GS._setBonus||getSetBonuses()).critBonus||0;
   const _isCrit=_critB>0&&Math.random()<_critB;
+  if(_isCrit&&typeof CombatPresentation!=='undefined')CombatPresentation.critFlash();
   const dmgMult=(GS.hasPassive(9)?1.25:1)*staffM.dmg*GS.prestDmgMult()*_lvDmgMult2*_lichMult*(_meltingActive&&isMeltingRaging(t)?1.3:1)*(_isCrit?1.5:1);
   const lastCast=RS.spellCDs[key]||0;
   // AOE in manual mode: enter targeting mode WITHOUT consuming the CD yet
@@ -31667,6 +31684,154 @@ function flash(txt,size,col){
   el.style.opacity='1';el.style.transition='none';
   clearTimeout(el._t);el._t=setTimeout(()=>{el.style.transition='opacity 1.1s';el.style.opacity='0';},2000);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── COMBAT PRESENTATION (FE-style battle visual effects) ─────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+const CombatPresentation=(function(){
+  // ── Shared overlay container (lazy-created) ──
+  let _overlay=null;
+  function _getOverlay(){
+    if(_overlay)return _overlay;
+    _overlay=document.createElement('div');
+    _overlay.id='combatPresOverlay';
+    _overlay.style.cssText='position:fixed;inset:0;z-index:180;pointer-events:none;overflow:hidden';
+    document.body.appendChild(_overlay);
+    return _overlay;
+  }
+  function _clearOverlay(){if(_overlay)_overlay.innerHTML='';}
+
+  // ── BOSS INTRO NAME CARD ──
+  // Full-screen dramatic reveal: darkens, shows boss icon + name + title, then fades
+  function bossIntro(name,icon,color,cb){
+    const ov=_getOverlay();
+    const card=document.createElement('div');
+    card.style.cssText='position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .3s';
+    card.innerHTML=`
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,.7)"></div>
+      <div style="position:relative;text-align:center;z-index:1">
+        <div style="font-size:48px;line-height:1;margin-bottom:8px;filter:drop-shadow(0 0 12px ${color||'#22ff44'})">${icon||'💀'}</div>
+        <div style="font-family:'Press Start 2P',monospace;font-size:10px;color:${color||'#22ff44'};text-shadow:0 0 16px ${color||'#22ff44'},0 2px 4px #000;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">${name}</div>
+        <div style="font-family:'Press Start 2P',monospace;font-size:5px;color:#fcd34d;letter-spacing:1px;opacity:0;animation:cpSlideUp .4s .5s forwards">— BOSS ENCOUNTER —</div>
+      </div>
+      <div style="position:absolute;left:0;right:0;top:50%;height:2px;background:linear-gradient(90deg,transparent,${color||'#22ff44'},transparent);transform:scaleX(0);animation:cpLineExpand .6s .2s forwards"></div>
+    `;
+    ov.appendChild(card);
+    // Inject keyframes if not present
+    if(!document.getElementById('cpKeyframes')){
+      const st=document.createElement('style');st.id='cpKeyframes';
+      st.textContent=`
+        @keyframes cpSlideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes cpLineExpand{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+        @keyframes cpFlashIn{0%{opacity:0;transform:scale(1.3)}30%{opacity:1;transform:scale(1)}100%{opacity:1;transform:scale(1)}}
+        @keyframes cpSlideRight{from{transform:translateX(-100%);opacity:0}to{transform:translateX(0);opacity:1}}
+        @keyframes cpStatPop{0%{opacity:0;transform:scale(.5)}60%{transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}
+        @keyframes cpKillPop{0%{opacity:0;transform:scale(.3) rotate(-5deg)}40%{opacity:1;transform:scale(1.1) rotate(2deg)}70%{transform:scale(.95)}100%{opacity:0;transform:scale(.8) translateY(-20px)}}
+        @keyframes cpMissFloat{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(-40px)}}
+        @keyframes cpCritShake{0%,100%{transform:translateX(0)}10%{transform:translateX(-4px)}20%{transform:translateX(4px)}30%{transform:translateX(-3px)}40%{transform:translateX(3px)}50%{transform:translateX(-2px)}60%{transform:translateX(2px)}}
+        @keyframes cpBannerSlide{0%{transform:translateX(-110%)}15%{transform:translateX(0)}85%{transform:translateX(0)}100%{transform:translateX(110%)}}
+      `;
+      document.head.appendChild(st);
+    }
+    requestAnimationFrame(()=>{card.style.opacity='1';});
+    // Hold for 1.5s, then fade
+    setTimeout(()=>{
+      card.style.transition='opacity .4s';card.style.opacity='0';
+      setTimeout(()=>{card.remove();if(cb)cb();},420);
+    },1500);
+  }
+
+  // ── FLOOR / WAVE BANNER ──
+  // Horizontal banner that sweeps across screen like FE chapter titles
+  function floorBanner(text,subtext,color){
+    const ov=_getOverlay();
+    const ban=document.createElement('div');
+    ban.style.cssText=`position:absolute;left:0;right:0;top:38%;display:flex;flex-direction:column;align-items:center;animation:cpBannerSlide 2s ease-in-out forwards;pointer-events:none`;
+    ban.innerHTML=`
+      <div style="background:linear-gradient(90deg,transparent,rgba(0,0,0,.75) 20%,rgba(0,0,0,.75) 80%,transparent);padding:10px 40px;text-align:center;border-top:1px solid ${color||'#fcd34d'};border-bottom:1px solid ${color||'#fcd34d'}">
+        <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:${color||'#fcd34d'};text-shadow:0 0 8px ${color||'#fcd34d'};letter-spacing:2px">${text}</div>
+        ${subtext?`<div style="font-family:'Press Start 2P',monospace;font-size:5px;color:#d4c8a8;margin-top:4px;letter-spacing:1px">${subtext}</div>`:''}
+      </div>
+    `;
+    ov.appendChild(ban);
+    setTimeout(()=>ban.remove(),2100);
+  }
+
+  // ── LEVEL-UP STAT PANEL ──
+  // Shows stat increases with +N deltas, bottom-right corner
+  function levelUpPanel(oldLv,newLv,oldMaxHP,newMaxHP){
+    const ov=_getOverlay();
+    const hpDelta=newMaxHP-oldMaxHP;
+    const panel=document.createElement('div');
+    panel.style.cssText='position:absolute;bottom:80px;right:12px;background:rgba(8,2,24,.92);border:2px solid #fcd34d;border-radius:2px;box-shadow:inset 0 0 0 1px #92400e,0 2px 8px rgba(0,0,0,.6);padding:8px 12px;animation:cpFlashIn .4s ease-out;pointer-events:none;min-width:140px';
+    panel.innerHTML=`
+      <div style="font-family:'Press Start 2P',monospace;font-size:7px;color:#fcd34d;margin-bottom:6px;text-align:center;text-shadow:0 0 8px rgba(252,211,77,.5)">⬆ LEVEL UP!</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:5px;color:#d4c8a8;line-height:2.2">
+        <div style="display:flex;justify-content:space-between"><span>LV</span><span style="color:#a78bfa">${oldLv} → ${newLv}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>MAX HP</span><span style="color:#4ade80;animation:cpStatPop .3s .2s both">${oldMaxHP} → ${newMaxHP} <span style="color:#22c55e;font-weight:bold">+${hpDelta}</span></span></div>
+      </div>
+      <div style="margin-top:6px;height:2px;background:linear-gradient(90deg,transparent,#fcd34d,transparent)"></div>
+    `;
+    ov.appendChild(panel);
+    setTimeout(()=>{
+      panel.style.transition='opacity .5s';panel.style.opacity='0';
+      setTimeout(()=>panel.remove(),520);
+    },2500);
+  }
+
+  // ── CRITICAL HIT FLASH ──
+  // Screen shake + brief color flash + "CRITICAL!" text
+  function critFlash(dmg){
+    const ov=_getOverlay();
+    // Screen shake via the game container
+    const gc=document.getElementById('gameCanvas');
+    if(gc){gc.style.animation='cpCritShake .3s ease-out';setTimeout(()=>{gc.style.animation='';},320);}
+    // Flash overlay
+    const fl=document.createElement('div');
+    fl.style.cssText='position:absolute;inset:0;background:rgba(255,200,50,.2);pointer-events:none;animation:cpFlashIn .3s forwards';
+    ov.appendChild(fl);
+    setTimeout(()=>fl.remove(),320);
+    // "CRITICAL!" text popup
+    const txt=document.createElement('div');
+    txt.style.cssText='position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);font-family:"Press Start 2P",monospace;font-size:12px;color:#fcd34d;text-shadow:0 0 12px #f59e0b,0 2px 4px #000,2px 0 0 #92400e;letter-spacing:3px;animation:cpFlashIn .35s ease-out;pointer-events:none;white-space:nowrap';
+    txt.textContent='⚔ CRITICAL!';
+    ov.appendChild(txt);
+    setTimeout(()=>{
+      txt.style.transition='opacity .3s';txt.style.opacity='0';
+      setTimeout(()=>txt.remove(),320);
+    },600);
+  }
+
+  // ── KILL CALLOUT ──
+  // Brief "SLAIN!" pop near the kill location (screen coords needed)
+  function killCallout(screenX,screenY,enemyName){
+    const ov=_getOverlay();
+    const pop=document.createElement('div');
+    // Clamp to viewport
+    const x=Math.max(40,Math.min(window.innerWidth-100,screenX));
+    const y=Math.max(30,Math.min(window.innerHeight-40,screenY));
+    pop.style.cssText=`position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);font-family:"Press Start 2P",monospace;font-size:6px;color:#ef4444;text-shadow:0 0 8px rgba(239,68,68,.6),0 1px 3px #000;animation:cpKillPop 1s ease-out forwards;pointer-events:none;white-space:nowrap`;
+    pop.textContent='☠ SLAIN!';
+    ov.appendChild(pop);
+    setTimeout(()=>pop.remove(),1050);
+  }
+
+  // ── MISS / DODGE TEXT ──
+  // Floating "MISS!" or "DODGE!" text
+  function missText(screenX,screenY,label){
+    const ov=_getOverlay();
+    const pop=document.createElement('div');
+    const x=Math.max(30,Math.min(window.innerWidth-80,screenX));
+    const y=Math.max(30,Math.min(window.innerHeight-30,screenY));
+    pop.style.cssText=`position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);font-family:"Press Start 2P",monospace;font-size:6px;color:#94a3b8;text-shadow:0 1px 3px #000;animation:cpMissFloat 1s ease-out forwards;pointer-events:none;white-space:nowrap`;
+    pop.textContent=label||'MISS!';
+    ov.appendChild(pop);
+    setTimeout(()=>pop.remove(),1050);
+  }
+
+  // ── Public API ──
+  return {bossIntro,floorBanner,levelUpPanel,critFlash,killCallout,missText};
+})();
 
 // ═══════════════════════════════════════════════════════════════════
 // TYPEWRITER DIALOGUE SYSTEM (Phase 4)
