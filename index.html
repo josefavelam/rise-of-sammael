@@ -1084,6 +1084,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
 <div id="castleMenu" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
   <div style="font-family:'Press Start 2P',monospace;font-size:7px;color:#c084fc;margin-bottom:10px">☠ Dark Fortress</div>
   <button onclick="closeCastle_menu()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(168,85,247,.4);border-radius:2px;background:rgba(168,85,247,.1);color:#c084fc;cursor:pointer;-webkit-appearance:none">↩ Back to Room</button>
+  <button onclick="closeCastle_menu();showCharacterSheet()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(252,211,77,.4);border-radius:2px;background:rgba(252,211,77,.1);color:#fcd34d;cursor:pointer;-webkit-appearance:none">📜 Character Sheet</button>
   <button onclick="closeCastle_menu();openCatacombs()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(107,114,128,.4);border-radius:2px;background:rgba(107,114,128,.08);color:#9ca3af;cursor:pointer;-webkit-appearance:none">🕯 Catacombs</button>
   <button onclick="closeCastle_menu();openVillage()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(34,197,94,.4);border-radius:2px;background:rgba(34,197,94,.1);color:#86efac;cursor:pointer;-webkit-appearance:none">🏘 Village</button>
   
@@ -2026,6 +2027,162 @@ function canAddUnit(type){
 
 // XP thresholds per level (1→2, 2→3 ...)
 const XP_TABLE=[0,100,250,500,1000,2000,4000,8000,16000,32000,64000,100000,140000,180000,230000,290000,360000,440000,540000,99999];
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DnD 5e CHARACTER PROGRESSION (Phase 11)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Proficiency Bonus by level (5e standard) ──
+const PROF_BONUS_TABLE=[2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,6,6,6,6]; // index 0=lv1
+
+// ── Ability Score helpers ──
+function abilMod(score){return Math.floor((score-10)/2);}
+function profBonus(lv){return PROF_BONUS_TABLE[Math.min(Math.max(lv,1),20)-1];}
+
+// ── Default ability scores (standard array for Necromancer) ──
+const DEFAULT_ABILITY_SCORES={STR:8,DEX:12,CON:14,INT:16,WIS:13,CHA:10};
+// Tiefling Lich racial bonuses (applied at creation)
+const RACIAL_BONUS={STR:0,DEX:0,CON:1,INT:2,WIS:0,CHA:0};
+
+// ── ASI levels (when player chooses +2 ability scores OR a feat) ──
+const ASI_LEVELS=[4,8,12,16,19];
+
+// ── Tiefling Lich Racial Traits ──
+const RACIAL_TRAITS=[
+  {id:'hellish_resistance',name:'Hellish Resistance',desc:'Resistance to fire damage (half damage from fire attacks).',icon:'🔥'},
+  {id:'darkvision',name:'Darkvision',desc:'Can see in darkness up to 60ft. Enemies in dark areas are visible on the minimap.',icon:'👁'},
+  {id:'undead_fortitude',name:'Undead Fortitude',desc:'When reduced to 0 HP, make a CON save (DC 5+damage taken). On success, drop to 1 HP instead. Once per raid.',icon:'💀'},
+  {id:'necrotic_shroud',name:'Necrotic Shroud',desc:'Once per raid, emit a 10s necrotic aura dealing INT mod damage/s to nearby enemies.',icon:'☠'},
+];
+
+// ── Necromancer Class Features (unlocked at specific levels) ──
+const CLASS_FEATURES=[
+  {lv:1, id:'necro_spellcasting',name:'Necromantic Spellcasting',desc:'Cast necromancy spells using INT as your spellcasting ability. Spell DC = 8 + proficiency + INT mod.'},
+  {lv:2, id:'grim_harvest',name:'Grim Harvest',desc:'Killing a creature with a spell heals you for 2× spell level HP.'},
+  {lv:3, id:'undead_thralls_basic',name:'Undead Thralls',desc:'Animate Dead raises creatures with bonus HP equal to your necromancer level.'},
+  {lv:4, id:'asi_1',name:'Ability Score Improvement',desc:'Increase one ability score by 2, or two by 1, or choose a feat.'},
+  {lv:5, id:'soul_cage',name:'Soul Cage',desc:"Trap a slain creature's soul to heal (2d8) or ask it a question. 1 use per raid per creature."},
+  {lv:6, id:'inured_to_undeath',name:'Inured to Undeath',desc:'Resistance to necrotic damage. Max HP cannot be reduced by enemy effects.'},
+  {lv:7, id:'command_undead',name:'Command Undead',desc:'Your minions gain +proficiency bonus to their damage rolls.'},
+  {lv:8, id:'asi_2',name:'Ability Score Improvement',desc:'Increase one ability score by 2, or two by 1, or choose a feat.'},
+  {lv:9, id:'create_undead',name:'Create Undead',desc:'Unlock higher-tier undead: Ghouls, Wights, and Mummy Lords cost 20% less bones.'},
+  {lv:10,id:'dark_sovereignty',name:'Dark Sovereignty',desc:'Slain enemies have 20% chance to leave a raisable corpse. Death saves gain +proficiency.'},
+  {lv:11,id:'circle_of_death',name:'Circle of Death',desc:'Your AOE spells deal bonus necrotic damage equal to your INT modifier to all targets.'},
+  {lv:12,id:'asi_3',name:'Ability Score Improvement',desc:'Increase one ability score by 2, or two by 1, or choose a feat.'},
+  {lv:13,id:'soul_shroud',name:'Soul Shroud',desc:'Gain temp HP equal to half the damage you deal with spells, up to your max HP.'},
+  {lv:14,id:'master_necromancer',name:'Master Necromancer',desc:'Your minions act with proficiency: +2 to hit, +2 damage, and gain 25% more HP.'},
+  {lv:16,id:'asi_4',name:'Ability Score Improvement',desc:'Increase one ability score by 2, or two by 1, or choose a feat.'},
+  {lv:17,id:'danse_macabre',name:'Danse Macabre',desc:'Raise up to 5 corpses as temporary minions for the current floor. They fight for 30s.'},
+  {lv:18,id:'arch_necromancer',name:'Arch-Necromancer',desc:'Army cap doubled. All spells deal +25% damage. Proficiency bonus applies to spell damage.'},
+  {lv:19,id:'asi_5',name:'Ability Score Improvement',desc:'Increase one ability score by 2, or two by 1, or choose a feat.'},
+  {lv:20,id:'lich_form',name:'Lich Form',desc:'Transform into a Tiefling Lich. 2× Max HP, 2× spell damage. Phylactery stores your soul.'},
+];
+
+// ── Necromancy-Themed Feats (alternatives to ASI) ──
+const DND_FEATS={
+  grave_touched:{name:'Grave Touched',desc:'Your necrotic spells deal +WIS mod bonus damage. You no longer need to eat or breathe.',prereq:null,effect:{bonusDmgStat:'WIS'}},
+  soul_eater:{name:'Soul Eater',desc:'+1 INT. When you reduce a creature to 0 HP, gain temp HP equal to your INT mod + necro level.',prereq:null,effect:{statBonus:{INT:1},onKillTempHP:true}},
+  phylactery_keeper:{name:'Phylactery Keeper',desc:'Once per raid, if you would die, instead drop to 1 HP and become immune for 2s. +1 CON.',prereq:null,effect:{statBonus:{CON:1},phylacteryRevive:true}},
+  corpse_explosion:{name:'Corpse Explosion',desc:'When your minions die, they explode dealing damage equal to your proficiency bonus × 5 to nearby enemies.',prereq:null,effect:{minionDeathExplosion:true}},
+  deathly_charm:{name:'Deathly Charm',desc:'+2 CHA. Village income and quest rewards increased by 15%.',prereq:null,effect:{statBonus:{CHA:2},villageBonus:0.15}},
+  life_transference:{name:'Life Transference',desc:'You can sacrifice 20% of your current HP to heal all minions for that amount.',prereq:'necroLv>=5',effect:{lifeTransference:true}},
+  necrotic_focus:{name:'Necrotic Focus',desc:'+1 INT. Your spell save DC increases by 1 (stacks with INT bonus).',prereq:null,effect:{statBonus:{INT:1},spellDCBonus:1}},
+  bone_armor:{name:'Bone Armor',desc:'+2 AC from a shell of animated bone fragments orbiting your body. +1 DEX.',prereq:null,effect:{statBonus:{DEX:1},acBonus:2}},
+  war_caster:{name:'War Caster',desc:'Advantage on CON saves to maintain concentration. Spell cooldowns reduced by 10%.',prereq:null,effect:{warCaster:true,cdReduction:0.10}},
+  tough:{name:'Tough',desc:'Your max HP increases by 2 × your necromancer level (retroactive).',prereq:null,effect:{toughHP:true}},
+  resilient:{name:'Resilient',desc:'+1 CON. You add proficiency bonus to CON saving throws.',prereq:null,effect:{statBonus:{CON:1},conSaveProficiency:true}},
+  skull_collector:{name:'Skull Collector',desc:'+5 bonus bones from every enemy killed. Bone cost of summoning reduced by 10%.',prereq:null,effect:{bonusBones:5,summonCostReduction:0.10}},
+  dark_blessing:{name:'Dark Blessing',desc:'+1 WIS. You heal for proficiency bonus HP at the start of each combat round.',prereq:null,effect:{statBonus:{WIS:1},regenPerRound:true}},
+  shadow_step:{name:'Shadow Step',desc:'Movement speed +30%. Once per floor, teleport behind the nearest enemy.',prereq:null,effect:{speedBonus:0.30,shadowStep:true}},
+  undead_master:{name:'Undead Master',desc:'+2 army cap. Your raised minions start with max HP instead of half.',prereq:'necroLv>=8',effect:{armyCapBonus:2,fullHPRaise:true}},
+  death_ward:{name:'Death Ward',desc:'Once per raid, the first time you would take lethal damage, negate it entirely.',prereq:null,effect:{deathWard:true}},
+  spell_sniper:{name:'Spell Sniper',desc:'Your spell range increases by 50%. Ranged spell attacks ignore half cover.',prereq:null,effect:{rangeBonus:0.50}},
+  eldritch_adept:{name:'Eldritch Adept',desc:'+1 INT. Learn one additional spell slot (5th equipped spell).',prereq:'necroLv>=10',effect:{statBonus:{INT:1},extraSpellSlot:true}},
+};
+
+// ── Helper: get all class features unlocked at a given level ──
+function unlockedFeatures(lv){return CLASS_FEATURES.filter(f=>f.lv<=lv);}
+function featureAtLevel(lv){return CLASS_FEATURES.filter(f=>f.lv===lv);}
+
+// ── Spell DC calculation ──
+function spellSaveDC(){
+  const intMod=abilMod(GS.abilityScores?.INT||10);
+  const prof=profBonus(GS.necroLv);
+  const featBonus=(GS.feats||[]).reduce((sum,fid)=>{
+    const f=DND_FEATS[fid];return sum+(f?.effect?.spellDCBonus||0);
+  },0);
+  return 8+prof+intMod+featBonus;
+}
+
+// ── Attack bonus (spell attack = proficiency + INT mod) ──
+function spellAtkBonus(){
+  return profBonus(GS.necroLv)+abilMod(GS.abilityScores?.INT||10);
+}
+
+// ── Necromancer AC calculation ──
+// Base AC = 10 + DEX mod + feat bonuses
+function necroAC(){
+  const dexMod=abilMod(GS.abilityScores?.DEX||10);
+  let ac=10+dexMod;
+  // Armor from equipment
+  const armorId=GS.inv?.equipped?.armor;
+  if(armorId&&typeof SHOP_ITEMS!=='undefined'){
+    const arm=SHOP_ITEMS.equipment?.find(i=>i.id===armorId);
+    if(arm?.stats?.ac)ac=arm.stats.ac+Math.min(dexMod,arm.stats.maxDex||99);
+  }
+  // Feat: Bone Armor
+  if((GS.feats||[]).includes('bone_armor'))ac+=2;
+  return ac;
+}
+
+// ── Max HP with ability scores ──
+function calcMaxHP(){
+  const conMod=abilMod(GS.abilityScores?.CON||10);
+  const lv=GS.necroLv;
+  let hp=100+(lv*12)+conMod*lv; // base 100 + 12/lv + CON mod per level
+  if(GS.hasPassive(8))hp+=50;
+  // Feat: Tough — +2 HP per level
+  if((GS.feats||[]).includes('tough'))hp+=lv*2;
+  hp=Math.round(hp*GS.prestHPMult());
+  return hp;
+}
+
+// ── d20 Attack Roll System ──
+// Returns {hit:bool, nat20:bool, nat1:bool, roll:number, total:number}
+function d20Attack(attackBonus, targetAC){
+  const roll=Math.floor(Math.random()*20)+1;
+  const nat20=roll===20, nat1=roll===1;
+  const total=roll+attackBonus;
+  const hit=nat20||(nat1?false:total>=targetAC);
+  return {hit,nat20,nat1,roll,total};
+}
+
+// ── Saving Throw ──
+// Returns {success:bool, roll:number, total:number}
+function savingThrow(abilScore, dc, hasProficiency){
+  const roll=Math.floor(Math.random()*20)+1;
+  const mod=abilMod(abilScore);
+  const prof=hasProficiency?profBonus(GS.necroLv):0;
+  const total=roll+mod+prof;
+  return {success:total>=dc, roll, total};
+}
+
+// ── Has feat helper ──
+function hasFeat(id){return (GS.feats||[]).includes(id);}
+
+// ── Effective spell range with feats ──
+function effectiveSpellRange(baseRange){
+  if(hasFeat('spell_sniper'))return Math.round(baseRange*1.5);
+  return baseRange;
+}
+
+// ── Effective spell cooldown with feats ──
+function effectiveSpellCD(baseCD){
+  let cd=baseCD;
+  if(hasFeat('war_caster'))cd*=0.90;
+  return cd;
+}
+
 const DEV_PET_XP_TABLE=[0,80,200,400,800,1600,3200,6400,12800,25600,51200,80000,112000,144000,184000,232000,288000,352000,432000,99999];
 function salStatMult(lv){
   const l=Math.min(lv,20);
@@ -2034,6 +2191,260 @@ function salStatMult(lv){
   if(l>=10)m*=1.52;
   return m;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ASI / FEAT SELECTION PANEL (Phase 11)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function showASIPanel(level){
+  // Check if already chosen at this level
+  if(GS.asiChoices[level]){showToast('Already chose at level '+level);return;}
+
+  const overlay=document.createElement('div');
+  overlay.id='asiOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;align-items:center;justify-content:center;font-family:"Press Start 2P",monospace';
+
+  const panel=document.createElement('div');
+  panel.style.cssText='background:rgba(8,2,24,.95);border:3px solid #fcd34d;border-radius:4px;box-shadow:0 0 40px rgba(252,211,77,.3),inset 0 0 0 1px #92400e;padding:16px 20px;max-width:480px;width:90vw;max-height:85vh;overflow-y:auto;color:#d4c8a8';
+
+  // Title
+  panel.innerHTML=`<div style="font-size:8px;color:#fcd34d;text-align:center;margin-bottom:12px;text-shadow:0 0 8px rgba(252,211,77,.5)">⬆ LEVEL ${level} — ABILITY SCORE IMPROVEMENT</div>
+  <div style="font-size:5px;color:#a78bfa;text-align:center;margin-bottom:10px">Choose: increase ability scores OR select a feat</div>`;
+
+  // Tab buttons
+  const tabs=document.createElement('div');
+  tabs.style.cssText='display:flex;gap:4px;margin-bottom:10px';
+  const tabASI=document.createElement('button');
+  tabASI.textContent='+2 Ability Scores';
+  tabASI.style.cssText='flex:1;padding:6px;font-family:"Press Start 2P",monospace;font-size:5px;background:#2d1b69;color:#c4b5fd;border:1px solid #5b3cc4;border-radius:2px;cursor:pointer';
+  const tabFeat=document.createElement('button');
+  tabFeat.textContent='Choose a Feat';
+  tabFeat.style.cssText='flex:1;padding:6px;font-family:"Press Start 2P",monospace;font-size:5px;background:#1e1e1e;color:#888;border:1px solid #444;border-radius:2px;cursor:pointer';
+  tabs.appendChild(tabASI);tabs.appendChild(tabFeat);
+  panel.appendChild(tabs);
+
+  // Content area
+  const content=document.createElement('div');
+  content.id='asiContent';
+  panel.appendChild(content);
+
+  // ── ASI View ──
+  function renderASI(){
+    tabASI.style.background='#2d1b69';tabASI.style.color='#c4b5fd';tabASI.style.borderColor='#5b3cc4';
+    tabFeat.style.background='#1e1e1e';tabFeat.style.color='#888';tabFeat.style.borderColor='#444';
+    const scores={...GS.abilityScores};
+    let points=2;
+    const chosen={};
+    content.innerHTML='';
+
+    const info=document.createElement('div');
+    info.style.cssText='font-size:5px;color:#fcd34d;text-align:center;margin-bottom:8px';
+    info.id='asiPoints';
+    info.textContent='Points remaining: '+points;
+    content.appendChild(info);
+
+    const grid=document.createElement('div');
+    grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px';
+
+    ['STR','DEX','CON','INT','WIS','CHA'].forEach(stat=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;justify-content:space-between;background:rgba(45,27,105,.4);padding:4px 6px;border-radius:2px;border:1px solid rgba(91,60,196,.3)';
+      const label=document.createElement('span');
+      label.style.cssText='font-size:5px;color:#c4b5fd;min-width:28px';
+      label.textContent=stat;
+      const val=document.createElement('span');
+      val.id='asi_'+stat;
+      val.style.cssText='font-size:5px;color:#4ade80;min-width:20px;text-align:center';
+      val.textContent=scores[stat]+' ('+((abilMod(scores[stat])>=0?'+':'')+abilMod(scores[stat]))+')';
+      const plus=document.createElement('button');
+      plus.textContent='+';
+      plus.style.cssText='font-family:"Press Start 2P",monospace;font-size:6px;background:#22c55e;color:#000;border:none;border-radius:2px;width:16px;height:16px;cursor:pointer;line-height:16px';
+      plus.onclick=()=>{
+        if(points<=0||scores[stat]>=20)return;
+        scores[stat]++;chosen[stat]=(chosen[stat]||0)+1;points--;
+        val.textContent=scores[stat]+' ('+((abilMod(scores[stat])>=0?'+':'')+abilMod(scores[stat]))+')';
+        info.textContent='Points remaining: '+points;
+        if(points<=0)confirmBtn.style.display='block';
+      };
+      row.appendChild(label);row.appendChild(val);row.appendChild(plus);
+      grid.appendChild(row);
+    });
+    content.appendChild(grid);
+
+    const confirmBtn=document.createElement('button');
+    confirmBtn.textContent='CONFIRM';
+    confirmBtn.id='asiConfirm';
+    confirmBtn.style.cssText='display:none;margin:10px auto 0;padding:6px 16px;font-family:"Press Start 2P",monospace;font-size:6px;background:#fcd34d;color:#1e1b4b;border:none;border-radius:2px;cursor:pointer;text-align:center';
+    confirmBtn.onclick=()=>{
+      // Apply ASI
+      Object.entries(chosen).forEach(([stat,bonus])=>{
+        GS.abilityScores[stat]+=bonus;
+      });
+      GS.asiChoices[level]={type:'asi',stats:{...chosen}};
+      GS.necroMaxHP=calcMaxHP();
+      GS.necroHP=Math.min(GS.necroHP,GS.necroMaxHP);
+      GS._pendingASI=null;
+      overlay.remove();
+      showToast('⬆ Ability scores increased!');
+      if(typeof saveGame==='function')saveGame();
+    };
+    content.appendChild(confirmBtn);
+  }
+
+  // ── Feat View ──
+  function renderFeats(){
+    tabFeat.style.background='#2d1b69';tabFeat.style.color='#c4b5fd';tabFeat.style.borderColor='#5b3cc4';
+    tabASI.style.background='#1e1e1e';tabASI.style.color='#888';tabASI.style.borderColor='#444';
+    content.innerHTML='';
+
+    const list=document.createElement('div');
+    list.style.cssText='display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow-y:auto';
+
+    Object.entries(DND_FEATS).forEach(([id,feat])=>{
+      // Check prereq
+      const already=GS.feats.includes(id);
+      let meetsPrereq=true;
+      if(feat.prereq){
+        try{meetsPrereq=eval(feat.prereq.replace('necroLv','GS.necroLv'));}catch(e){meetsPrereq=false;}
+      }
+
+      const row=document.createElement('div');
+      row.style.cssText=`padding:6px 8px;background:${already?'rgba(34,197,94,.1)':meetsPrereq?'rgba(45,27,105,.3)':'rgba(40,40,40,.3)'};border:1px solid ${already?'#22c55e':meetsPrereq?'rgba(91,60,196,.4)':'#333'};border-radius:2px;cursor:${already||!meetsPrereq?'default':'pointer'};opacity:${already||!meetsPrereq?'0.6':'1'}`;
+
+      let statLine='';
+      if(feat.effect.statBonus){
+        statLine=Object.entries(feat.effect.statBonus).map(([s,v])=>'+'+v+' '+s).join(', ');
+        statLine=' <span style="color:#4ade80">['+statLine+']</span>';
+      }
+
+      row.innerHTML=`<div style="font-size:5px;color:${already?'#22c55e':'#fcd34d'}">${feat.name}${already?' ✓':''}${statLine}</div><div style="font-size:4px;color:#8b8b8b;margin-top:2px">${feat.desc}</div>${!meetsPrereq?'<div style="font-size:4px;color:#ef4444;margin-top:2px">Requires: '+feat.prereq+'</div>':''}`;
+
+      if(!already&&meetsPrereq){
+        row.onclick=()=>{
+          // Confirm via visual feedback (no browser dialog)
+          GS.feats.push(id);
+          GS.asiChoices[level]={type:'feat',feat:id};
+          // Apply stat bonuses from feat
+          if(feat.effect.statBonus){
+            Object.entries(feat.effect.statBonus).forEach(([stat,bonus])=>{
+              GS.abilityScores[stat]=(GS.abilityScores[stat]||10)+bonus;
+            });
+          }
+          GS.necroMaxHP=calcMaxHP();
+          GS.necroHP=Math.min(GS.necroHP,GS.necroMaxHP);
+          GS._pendingASI=null;
+          overlay.remove();
+          showToast('✦ Feat acquired: '+feat.name+'!');
+          if(typeof saveGame==='function')saveGame();
+        };
+      }
+      list.appendChild(row);
+    });
+    content.appendChild(list);
+  }
+
+  tabASI.onclick=renderASI;
+  tabFeat.onclick=renderFeats;
+
+  // Cancel button
+  const cancel=document.createElement('button');
+  cancel.textContent='DECIDE LATER';
+  cancel.style.cssText='display:block;margin:10px auto 0;padding:4px 12px;font-family:"Press Start 2P",monospace;font-size:4px;background:transparent;color:#666;border:1px solid #444;border-radius:2px;cursor:pointer';
+  cancel.onclick=()=>{overlay.remove();};
+  panel.appendChild(cancel);
+
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+  renderASI(); // default tab
+}
+
+// ── Character Sheet Panel ──
+function showCharacterSheet(){
+  const overlay=document.createElement('div');
+  overlay.id='charSheetOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;align-items:center;justify-content:center;font-family:"Press Start 2P",monospace';
+
+  const panel=document.createElement('div');
+  panel.style.cssText='background:rgba(8,2,24,.95);border:3px solid #8b5cf6;border-radius:4px;box-shadow:0 0 40px rgba(139,92,246,.3),inset 0 0 0 1px #2d1b69;padding:16px 20px;max-width:520px;width:92vw;max-height:88vh;overflow-y:auto;color:#d4c8a8';
+
+  const lv=GS.necroLv;
+  const scores=GS.abilityScores||DEFAULT_ABILITY_SCORES;
+  const prof=profBonus(lv);
+  const dc=spellSaveDC();
+  const ac=necroAC();
+  const atkBon=spellAtkBonus();
+
+  // Ability scores grid
+  const scoreCards=['STR','DEX','CON','INT','WIS','CHA'].map(s=>{
+    const v=scores[s]||10;
+    const mod=abilMod(v);
+    const modStr=(mod>=0?'+':'')+mod;
+    return `<div style="text-align:center;background:rgba(45,27,105,.4);padding:6px 4px;border-radius:2px;border:1px solid rgba(91,60,196,.3)">
+      <div style="font-size:4px;color:#a78bfa">${s}</div>
+      <div style="font-size:8px;color:#fcd34d;margin:2px 0">${v}</div>
+      <div style="font-size:5px;color:#4ade80">${modStr}</div>
+    </div>`;
+  }).join('');
+
+  // Feats list
+  const featsHtml=(GS.feats||[]).map(fid=>{
+    const f=DND_FEATS[fid];
+    return f?`<div style="font-size:4px;padding:2px 4px;background:rgba(34,197,94,.1);border-radius:2px;border:1px solid rgba(34,197,94,.3)">✦ ${f.name}</div>`:'';
+  }).join('')||'<div style="font-size:4px;color:#666">None yet</div>';
+
+  // Class features
+  const features=unlockedFeatures(lv);
+  const featuresHtml=features.map(f=>`<div style="font-size:4px;padding:2px 4px;margin-bottom:2px"><span style="color:#a78bfa">Lv${f.lv}</span> <span style="color:#fcd34d">${f.name}</span></div>`).join('');
+
+  // Racial traits
+  const racialHtml=RACIAL_TRAITS.map(t=>`<div style="font-size:4px;padding:2px 4px">${t.icon} <span style="color:#f0abfc">${t.name}</span> — <span style="color:#8b8b8b">${t.desc.substring(0,50)}…</span></div>`).join('');
+
+  panel.innerHTML=`
+    <div style="font-size:8px;color:#fcd34d;text-align:center;margin-bottom:4px;text-shadow:0 0 8px rgba(252,211,77,.5)">${GS.necroName||'Necromancer'}</div>
+    <div style="font-size:5px;color:#a78bfa;text-align:center;margin-bottom:10px">Level ${lv} Tiefling Lich Necromancer</div>
+
+    <div style="display:flex;justify-content:space-around;margin-bottom:10px;font-size:5px">
+      <div><span style="color:#888">HP</span> <span style="color:#4ade80">${GS.necroHP}/${GS.necroMaxHP}</span></div>
+      <div><span style="color:#888">AC</span> <span style="color:#60a5fa">${ac}</span></div>
+      <div><span style="color:#888">Prof</span> <span style="color:#fcd34d">+${prof}</span></div>
+      <div><span style="color:#888">DC</span> <span style="color:#c084fc">${dc}</span></div>
+      <div><span style="color:#888">Atk</span> <span style="color:#f97316">+${atkBon}</span></div>
+    </div>
+
+    <div style="font-size:5px;color:#c4b5fd;margin-bottom:4px">── ABILITY SCORES ──</div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:10px">${scoreCards}</div>
+
+    <div style="font-size:5px;color:#c4b5fd;margin-bottom:4px">── RACIAL TRAITS (Tiefling Lich) ──</div>
+    <div style="margin-bottom:10px">${racialHtml}</div>
+
+    <div style="font-size:5px;color:#c4b5fd;margin-bottom:4px">── FEATS ──</div>
+    <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:10px">${featsHtml}</div>
+
+    <div style="font-size:5px;color:#c4b5fd;margin-bottom:4px">── CLASS FEATURES ──</div>
+    <div style="margin-bottom:10px;max-height:120px;overflow-y:auto">${featuresHtml}</div>
+
+    ${GS._pendingASI?'<button onclick="document.getElementById(\'charSheetOverlay\').remove();showASIPanel('+GS._pendingASI+')" style="display:block;margin:8px auto;padding:6px 16px;font-family:\'Press Start 2P\',monospace;font-size:5px;background:#fcd34d;color:#1e1b4b;border:none;border-radius:2px;cursor:pointer">⬆ CHOOSE ASI / FEAT (Lv '+GS._pendingASI+')</button>':''}
+  `;
+
+  // Close button
+  const close=document.createElement('button');
+  close.textContent='✕ CLOSE';
+  close.style.cssText='display:block;margin:10px auto 0;padding:5px 14px;font-family:"Press Start 2P",monospace;font-size:5px;background:transparent;color:#888;border:1px solid #444;border-radius:2px;cursor:pointer';
+  close.onclick=()=>overlay.remove();
+  panel.appendChild(close);
+
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+}
+
+// ── Trigger pending ASI panel after raid/combat ends ──
+function checkPendingASI(){
+  if(GS._pendingASI&&!document.getElementById('asiOverlay')){
+    setTimeout(()=>showASIPanel(GS._pendingASI),1500);
+  }
+}
+
 function salSpriteKey(lv){return lv>=10?'charizard':lv>=5?'charmeleon':'fire_salamander';}
 function salName(lv){return lv>=10?'Charizard':lv>=5?'Charmeleon':'Ember Salamander';}
 // Hedgehog devPet2 — single sprite, no evolution
@@ -3713,6 +4124,11 @@ const GS={
   necroXP:0,
   necroMaxHP:100,
   necroHP:100,
+  abilityScores:{STR:8,DEX:12,CON:14,INT:16,WIS:13,CHA:10}, // DnD 5e ability scores
+  feats:[],               // selected feat IDs from DND_FEATS
+  asiChoices:{},          // {level: {type:'asi',stats:{STR:1,DEX:1}} or {type:'feat',feat:'soul_eater'}}
+  racialTraitsActive:true,// Tiefling Lich racial traits enabled
+  undead_fortitude_used:false, // per-raid flag
   prestige:0,       // New Game+ counter — each run carries permanent bonuses (1-10 base, 11-20 Ascended)
   ascendedUnlocks:{}, // {key:true} — permanent Ascended tier unlocks (prestige 11+)
   pvpWins:0, pvpLosses:0, pvpCurrency:0, pvpRating:1000, pvpTitles:[],
@@ -3739,7 +4155,9 @@ const GS={
   },
   effectiveCost(t){
     const base=MINIONS[t].cost;
-    return this.hasPassive(6)?Math.max(1,Math.round(base*.85)):base;
+    let cost=this.hasPassive(6)?Math.max(1,Math.round(base*.85)):base;
+    if(hasFeat('skull_collector'))cost=Math.max(1,Math.round(cost*0.90));
+    return cost;
   },
   craft(t){
     if(!this.canCraft(t))return false;
@@ -3824,20 +4242,25 @@ const GS={
   },
   addXP(n){
     this.necroXP+=n;
-    const cap=Math.round(XP_TABLE[Math.min(this.necroLv,19)]*this.prestXPMult()); // Ascended: 2× XP per tier
+    const cap=Math.round(XP_TABLE[Math.min(this.necroLv,19)]*this.prestXPMult());
     if(this.necroXP>=cap&&this.necroLv<20){
       const _oldLv=this.necroLv,_oldMaxHP=this.necroMaxHP;
       this.necroLv++;
       Analytics.levelUp(this.necroLv);
-      this.necroMaxHP=Math.round((100+this.necroLv*12+(this.hasPassive(8)?50:0))*this.prestHPMult());
+      this.necroMaxHP=calcMaxHP();
       this.necroXP-=cap;
       SND.level();
-      // Phase 7: Level-up stat panel
+      // Phase 11: Enhanced level-up panel with DnD 5e stats
       if(typeof CombatPresentation!=='undefined')CombatPresentation.levelUpPanel(_oldLv,this.necroLv,_oldMaxHP,this.necroMaxHP);
+      // Check if this level grants an ASI choice
+      if(ASI_LEVELS.includes(this.necroLv)&&!this.asiChoices[this.necroLv]){
+        // Queue ASI selection panel (shown after combat or immediately if not in combat)
+        this._pendingASI=this.necroLv;
+      }
       if(typeof checkAchievements==='function')setTimeout(()=>checkAchievements(),500);
       return true;
     }
-    if(this.necroLv>=20){this.necroXP=cap;} // cap xp at max
+    if(this.necroLv>=20){this.necroXP=cap;}
     return false;
   },
 };
@@ -14537,7 +14960,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,tutorial:GS.tutorial||null,analyticsConsent:GS.analyticsConsent||false,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,tutorial:GS.tutorial||null,analyticsConsent:GS.analyticsConsent||false,abilityScores:GS.abilityScores||{STR:8,DEX:12,CON:14,INT:16,WIS:13,CHA:10},feats:GS.feats||[],asiChoices:GS.asiChoices||{},racialTraitsActive:GS.racialTraitsActive!==false,savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -14615,6 +15038,18 @@ function loadGame(){
     GS.ngPlusStats=d.ngPlusStats||null;
     // Load tutorial state
     GS.tutorial=d.tutorial||null;
+    // Load DnD 5e character progression (Phase 11)
+    GS.abilityScores=d.abilityScores||{STR:8,DEX:12,CON:14,INT:16,WIS:13,CHA:10};
+    GS.feats=d.feats||[];
+    GS.asiChoices=d.asiChoices||{};
+    GS.racialTraitsActive=d.racialTraitsActive!==false;
+    // Apply racial bonuses to old saves that don't have them yet
+    if(!d.abilityScores){
+      GS.abilityScores.CON+=RACIAL_BONUS.CON;
+      GS.abilityScores.INT+=RACIAL_BONUS.INT;
+    }
+    // Recalculate max HP with new formula for old saves
+    GS.necroMaxHP=calcMaxHP();
     GS.analyticsConsent=d.analyticsConsent||false;
     // Rebuild ascended unlocks from prestige level for old saves
     if(GS.prestige>=11&&!Object.keys(GS.ascendedUnlocks).length){
@@ -16277,6 +16712,7 @@ function initRaid(raidKey,floorNum,opts){
   const raidBuffs=floorNum===1?applyPreRaidBuffs():(RS?{atkMult:RS.atkMult,defMult:RS.defMult,shield:RS.shield,revive:RS.revive,lifesteal:RS.lifesteal,speedBuff:RS.speedBuff,minionSpeed:RS.minionSpeed,raiseScroll:RS.raiseScroll,minionHPBoost:RS.minionHPBoost,darkBinding:RS.darkBinding,spiritAnchor:RS.spiritAnchor,invisibility:RS._invisTimer>0&&RS._invisStart>0?Math.max(0,RS._invisTimer-(RS.lastTs/1000-RS._invisStart)):0}:{});
 
   window._activeRaidBuffs=[];
+  GS.undead_fortitude_used=false; // Reset racial trait for new raid
   RS={
     raidKey,floorNum,floorTotal:_floorTotal,isFinalFloor,cfg,
     grid,stairX,stairY,rooms,
@@ -18971,6 +19407,17 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
     if(RS.necro.hp<=0&&!RS.necro.dead){
       // NG+ Ironman: instant death, no saves
       if(ngRule('instantDeath')){
+    // Phase 11: Undead Fortitude racial trait
+    if(GS.racialTraitsActive&&!GS.undead_fortitude_used){
+      const _ufDC=5+Math.abs(RS.necro.hp);// DC = 5 + damage taken
+      const _ufSave=savingThrow(GS.abilityScores?.CON||14,Math.min(_ufDC,30),true);
+      if(_ufSave.success){
+        RS.necro.hp=1;RS.necro.dead=false;GS.undead_fortitude_used=true;
+        showToast('💀 Undead Fortitude! CON save '+_ufSave.total+' vs DC '+Math.min(_ufDC,30)+' — survived at 1 HP!');
+        RS.parts.push({k:'dmg',x:RS.necro.x,y:RS.necro.y-30,txt:'FORTITUDE!',col:'#a78bfa',life:1.2,ml:1.2,vy:-25});
+        return; // don't die
+      }
+    }
         RS.necro.dead=true;SND.necroDeath();flash('💀 IRONMAN — NO SECOND CHANCES!',22,'#ef4444');TransitionManager.play('deathFade',1800,{onDone:()=>endRaid('defeat')});return;
       }
       // Shadow Hound intercept
@@ -20415,7 +20862,12 @@ function castSpell(key,t){
   const _critB=(GS._setBonus||getSetBonuses()).critBonus||0;
   const _isCrit=_critB>0&&Math.random()<_critB;
   if(_isCrit&&typeof CombatPresentation!=='undefined')CombatPresentation.critFlash();
-  const dmgMult=(GS.hasPassive(9)?1.25:1)*staffM.dmg*GS.prestDmgMult()*_lvDmgMult2*_lichMult*(_meltingActive&&isMeltingRaging(t)?1.3:1)*(_isCrit?1.5:1);
+    // Phase 11: d20 attack roll — affects damage multiplier
+    const _atkBonus=spellAtkBonus();
+    const _d20=d20Attack(_atkBonus,12); // base enemy AC 12, actual AC from enemy def when available
+    const _d20Mult=_d20.nat20?1.5:_d20.nat1?0.5:_d20.hit?1.0:0.75;
+    const _intBonusDmg=Math.max(0,abilMod(GS.abilityScores?.INT||10));
+  const dmgMult=(GS.hasPassive(9)?1.25:1)*staffM.dmg*GS.prestDmgMult()*_lvDmgMult2*_lichMult*_d20Mult*(_meltingActive&&isMeltingRaging(t)?1.3:1)*(_isCrit?1.5:1);
   const lastCast=RS.spellCDs[key]||0;
   // AOE in manual mode: enter targeting mode WITHOUT consuming the CD yet
   if(sp.tgt==='aoe'&&!autoMode){
@@ -22473,6 +22925,7 @@ function finishRaid(){
   TransitionManager.play('hSweep',700,{
     onMid:()=>{
       RS=null;stopAmbience();startAmbience('castle');startMusic(_wasDefeat?'menu':'victory');if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
+  if(typeof checkPendingASI==='function')checkPendingASI();
       const kbHUD=document.getElementById('kbTargetHUD');if(kbHUD)kbHUD.style.display='none';
       if(_wasDefeat)CR=null;
       if(typeof checkAchievements==='function')checkAchievements();
@@ -31072,6 +31525,7 @@ function endSurvival(result) {
   GS.necroHP = GS.necroMaxHP; // Full heal on exit
   cancelAnimationFrame(_svAnimId);
   stopAmbience();startAmbience('castle');startMusic(result==='victory'?'victory':'menu');
+  if(typeof checkPendingASI==='function')checkPendingASI();
 
   // Restore returnBtn to default raid behavior (survival had overridden it)
   const _retBtn=document.getElementById('returnBtn');
@@ -32996,21 +33450,39 @@ const CombatPresentation=(function(){
   function levelUpPanel(oldLv,newLv,oldMaxHP,newMaxHP){
     const ov=_getOverlay();
     const hpDelta=newMaxHP-oldMaxHP;
+    const prof=profBonus(newLv);
+    const oldProf=profBonus(oldLv);
+    const intMod=abilMod(GS.abilityScores?.INT||10);
+    const dc=spellSaveDC();
+    const ac=necroAC();
+    const isASI=ASI_LEVELS.includes(newLv);
+    const newFeatures=featureAtLevel(newLv);
     const panel=document.createElement('div');
-    panel.style.cssText='position:absolute;bottom:80px;right:12px;background:rgba(8,2,24,.92);border:2px solid #fcd34d;border-radius:2px;box-shadow:inset 0 0 0 1px #92400e,0 2px 8px rgba(0,0,0,.6);padding:8px 12px;animation:cpFlashIn .4s ease-out;pointer-events:none;min-width:140px';
+    panel.style.cssText='position:absolute;bottom:80px;right:12px;background:rgba(8,2,24,.92);border:2px solid #fcd34d;border-radius:2px;box-shadow:inset 0 0 0 1px #92400e,0 2px 8px rgba(0,0,0,.6);padding:8px 12px;animation:cpFlashIn .4s ease-out;pointer-events:none;min-width:170px;z-index:999';
+    let featHtml='';
+    if(newFeatures.length){
+      featHtml=newFeatures.map(f=>`<div style="margin-top:4px;font-size:4px;color:#a78bfa;border-top:1px solid rgba(139,92,246,.3);padding-top:3px">✦ ${f.name}</div><div style="font-size:4px;color:#8b8b8b;padding-left:6px">${f.desc.substring(0,60)}${f.desc.length>60?'…':''}</div>`).join('');
+    }
+    let asiHtml='';
+    if(isASI)asiHtml='<div style="margin-top:4px;font-size:4px;color:#fcd34d;text-align:center;animation:cpStatPop .3s .4s both">⬆ ASI / FEAT AVAILABLE!</div>';
     panel.innerHTML=`
       <div style="font-family:'Press Start 2P',monospace;font-size:7px;color:#fcd34d;margin-bottom:6px;text-align:center;text-shadow:0 0 8px rgba(252,211,77,.5)">⬆ LEVEL UP!</div>
       <div style="font-family:'Press Start 2P',monospace;font-size:5px;color:#d4c8a8;line-height:2.2">
         <div style="display:flex;justify-content:space-between"><span>LV</span><span style="color:#a78bfa">${oldLv} → ${newLv}</span></div>
         <div style="display:flex;justify-content:space-between"><span>MAX HP</span><span style="color:#4ade80;animation:cpStatPop .3s .2s both">${oldMaxHP} → ${newMaxHP} <span style="color:#22c55e;font-weight:bold">+${hpDelta}</span></span></div>
+        <div style="display:flex;justify-content:space-between"><span>PROF</span><span style="color:#60a5fa">${prof>oldProf?oldProf+' → '+prof:'+'+prof}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>SPELL DC</span><span style="color:#c084fc">${dc}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>AC</span><span style="color:#f0abfc">${ac}</span></div>
       </div>
+      ${featHtml}
+      ${asiHtml}
       <div style="margin-top:6px;height:2px;background:linear-gradient(90deg,transparent,#fcd34d,transparent)"></div>
     `;
     ov.appendChild(panel);
     setTimeout(()=>{
       panel.style.transition='opacity .5s';panel.style.opacity='0';
       setTimeout(()=>panel.remove(),520);
-    },2500);
+    },3500);
   }
 
   // ── CRITICAL HIT FLASH ──
