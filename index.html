@@ -937,6 +937,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
       <button class="craft-tab active" id="ct-potions" onclick="switchCraftTab('potions')">🧪 Potions</button>
       <button class="craft-tab inactive" id="ct-equipment" onclick="switchCraftTab('equipment')">⚔️ Equipment</button>
       <button class="craft-tab inactive" id="ct-minions" onclick="switchCraftTab('minions')">💀 Upgrades</button>
+      <button class="craft-tab inactive" id="ct-dark" onclick="switchCraftTab('dark')" style="display:none">🌑 Dark</button>
     </div>
     <div id="craftMsg" style="padding:0 14px;margin-top:6px;font-family:'Cinzel',serif;font-size:11px;min-height:18px"></div>
     <div class="craft-grid" id="craftGrid" style="overflow-y:auto;flex:1"></div>
@@ -1002,6 +1003,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   <button onclick="closeCastle_menu();openVillage()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(34,197,94,.4);border-radius:10px;background:rgba(34,197,94,.1);color:#86efac;cursor:pointer;-webkit-appearance:none">🏘 Village</button>
   
   <button onclick="closeCastle_menu();openMapSelector()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(96,165,250,.4);border-radius:10px;background:rgba(96,165,250,.1);color:#93c5fd;cursor:pointer;-webkit-appearance:none">🗺 World Map & Raids</button>
+  <button id="necropolisMenuBtn" onclick="closeCastle_menu();openNecropolis()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(192,132,252,.5);border-radius:10px;background:rgba(192,132,252,.12);color:#e9d5ff;cursor:pointer;-webkit-appearance:none;display:none">🌑 Necropolis</button>
   <button onclick="closeCastle_menu();startSurvival()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(239,68,68,.5);border-radius:10px;background:rgba(239,68,68,.12);color:#fca5a5;cursor:pointer;-webkit-appearance:none;animation:glowPulse 2s infinite">🩸 Hellbridge Survival</button>
   <button onclick="closeCastle_menu();openAchievementPanel()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(252,211,77,.4);border-radius:10px;background:rgba(252,211,77,.08);color:#fcd34d;cursor:pointer;-webkit-appearance:none">🏆 Achievements</button>
   <button onclick="closeCastle_menu();openDailyRewardsPanel()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(245,158,11,.4);border-radius:10px;background:rgba(245,158,11,.08);color:#fbbf24;cursor:pointer;-webkit-appearance:none">📅 Daily Rewards</button>
@@ -1841,7 +1843,7 @@ let activeRaid=null; // key into RAID_CONFIGS
 const UNIT_CAP_TABLE=[4,4,4,4,4,4,12,20,38,48,60,60,74,74,90,90,108,118,130,144]; // index 0 = lv1
 // CR CAP: max total CR allowed in barracks at once
 const CR_CAP_TABLE=[1,1,1,1,1,1,3,5,9.5,12,15,15,18.5,18.5,22.5,22.5,27,29.5,32.5,36]; // index 0 = lv1
-function armyCap(lv){return UNIT_CAP_TABLE[Math.min(Math.max(lv,1),20)-1];}
+function armyCap(lv){return Math.floor(UNIT_CAP_TABLE[Math.min(Math.max(lv,1),20)-1]*GS.prestMinionCapMult());}
 function crCap(lv){return CR_CAP_TABLE[Math.min(Math.max(lv,1),20)-1];}
 // Total CR currently in the living roster (all alive units)
 function totalRosterCR(){return GS.skeletons.filter(s=>s.hp>0).reduce((sum,s)=>sum+crNum(MINIONS[s.type]?.cr||'0'),0);}
@@ -2249,7 +2251,8 @@ const GS={
   necroXP:0,
   necroMaxHP:100,
   necroHP:100,
-  prestige:0,       // New Game+ counter — each run carries permanent bonuses
+  prestige:0,       // New Game+ counter — each run carries permanent bonuses (1-10 base, 11-20 Ascended)
+  ascendedUnlocks:{}, // {key:true} — permanent Ascended tier unlocks (prestige 11+)
   pvpWins:0, pvpLosses:0, pvpCurrency:0, pvpRating:1000, pvpTitles:[],
   pvpCosmetics:{},   // {id:true} — unlocked PvP cosmetic items
   // Guild system
@@ -2341,11 +2344,16 @@ const GS={
     );
     return alive.slice(0,cap); // respect raid slot cap
   },
-  // Prestige scales: each prestige tier stacks
-  prestDmgMult(){return 1 + this.prestige * 0.12;},    // +12% spell/attack dmg per prestige
-  prestHPMult(){return 1 + this.prestige * 0.10;},     // +10% max HP per prestige
-  prestBoneYield(){return 1 + this.prestige * 0.15;},  // +15% bone gains per prestige
+  // Prestige scales: each prestige tier stacks (Ascended tiers 11-20 give accelerated bonuses)
+  hasAscended(key){return !!(this.ascendedUnlocks&&this.ascendedUnlocks[key]);},
+  prestDmgMult(){const p=this.prestige;return 1 + Math.min(p,10)*0.12 + Math.max(0,p-10)*0.18;},    // +12% base, +18% Ascended per tier
+  prestHPMult(){const p=this.prestige;return 1 + Math.min(p,10)*0.10 + Math.max(0,p-10)*0.15;},     // +10% base, +15% Ascended per tier
+  prestBoneYield(){const p=this.prestige;return 1 + Math.min(p,10)*0.15 + Math.max(0,p-10)*0.20;},  // +15% base, +20% Ascended per tier
   prestStartBones(){return 20 + this.prestige * 15;},  // start each NG+ with more bones
+  prestMinionCapMult(){return this.hasAscended('ascMinionCap')?1.20:1.0;}, // +20% minion cap at Ascended tier 13
+  prestAutoHealPct(){return this.hasAscended('ascAutoHeal')?0.25:0;}, // 25% auto-heal between floors at tier 16
+  prestSpellDmgMult(){return this.hasAscended('ascSpellVariants')?1.30:1.0;}, // +30% spell dmg at tier 11
+  prestXPMult(){return this.prestige>10?Math.pow(2,this.prestige-10):1;}, // 2× XP per Ascended tier
   hasPassive(n){
     const p=PASSIVES[n];if(!p)return false;
     if(this.necroLv<p.unlockLv)return false;
@@ -2354,7 +2362,7 @@ const GS={
   },
   addXP(n){
     this.necroXP+=n;
-    const cap=XP_TABLE[Math.min(this.necroLv,19)];
+    const cap=Math.round(XP_TABLE[Math.min(this.necroLv,19)]*this.prestXPMult()); // Ascended: 2× XP per tier
     if(this.necroXP>=cap&&this.necroLv<20){
       this.necroLv++;
       this.necroMaxHP=Math.round((100+this.necroLv*12+(this.hasPassive(8)?50:0))*this.prestHPMult());
@@ -3168,7 +3176,8 @@ const MAX_PARTY_TOTAL = 8; // players + heroes combined cap (pets don't count)
 const MAX_HEROES_PER_RAID = 3; // solo default — dynamically adjusted in getMaxHeroes()
 function getMaxHeroes(){
   const playerCount=(typeof MP!=='undefined'&&MP?.started)?Math.max(1,MP.players.length):1;
-  return Math.max(1, MAX_PARTY_TOTAL - playerCount);
+  const ascBonus=GS.hasAscended('ascHeroSlot')?1:0; // +1 hero slot at Ascended tier 12
+  return Math.max(1, MAX_PARTY_TOTAL - playerCount + ascBonus);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3677,7 +3686,9 @@ const ACHIEVEMENTS=[
   {id:'prestige_1',      cat:'progression', name:'New Game+',     desc:'Prestige for the first time',             ico:'⭐', check:()=>GS.prestige>=1},
   {id:'prestige_3',      cat:'progression', name:'Veteran',       desc:'Reach Prestige 3',                        ico:'🌟', check:()=>GS.prestige>=3},
   {id:'prestige_5',      cat:'progression', name:'Legend',         desc:'Reach Prestige 5',                        ico:'✨', check:()=>GS.prestige>=5},
-  {id:'prestige_10',     cat:'progression', name:'Immortal',      desc:'Reach Prestige 10 (max)',                 ico:'👑', check:()=>GS.prestige>=10},
+  {id:'prestige_10',     cat:'progression', name:'Immortal',      desc:'Reach Prestige 10',                       ico:'👑', check:()=>GS.prestige>=10},
+  {id:'prestige_15',     cat:'progression', name:'Ascended',      desc:'Reach Prestige 15',                       ico:'🌟', check:()=>GS.prestige>=15},
+  {id:'prestige_20',     cat:'progression', name:'Ascended Eternal',desc:'Reach Prestige 20 (max)',               ico:'💫', check:()=>GS.prestige>=20},
   {id:'bones_1k',        cat:'progression', name:'Bone Hoarder',  desc:'Accumulate 1,000 bones',                  ico:'🦴', check:()=>GS.bones>=1000},
   {id:'bones_10k',       cat:'progression', name:'Ossuary',       desc:'Accumulate 10,000 bones',                 ico:'💎', check:()=>GS.bones>=10000},
 
@@ -3789,6 +3800,8 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{hpRegen:0.20,maxHP:0.05}},
       {tier:3,name:'Necromancer\'s Sanctum',desc:'+30% HP regen, +10% max HP, auto-heal minions',cost:{bones:250,wood:50,herbs:25,currency_gp:15},timeMins:30,
         bonus:{hpRegen:0.30,maxHP:0.10,autoHealMinions:true}},
+      {tier:4,name:'Dread Sanctum',desc:'+50% HP regen, +20% max HP, auto-heal minions, +10% DR',cost:{bones:600,wood:120,herbs:60,currency_gp:40},timeMins:60,
+        bonus:{hpRegen:0.50,maxHP:0.20,autoHealMinions:true,dmgReduce:0.10}},
     ]
   },
   library:{
@@ -3800,6 +3813,8 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{xpMult:0.20,spellCDR:0.10}},
       {tier:3,name:'Grand Athenaeum',desc:'+30% XP, −20% spell CD, +1 summon slot',cost:{bones:300,herbs:40,wood:30,currency_gp:20},timeMins:30,
         bonus:{xpMult:0.30,spellCDR:0.20,extraSummon:1}},
+      {tier:4,name:'Lich\'s Athenaeum',desc:'+50% XP, −30% spell CD, +2 summon slots',cost:{bones:700,herbs:100,wood:70,currency_gp:50},timeMins:60,
+        bonus:{xpMult:0.50,spellCDR:0.30,extraSummon:2}},
     ]
   },
   barracks:{
@@ -3811,6 +3826,8 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{minionAtk:0.20,minionHP:0.10}},
       {tier:3,name:'Fortress Garrison',desc:'+30% ATK, +20% HP, +2 army cap',cost:{bones:350,wood:60,herbs:20,currency_gp:25},timeMins:30,
         bonus:{minionAtk:0.30,minionHP:0.20,armyCap:2}},
+      {tier:4,name:'Dread Garrison',desc:'+50% ATK, +35% HP, +4 army cap',cost:{bones:800,wood:140,herbs:50,currency_gp:55},timeMins:60,
+        bonus:{minionAtk:0.50,minionHP:0.35,armyCap:4}},
     ]
   },
   hall:{
@@ -3822,6 +3839,8 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{lootMult:0.10,goldMult:0.10}},
       {tier:3,name:'Sovereign\'s Court',desc:'+15% loot, +20% gold, +10% bones',cost:{bones:400,wood:70,herbs:30,currency_gp:30},timeMins:30,
         bonus:{lootMult:0.15,goldMult:0.20,boneMult:0.10}},
+      {tier:4,name:'Eternal Throne',desc:'+25% loot, +35% gold, +20% bones',cost:{bones:900,wood:160,herbs:70,currency_gp:65},timeMins:60,
+        bonus:{lootMult:0.25,goldMult:0.35,boneMult:0.20}},
     ]
   },
   catacombs:{
@@ -3833,6 +3852,8 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{cryptSlots:5,raiseDiscount:0.20}},
       {tier:3,name:'Necropolis',desc:'+10 slots, −40% raise cost, auto-revive 1/raid',cost:{bones:280,wood:45,herbs:25,currency_gp:18},timeMins:30,
         bonus:{cryptSlots:10,raiseDiscount:0.40,autoRevive:1}},
+      {tier:4,name:'Abyssal Necropolis',desc:'+15 slots, −60% raise cost, auto-revive 2/raid',cost:{bones:650,wood:110,herbs:55,currency_gp:40},timeMins:60,
+        bonus:{cryptSlots:15,raiseDiscount:0.60,autoRevive:2}},
     ]
   },
   maproom:{
@@ -3844,6 +3865,8 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{mapIntel:true,raidBones:0.10,scoutFloors:true}},
       {tier:3,name:'Grand War Council',desc:'+20% raid bones, scout + choose floor layout',cost:{bones:260,wood:50,herbs:20,currency_gp:15},timeMins:30,
         bonus:{mapIntel:true,raidBones:0.20,scoutFloors:true,chooseLayout:true}},
+      {tier:4,name:'Dread War Chamber',desc:'+35% raid bones, scout + choose + preview boss',cost:{bones:600,wood:120,herbs:45,currency_gp:35},timeMins:60,
+        bonus:{mapIntel:true,raidBones:0.35,scoutFloors:true,chooseLayout:true,previewBoss:true}},
     ]
   },
   menagerie:{
@@ -3855,6 +3878,8 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{petSlots:2,petHeal:0.20}},
       {tier:3,name:'Mythic Sanctuary',desc:'+3 pet slots, pets +25% stats',cost:{bones:300,herbs:45,wood:30,currency_gp:20},timeMins:30,
         bonus:{petSlots:3,petHeal:0.20,petStats:0.25}},
+      {tier:4,name:'Abyssal Menagerie',desc:'+4 pet slots, pets +40% stats, pet abilities +15% effect',cost:{bones:700,herbs:110,wood:70,currency_gp:45},timeMins:60,
+        bonus:{petSlots:4,petHeal:0.30,petStats:0.40,petAbility:0.15}},
     ]
   },
   aviary:{
@@ -3866,10 +3891,13 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{coopSpeed:0.20,coopLoot:true}},
       {tier:3,name:'Sky Citadel',desc:'Co-op 30% faster, +1 co-op slot, rare co-op drops',cost:{bones:220,wood:45,herbs:18,currency_gp:12},timeMins:30,
         bonus:{coopSpeed:0.30,coopLoot:true,coopSlots:1}},
+      {tier:4,name:'Void Citadel',desc:'Co-op 50% faster, +2 co-op slots, guaranteed rare drops',cost:{bones:500,wood:100,herbs:40,currency_gp:30},timeMins:60,
+        bonus:{coopSpeed:0.50,coopLoot:true,coopSlots:2,coopRareGuarantee:true}},
     ]
   },
 };
 
+function getCastleMaxTier(roomId){const def=CASTLE_UPGRADE_DEFS[roomId];if(!def)return 0;return GS.hasAscended('ascCastleTier4')?4:3;}
 function getCastleLevel(roomId){return GS.castleUpgrades[roomId]||0;}
 function getCastleTier(roomId){
   const lv=getCastleLevel(roomId);if(!lv)return null;
@@ -3907,6 +3935,7 @@ function _castlePayCost(cost){
 function startCastleUpgrade(roomId){
   const curLv=getCastleLevel(roomId);
   const def=CASTLE_UPGRADE_DEFS[roomId];if(!def)return;
+  if(curLv>=getCastleMaxTier(roomId)){showToast('🏰 Already at max tier'+(curLv>=3&&!GS.hasAscended('ascCastleTier4')?' (unlock Ascended Tier 18 for T4)':'')+'!');return;}
   const nextTier=def.tiers[curLv];if(!nextTier)return; // already max
   if(GS.castleBuilding){showToast('⚠ Construction in progress!');return;}
   if(!_castleCostMet(nextTier.cost)){showToast('❌ Not enough resources');return;}
@@ -4042,6 +4071,13 @@ const CRAFT_RECIPES={
     {id:'c_dark_binding', name:'Dark Binding',        ico:'⛓️',result:'dark_binding',desc:'Convert first killed enemy to temp minion.',cost:{bones:15,herbs:5},output:1},
     {id:'c_spirit_anchor',name:'Spirit Anchor',       ico:'⚓',result:'spirit_anchor',desc:'Prevent 1 minion death per raid.',cost:{herbs:10,currency_gp:20},output:1},
     {id:'c_mass_summon',  name:'Mass Summon Tome',    ico:'📖',result:'mass_summon',desc:'Summon 3 random minions at once.',cost:{bones:25,currency_gp:30},output:1},
+  ],
+  dark:[ // Ascended Dark Crafting (prestige 14+) — legendary gear from raid materials
+    {id:'c_dark_staff',   name:'Abyssal Staff',        ico:'🔮',result:'equip_abyssal_staff',  desc:'+40% spell DMG, +20% CD. Legendary.',cost:{bones:200,herbs:80,wood:60,currency_gp:100},output:1,equip:'abyssal_staff',ascended:true},
+    {id:'c_dark_robe',    name:'Voidweave Robes',      ico:'🌌',result:'equip_voidweave',      desc:'+100 HP, 20% DR, +15% XP. Legendary.',cost:{bones:250,herbs:100,wood:80,currency_gp:120},output:1,equip:'voidweave_robes',ascended:true},
+    {id:'c_dark_crown',   name:'Crown of the Damned',  ico:'👑',result:'equip_dark_crown',     desc:'+30% all minion stats. Legendary hat.',cost:{bones:300,herbs:60,wood:40,currency_gp:150},output:1,equip:'crown_damned',ascended:true},
+    {id:'c_dark_elixir',  name:'Elixir of Undeath',    ico:'💀',result:'elixir_undeath',       desc:'Revive all fallen minions at 50% HP.',cost:{bones:100,herbs:50,currency_gp:80},output:1,ascended:true},
+    {id:'c_dark_soul',    name:'Soul Forge Hammer',    ico:'🔨',result:'soul_forge',           desc:'Permanently +5% all minion ATK.',cost:{bones:500,herbs:200,currency_gp:200},output:0,ascended:true},
   ],
 };
 
@@ -10380,6 +10416,8 @@ function getStaffMult(){
   // Set bonus damage
   const sb=GS._setBonus||getSetBonuses();
   if(sb.dmgBonus)dmg*=(1+sb.dmgBonus);
+  // Ascended Spell Variants (prestige 11+): +30% spell damage
+  if(GS.hasAscended('ascSpellVariants'))dmg*=GS.prestSpellDmgMult();
   let cd=staff?.stats?.cdMult||1;
   if(sb.cdBonus)cd*=(1-sb.cdBonus); // Veilwalker: cooldown reduction
   return{dmg,cd};
@@ -10453,7 +10491,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -10523,6 +10561,11 @@ function loadGame(){
     GS.petLevels=d.petLevels||{};
     // Load guild membership
     GS.guildId=d.guildId||null;
+    GS.ascendedUnlocks=d.ascendedUnlocks||{};
+    // Rebuild ascended unlocks from prestige level for old saves
+    if(GS.prestige>=11&&!Object.keys(GS.ascendedUnlocks).length){
+      for(const u of ASCENDED_UNLOCKS){if(GS.prestige>=u.tier)GS.ascendedUnlocks[u.key]=true;}
+    }
     // Load quest progress (or initialize for fresh/old saves)
     if(d.quests){
       GS.quests=d.quests;
@@ -11104,7 +11147,7 @@ function renderHub(){
     document.getElementById('hubXPnext').textContent='MAX LEVEL';
   }else{
     document.getElementById('hubXP').textContent=GS.necroXP;
-    document.getElementById('hubXPnext').textContent=XP_TABLE[Math.min(GS.necroLv,19)];
+    document.getElementById('hubXPnext').textContent=Math.round(XP_TABLE[Math.min(GS.necroLv,19)]*GS.prestXPMult());
   }
   document.getElementById('walletDisp').textContent=`PP: ${GS.wallet.pp} | GP: ${GS.wallet.gp} | SP: ${GS.wallet.sp} | CP: ${GS.wallet.cp}`;
   // Army cap
@@ -11189,14 +11232,14 @@ function renderHub(){
   const pRow=document.getElementById('prestigeRow');
   const pPill=document.getElementById('prestigePill');
   const hTitle=document.getElementById('hubTitle');
-  if(pRow)pRow.style.display=GS.necroLv>=20?'':'none';
+  if(pRow)pRow.style.display=(GS.necroLv>=20&&GS.prestige<20)?'':'none';
   if(pPill){
-    if(GS.prestige>0){pPill.style.display='';pPill.textContent=`★${GS.prestige} ${PRESTIGE_NAMES[Math.min(GS.prestige,9)]}`;}
+    if(GS.prestige>0){pPill.style.display='';const _isAsc=GS.prestige>=11;pPill.textContent=`${_isAsc?'🌟':'★'}${GS.prestige} ${PRESTIGE_NAMES[Math.min(GS.prestige,19)]||'Ascended'}`;if(_isAsc)pPill.style.color='#c084fc';}
     else pPill.style.display='none';
   }
   if(hTitle){
-    hTitle.textContent=GS.prestige>0?`☠ ${PRESTIGE_NAMES[Math.min(GS.prestige,9)]}'s Domain ☠`:'☠ Necromancer\'s Domain ☠';
-    hTitle.style.color=GS.prestige>0?'#fcd34d':'';
+    hTitle.textContent=GS.prestige>0?`☠ ${PRESTIGE_NAMES[Math.min(GS.prestige,19)]||'Ascended'}'s Domain ☠`:'☠ Necromancer\'s Domain ☠';
+    hTitle.style.color=GS.prestige>=11?'#c084fc':GS.prestige>0?'#fcd34d':'';
   }
   // Equipped gear summary — full inventory: Hat, Robes, Staff, Pets, Dev Pet
   const gearEl=document.getElementById('gearSummary');
@@ -14164,6 +14207,12 @@ function tickNecro(dt,t){
       RS.descending=true;
       if(RS.floorNum<RS.floorTotal){
         SND.stair();flash(`🪜 Descending to Floor ${RS.floorNum+1}...`,16,'#fcd34d');
+        // Ascended auto-heal between floors (prestige 16+)
+        const _ahPct=GS.prestAutoHealPct();
+        if(_ahPct>0){
+          RS.minions.forEach(mk=>{if(!mk.dead){mk.hp=Math.min(mk.maxHP,mk.hp+Math.round(mk.maxHP*_ahPct));mk.ref.hp=mk.hp;}});
+          n.hp=Math.min(n.maxHP,n.hp+Math.round(n.maxHP*_ahPct));
+        }
         RS.minions.forEach(mk=>{mk.ref.hp=mk.dead?0:mk.hp;});
         RS.minions.forEach(mk=>{if(mk._raised&&!mk.dead){GS.addToRoster(mk.type,mk.hp/mk.maxHP);}});
         GS.prune();GS.necroHP=Math.max(1,Math.round(n.hp));
@@ -15713,6 +15762,8 @@ function tickFamiliars(t,dt){
       }
     });
   }
+  // Ascended Tier 15: trigger 2nd ability on cooldown
+  if(typeof triggerPet2ndAbility==='function')triggerPet2ndAbility(ap);
 }
 
 function checkVictory(t){
@@ -17022,6 +17073,21 @@ function drawNecro(t){
   }
   // Auto mode ring
   if(autoMode){ctx.strokeStyle='rgba(34,197,94,.5)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(n.x,n.y,32,0,Math.PI*2);ctx.stroke();}
+  // Golden cosmetics aura for Ascended Eternal (prestige 20)
+  if(GS.hasAscended('ascGoldenCosmetics')&&!isLich){
+    const _gt=Date.now()*.001;
+    const _gp=0.25+Math.sin(_gt*1.5)*0.12;
+    const _ga=ctx.createRadialGradient(n.x,n.y,4,n.x,n.y,36);
+    _ga.addColorStop(0,`rgba(252,211,77,${_gp+0.2})`);_ga.addColorStop(0.5,`rgba(245,158,11,${_gp})`);_ga.addColorStop(1,'rgba(252,211,77,0)');
+    ctx.fillStyle=_ga;ctx.beginPath();ctx.arc(n.x,n.y,36,0,Math.PI*2);ctx.fill();
+    // Golden particle ring
+    for(let _i=0;_i<6;_i++){
+      const _a=_gt*0.8+_i*Math.PI/3;const _r=28+Math.sin(_gt*2+_i)*6;
+      const _px=n.x+Math.cos(_a)*_r,_py=n.y+Math.sin(_a)*_r;
+      ctx.fillStyle=`rgba(252,211,77,${0.5+Math.sin(_gt*3+_i)*0.3})`;
+      ctx.beginPath();ctx.arc(_px,_py,2,0,Math.PI*2);ctx.fill();
+    }
+  }
   const necroAnim=n._attackAnim&&t<n._attackAnim?'attack':'idle';
   const scale=(isLich||isAscended)?1.5:1;
   ctx.save();ctx.translate(n.x,n.y);ctx.scale(scale,scale);
@@ -18282,22 +18348,34 @@ const DIFF_STYLES = ['easy','medium','hard'];
 function getRegionRaids(region) {
   // Unique raids per region via REGION_RAID_MAP → RAID_CONFIGS
   const keys = REGION_RAID_MAP[region.id];
+  let raids;
   if(keys){
-    return keys.map((k,i)=>{
+    raids=keys.map((k,i)=>{
       const cfg=RAID_CONFIGS[k]||{};
       const diffLabel=['Easy','Medium','Hard'][i];
       const diffStyle=['easy','medium','hard'][i];
       return {key:k, diff:diffLabel, diffStyle, floors:cfg.floors||3,
               scale:1.0, minLv:region.lv, name:cfg.name, ico:cfg.ico, bossKey:cfg.bossKey};
     });
+  } else {
+    // Fallback for regions without unique raids
+    const b = region.biome;
+    raids=[
+      {key: b, diff:'Easy',   floors:1 + Math.floor(region.lv/3), scale:0.7,  diffStyle:'easy',   minLv:region.lv},
+      {key: b, diff:'Medium', floors:2 + Math.floor(region.lv/2), scale:1.0,  diffStyle:'medium', minLv:region.lv},
+      {key: b, diff:'Hard',   floors:3 + region.lv,               scale:1.5,  diffStyle:'hard',   minLv:region.lv},
+    ];
   }
-  // Fallback for regions without unique raids
-  const b = region.biome;
-  return [
-    {key: b, diff:'Easy',   floors:1 + Math.floor(region.lv/3), scale:0.7,  diffStyle:'easy',   minLv:region.lv},
-    {key: b, diff:'Medium', floors:2 + Math.floor(region.lv/2), scale:1.0,  diffStyle:'medium', minLv:region.lv},
-    {key: b, diff:'Hard',   floors:3 + region.lv,               scale:1.5,  diffStyle:'hard',   minLv:region.lv},
-  ];
+  // Ascended difficulty (Prestige 17+): unlocked after clearing Easy/Medium/Hard
+  if(typeof canAttemptAscended==='function'&&canAttemptAscended(region.id)){
+    const lastRaid=raids[raids.length-1];
+    raids.push({
+      key:lastRaid.key+'_ascended', diff:'Ascended', diffStyle:'ascended',
+      floors:lastRaid.floors+2, scale:lastRaid.scale*1.5, minLv:region.lv,
+      name:lastRaid.name, ico:'👹', bossKey:lastRaid.bossKey, _ascendedMode:true
+    });
+  }
+  return raids;
 }
 
 // Track conquered regions
@@ -19466,7 +19544,7 @@ function wmShowRaidPanel(region,diff){
   if(!rd){return;}
   const cfg=RAID_CONFIGS[rd.key]||{};
   const boss=BOSSES[cfg.bossKey]||REGION_BOSSES[cfg.bossKey]||{};
-  const diffColors={easy:'#22c55e',medium:'#eab308',hard:'#ef4444'};
+  const diffColors={easy:'#22c55e',medium:'#eab308',hard:'#ef4444',ascended:'#c084fc'};
   const diffCol=diffColors[diff]||'#a78bfa';
   const terrainIco={plains:'🌿',forest:'🌲',mountain:'⛰️',desert:'🏔️',tundra:'❄️',wasteland:'💀',swamp:'🌿',sanctum:'☠️',cemetery:'⚰️'}[region.terrain]||'🗺️';
 
@@ -21918,7 +21996,7 @@ function _updateCastleDwarfOverlay() {
 let craftTab='potions';
 
 function openCrafting(){
-  renderCrafting();
+  switchCraftTab(craftTab); // init tab visibility (dark tab)
   const el=document.getElementById('crafting');if(el){el.style.display='flex';}
 }
 function closeCrafting(){
@@ -21927,9 +22005,11 @@ function closeCrafting(){
 
 function switchCraftTab(tab){
   craftTab=tab;
-  ['potions','equipment','minions'].forEach(t=>{
+  const tabs=['potions','equipment','minions'];
+  if(GS.hasAscended('ascDarkCrafting'))tabs.push('dark');
+  tabs.forEach(t=>{
     const b=document.getElementById('ct-'+t);
-    if(b)b.className='craft-tab '+(t===tab?'active':'inactive');
+    if(b){b.className='craft-tab '+(t===tab?'active':'inactive');b.style.display='';}
   });
   renderCrafting();
 }
@@ -22149,7 +22229,7 @@ function openCastle_fromHub() {
   startCastleRoom();
 }
 function closeCastle() { stopCastleRoom(); renderHub(); showScreen('hub'); }
-function openCastle_menu(){const m=document.getElementById('castleMenu');if(m)m.style.display='flex';}
+function openCastle_menu(){const m=document.getElementById('castleMenu');if(m)m.style.display='flex';const nb=document.getElementById('necropolisMenuBtn');if(nb)nb.style.display=isNecropolisUnlocked()?'':'none';}
 function closeCastle_menu(){const m=document.getElementById('castleMenu');if(m)m.style.display='none';}
 
 function startCastleRoom() {
@@ -27703,37 +27783,280 @@ function drawObstaclesAndZones(t){
 }
 
 // ── PRESTIGE ──────────────────────────────────────────────────────────────
-const PRESTIGE_NAMES=['Initiate','Risen','Undying','Deathbound','Lich-Touched','Wraithborn','Soulreaver','Doomwalker','Void Necromancer','Eternal'];
+const PRESTIGE_NAMES=['Initiate','Risen','Undying','Deathbound','Lich-Touched','Wraithborn','Soulreaver','Doomwalker','Void Necromancer','Eternal',
+  'Ascended Initiate','Ascended Disciple','Ascended Acolyte','Ascended Adept','Ascended Invoker','Ascended Summoner','Ascended Necrolord','Ascended Archlich','Ascended Dread King','Ascended Eternal'];
+
+// Ascended prestige unlocks (tier 11-20) — checked via GS.prestige >= tier
+const ASCENDED_UNLOCKS=[
+  {tier:11, key:'ascSpellVariants', label:'Ascended Spell Variants',      desc:'Spells gain Ascended variants with +30% damage and altered visuals',ico:'✨'},
+  {tier:12, key:'ascHeroSlot',      label:'+1 Hero Slot',                 desc:'Bring up to 4 heroes into raids (was 3)',ico:'🛡'},
+  {tier:13, key:'ascMinionCap',     label:'Minion Cap +20%',              desc:'Army cap increased by 20%',ico:'💀'},
+  {tier:14, key:'ascDarkCrafting',   label:'Dark Crafting Recipes',        desc:'Unlock recipes to craft legendary gear from raid materials',ico:'🔨'},
+  {tier:15, key:'ascFamiliar2nd',    label:'Familiar 2nd Ability',         desc:'Each familiar gains a powerful secondary ability',ico:'🦇'},
+  {tier:16, key:'ascAutoHeal',       label:'Auto-Heal Between Floors',     desc:'Army heals 25% HP between dungeon floors',ico:'❤️'},
+  {tier:17, key:'ascRaidDifficulty', label:'Ascended Raid Difficulty',     desc:'Unlock brutal Ascended difficulty tier for raids (+50% enemy stats, +100% loot)',ico:'👹'},
+  {tier:18, key:'ascCastleTier4',    label:'Castle Tier 4 Upgrades',       desc:'All castle rooms gain a 4th upgrade tier',ico:'🏰'},
+  {tier:19, key:'ascNecropolis',     label:'Necropolis Endgame Area',      desc:'Unlock the Necropolis — infinite scaling endgame dungeon',ico:'🌑'},
+  {tier:20, key:'ascGoldenCosmetics',label:'Golden Cosmetics & Title',     desc:'Golden particle effects and the Ascended Eternal title',ico:'👑'},
+];
+
+function _calcPrestDmg(p){return Math.round((Math.min(p,10)*12+Math.max(0,p-10)*18));}
+function _calcPrestHP(p){return Math.round((Math.min(p,10)*10+Math.max(0,p-10)*15));}
+function _calcPrestBone(p){return Math.round((Math.min(p,10)*15+Math.max(0,p-10)*20));}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ASCENDED TIER 15 — Familiar 2nd Ability Framework
+//  Each familiar gains a secondary ability that triggers on a cooldown.
+//  The 2nd ability activates automatically in combat when the familiar is deployed.
+// ═══════════════════════════════════════════════════════════════════════════════
+const FAMILIAR_2ND_ABILITIES={
+  bat_familiar:   {name:'Sonic Screech',  ico:'🔊', desc:'AoE stun for 1.5s in radius',          cd:12, effect:'aoeStun',   radius:80, dur:1.5},
+  skull_seer:     {name:'Death Gaze',     ico:'💀', desc:'Marks target — takes 50% more damage for 4s', cd:15, effect:'deathMark', dur:4, mult:1.5},
+  shadow_hound:   {name:'Shadow Pounce',  ico:'🐾', desc:'Leap to backline, 3× damage strike',   cd:10, effect:'pounce',    mult:3},
+  shadow_raven:   {name:'Dark Vortex',    ico:'🌀', desc:'Pull enemies together in a vortex',     cd:14, effect:'vortex',    radius:60, dur:2},
+  bone_hound:     {name:'Bone Shield',    ico:'🛡', desc:'Grant 30% damage reduction to all allies for 5s',cd:18,effect:'boneShield',dur:5,dr:0.30},
+  spectral_cat:   {name:'Phantom Strike', ico:'👻', desc:'All minions guaranteed crit on next hit',cd:16, effect:'critBuff',  dur:3},
+  plague_rat:     {name:'Plague Cloud',   ico:'☁️', desc:'Poison cloud at location, 8 ticks of damage',cd:12,effect:'poisonCloud',ticks:8,radius:50},
+  fire_salamander:{name:'Eruption',       ico:'🌋', desc:'Massive fire explosion around self',     cd:20, effect:'eruption',  radius:100},
+  hedgehog:       {name:'Quill Storm',    ico:'🌪', desc:'360° quill barrage hitting all enemies', cd:15, effect:'quillStorm',radius:120},
+};
+
+// Get a pet's 2nd ability (returns null if not unlocked or pet doesn't have one)
+function getPet2ndAbility(petId){
+  if(!GS.hasAscended('ascFamiliar2nd'))return null;
+  return FAMILIAR_2ND_ABILITIES[petId]||null;
+}
+
+// Trigger the 2nd ability in combat (called from raid tick when cooldown expires)
+function triggerPet2ndAbility(pet){
+  const ab=getPet2ndAbility(pet.type);
+  if(!ab)return;
+  const now=performance.now()/1000;
+  if(!pet._2ndCD)pet._2ndCD=now+ab.cd;
+  if(now<pet._2ndCD)return;
+  pet._2ndCD=now+ab.cd;
+  // Floating text + visual feedback
+  RS.parts.push({k:'flt',x:pet.x,y:pet.y-20,txt:`${ab.ico} ${ab.name}!`,col:'#c084fc',life:1.5,ml:1.5,vy:-25});
+  // Apply effect based on type
+  switch(ab.effect){
+    case 'aoeStun':
+      RS.enemies.forEach(e=>{if(!e.dead&&_dist(pet,e)<ab.radius){e.stunUntil=(e.stunUntil||0)<now?now+ab.dur:e.stunUntil+ab.dur;}});
+      break;
+    case 'deathMark':{
+      const tgt=RS.enemies.filter(e=>!e.dead).sort((a,b)=>b.hp-a.hp)[0];
+      if(tgt){tgt._deathMark=now+ab.dur;tgt._deathMarkMult=ab.mult;RS.parts.push({k:'flt',x:tgt.x,y:tgt.y-10,txt:'💀 Marked!',col:'#ef4444',life:1,ml:1,vy:-20});}
+      break;}
+    case 'pounce':{
+      const backline=RS.enemies.filter(e=>!e.dead).sort((a,b)=>b.x-a.x)[0];
+      if(backline){const dmg=Math.round((pet.atk||10)*ab.mult);backline.hp-=dmg;RS.parts.push({k:'flt',x:backline.x,y:backline.y,txt:`-${dmg}`,col:'#c084fc',life:1,ml:1,vy:-25});}
+      break;}
+    case 'boneShield':
+      RS.minions.forEach(mk=>{if(!mk.dead)mk._drBuff={until:now+ab.dur,dr:ab.dr};});
+      break;
+    case 'critBuff':
+      RS.minions.forEach(mk=>{if(!mk.dead)mk._critBuff=now+ab.dur;});
+      break;
+    case 'poisonCloud':
+      RS.parts.push({k:'aoe',x:pet.x,y:pet.y,radius:ab.radius,col:'rgba(34,197,94,0.3)',life:ab.ticks*0.5,ml:ab.ticks*0.5});
+      RS.enemies.forEach(e=>{if(!e.dead&&_dist(pet,e)<ab.radius){e._poison={ticks:ab.ticks,dmg:Math.round((pet.atk||5)*0.5),interval:0.5,next:now+0.5};}});
+      break;
+    case 'eruption':
+      RS.parts.push({k:'aoe',x:pet.x,y:pet.y,radius:ab.radius,col:'rgba(249,115,22,0.4)',life:1,ml:1});
+      RS.enemies.forEach(e=>{if(!e.dead&&_dist(pet,e)<ab.radius){const dmg=Math.round((pet.atk||10)*4);e.hp-=dmg;RS.parts.push({k:'flt',x:e.x,y:e.y,txt:`-${dmg}🔥`,col:'#f97316',life:0.8,ml:0.8,vy:-20});}});
+      break;
+    case 'vortex':
+      RS.enemies.forEach(e=>{if(!e.dead&&_dist(pet,e)<ab.radius*2){e._vortex={cx:pet.x,cy:pet.y,until:now+ab.dur};}});
+      break;
+    case 'quillStorm':
+      RS.enemies.forEach(e=>{if(!e.dead&&_dist(pet,e)<ab.radius){const dmg=Math.round((pet.atk||8)*2);e.hp-=dmg;RS.parts.push({k:'flt',x:e.x,y:e.y,txt:`-${dmg}`,col:'#a3e635',life:0.8,ml:0.8,vy:-20});}});
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ASCENDED TIER 17 — Ascended Raid Difficulty
+//  Adds "Ascended" difficulty tier to raids: +50% enemy stats, +100% loot.
+//  Only available after clearing Hard on the region. Rewards unique Ascended loot.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function hasAscendedDifficulty(){return GS.hasAscended('ascRaidDifficulty');}
+
+// Difficulty multipliers for Ascended tier
+const ASCENDED_DIFF_MULT={
+  hp:1.5, atk:1.5, def:1.3, speed:1.2,   // enemy stat multipliers
+  lootMult:2.0, boneMult:2.0, xpMult:1.5, // reward multipliers
+  label:'Ascended', color:'#c084fc', ico:'👹'
+};
+
+// Check if player can attempt Ascended difficulty on a region
+function canAttemptAscended(regionId){
+  if(!hasAscendedDifficulty())return false;
+  const c=GS.conquered[regionId];
+  return c&&c.easy&&c.medium&&c.hard; // must clear all 3 difficulties first
+}
+
+// Get the difficulty multiplier for current raid
+function getAscendedMults(){
+  if(!RS||!RS._ascendedMode)return null;
+  return ASCENDED_DIFF_MULT;
+}
+
+// Mark Ascended difficulty as cleared
+function markAscendedCleared(regionId){
+  if(!GS.conquered[regionId])GS.conquered[regionId]={};
+  GS.conquered[regionId].ascended=true;
+  saveGame(false);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ASCENDED TIER 19 — Necropolis Endgame Dungeon
+//  Infinite scaling dungeon with procedurally harder floors.
+//  Enemy stats scale with floor number. No cap. Tracks highest floor reached.
+//  Rewards scale with depth: bones, XP, and unique Necropolis loot.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function isNecropolisUnlocked(){return GS.hasAscended('ascNecropolis');}
+
+const NECROPOLIS_CONFIG={
+  baseHP:200,baseATK:30,baseDEF:10, // floor 1 enemy stats
+  scalePer:0.12,                      // +12% stats per floor
+  bonePer:50,                         // bones per floor cleared
+  xpPer:25,                           // XP per floor cleared
+  floorEnemies:f=>Math.min(3+Math.floor(f/3),12), // enemies per floor (caps at 12)
+  bossEvery:5,                        // boss every 5th floor
+  bossMultHP:3,bossMultATK:2,         // boss stat multipliers
+};
+
+// Get Necropolis enemy stats for a given floor
+function getNecropolisFloorStats(floor){
+  const s=NECROPOLIS_CONFIG;
+  const scale=Math.pow(1+s.scalePer,floor-1);
+  return{
+    hp:Math.round(s.baseHP*scale),
+    atk:Math.round(s.baseATK*scale),
+    def:Math.round(s.baseDEF*scale),
+    count:s.floorEnemies(floor),
+    isBoss:floor%s.bossEvery===0,
+  };
+}
+
+// Get reward for clearing a Necropolis floor
+function getNecropolisFloorReward(floor){
+  const s=NECROPOLIS_CONFIG;
+  return{
+    bones:Math.round(s.bonePer*Math.pow(1.08,floor-1)),
+    xp:Math.round(s.xpPer*Math.pow(1.05,floor-1)),
+  };
+}
+
+// Track best Necropolis floor reached
+function updateNecropolisBest(floor){
+  if(!GS.necropolisBest||floor>GS.necropolisBest){
+    GS.necropolisBest=floor;
+    saveGame(false);
+    if(floor%10===0)showToast(`🌑 Necropolis record! Floor ${floor} reached!`);
+  }
+}
+
+// Open Necropolis panel
+function openNecropolis(){
+  if(!isNecropolisUnlocked()){showToast('🔒 Unlock Necropolis at Ascended Prestige 19');return;}
+  const best=GS.necropolisBest||0;
+  const panel=document.createElement('div');
+  panel.id='necropolisPanel';
+  panel.style.cssText='position:fixed;inset:0;z-index:9000;background:linear-gradient(180deg,rgba(10,0,20,.97),rgba(0,0,0,.99));display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Cinzel,serif;color:#e2e8f0;padding:20px';
+  const nextStats=getNecropolisFloorStats(best+1);
+  panel.innerHTML=`
+    <div style="font-size:28px;margin-bottom:8px">🌑</div>
+    <div style="font-family:'Cinzel Decorative',serif;font-size:18px;color:#c084fc;margin-bottom:4px">THE NECROPOLIS</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:16px">Infinite scaling endgame dungeon</div>
+    <div style="background:rgba(192,132,252,.08);border:1px solid rgba(192,132,252,.2);border-radius:10px;padding:14px 20px;margin-bottom:16px;text-align:center;min-width:240px">
+      <div style="font-size:12px;color:#c084fc">Deepest Floor Reached</div>
+      <div style="font-size:28px;color:#e9d5ff;font-family:'Cinzel Decorative',serif">${best||'—'}</div>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:12px">Next floor: ${best+1} enemies (HP: ${nextStats.hp}, ATK: ${nextStats.atk})${nextStats.isBoss?' 👹 BOSS FLOOR':''}</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="this.parentElement.parentElement.remove();startNecropolisRun()" style="padding:10px 24px;font-family:Cinzel,serif;font-size:12px;border:1px solid rgba(192,132,252,.5);border-radius:8px;background:rgba(192,132,252,.15);color:#e9d5ff;cursor:pointer">⚔️ Descend</button>
+      <button onclick="this.parentElement.parentElement.remove()" style="padding:10px 24px;font-family:Cinzel,serif;font-size:12px;border:1px solid rgba(100,100,100,.3);border-radius:8px;background:rgba(50,50,50,.3);color:#94a3b8;cursor:pointer">✕ Close</button>
+    </div>`;
+  document.body.appendChild(panel);
+}
+
+// Start a Necropolis run (placeholder — hooks into raid system)
+function startNecropolisRun(){
+  if(!isNecropolisUnlocked()){showToast('🔒 Necropolis locked');return;}
+  showToast('🌑 Descending into the Necropolis... (Coming in a future update!)');
+  // TODO: Full implementation — hook into initRaid() with special Necropolis config
+  // that uses getNecropolisFloorStats() for enemy generation and infinite floor progression
+}
 
 function openPrestige(){
   const p=GS.prestige;
+  if(p>=20){showToast('👑 You have reached the maximum Prestige — Ascended Eternal!');return;}
   const nextP=p+1;
+  const isAscended=nextP>=11;
   // Current info
   const infoEl=document.getElementById('prestigeCurrentInfo');
-  let infoHtml=`<span style="color:#fcd34d;font-family:'Cinzel Decorative',serif;font-size:13px">`;
+  let infoHtml=`<span style="color:${p>=11?'#c084fc':'#fcd34d'};font-family:'Cinzel Decorative',serif;font-size:13px">`;
   if(p>0){
-    infoHtml+=`⭐ Prestige ${p} — ${PRESTIGE_NAMES[Math.min(p,9)]}</span><br>`;
+    infoHtml+=`${p>=11?'🌟':'⭐'} Prestige ${p} — ${PRESTIGE_NAMES[Math.min(p,19)]}</span><br>`;
     infoHtml+=`📈 Current bonuses active:<br>`;
-    infoHtml+=`<span style="color:#86efac">+${p*12}% spell &amp; attack damage<br>+${p*10}% max HP<br>+${p*15}% bone yield<br>Start with ${GS.prestStartBones()} bones</span>`;
+    infoHtml+=`<span style="color:#86efac">+${_calcPrestDmg(p)}% spell &amp; attack damage<br>+${_calcPrestHP(p)}% max HP<br>+${_calcPrestBone(p)}% bone yield<br>Start with ${GS.prestStartBones()} bones</span>`;
+    // Show Ascended unlocks earned
+    const earned=ASCENDED_UNLOCKS.filter(u=>p>=u.tier);
+    if(earned.length){
+      infoHtml+=`<br><br><span style="color:#c084fc;font-family:'Cinzel Decorative',serif;font-size:11px">ASCENDED UNLOCKS</span><br>`;
+      earned.forEach(u=>{infoHtml+=`<span style="color:#a78bfa">${u.ico} ${u.label}</span><br>`;});
+    }
   }else{
     infoHtml+=`First Prestige</span><br><span style="color:var(--dim)">You have not prestiged yet. This is your first New Game+.</span>`;
   }
   infoEl.innerHTML=infoHtml;
   // Next bonuses
   const bonusEl=document.getElementById('prestigeBonusList');
-  bonusEl.innerHTML=
-    `⚔️ +${nextP*12}% spell &amp; attack damage <span style="color:rgba(255,255,255,.3)">(was ${p*12}%)</span><br>`+
-    `❤️ +${nextP*10}% max HP <span style="color:rgba(255,255,255,.3)">(was ${p*10}%)</span><br>`+
-    `🦴 +${nextP*15}% bone yield from raids <span style="color:rgba(255,255,255,.3)">(was ${p*15}%)</span><br>`+
+  let bHtml=
+    `⚔️ +${_calcPrestDmg(nextP)}% spell &amp; attack damage <span style="color:rgba(255,255,255,.3)">(was ${_calcPrestDmg(p)}%)</span><br>`+
+    `❤️ +${_calcPrestHP(nextP)}% max HP <span style="color:rgba(255,255,255,.3)">(was ${_calcPrestHP(p)}%)</span><br>`+
+    `🦴 +${_calcPrestBone(nextP)}% bone yield from raids <span style="color:rgba(255,255,255,.3)">(was ${_calcPrestBone(p)}%)</span><br>`+
     `💡 Start with ${20+nextP*15} bones <span style="color:rgba(255,255,255,.3)">(was ${20+p*15})</span><br>`+
-    `🎭 Title: <span style="color:#fcd34d">${PRESTIGE_NAMES[Math.min(nextP,9)]}</span>`;
+    `🎭 Title: <span style="color:${isAscended?'#c084fc':'#fcd34d'}">${PRESTIGE_NAMES[Math.min(nextP,19)]}</span>`;
+  // Show Ascended unlock for this tier
+  const unlock=ASCENDED_UNLOCKS.find(u=>u.tier===nextP);
+  if(unlock){
+    bHtml+=`<br><br><div style="background:rgba(168,139,250,.12);border:1px solid rgba(168,139,250,.3);border-radius:8px;padding:8px;margin-top:4px">`;
+    bHtml+=`<span style="color:#c084fc;font-family:'Cinzel Decorative',serif;font-size:11px">🌟 ASCENDED UNLOCK</span><br>`;
+    bHtml+=`<span style="color:#a78bfa;font-size:13px">${unlock.ico} ${unlock.label}</span><br>`;
+    bHtml+=`<span style="color:#94a3b8;font-size:11px">${unlock.desc}</span></div>`;
+  }
+  bonusEl.innerHTML=bHtml;
+  // Update button style for Ascended
+  const btn=document.getElementById('prestigeConfirmBtn');
+  if(btn&&isAscended){
+    btn.style.background='linear-gradient(135deg,rgba(168,139,250,.2),rgba(124,58,237,.1))';
+    btn.style.borderColor='rgba(168,139,250,.5)';
+    btn.style.color='#c084fc';
+    btn.textContent='🌟 ASCEND NOW 🌟';
+  }else if(btn){
+    btn.style.background='linear-gradient(135deg,rgba(252,211,77,.2),rgba(245,158,11,.1))';
+    btn.style.borderColor='rgba(252,211,77,.5)';
+    btn.style.color='#fcd34d';
+    btn.textContent='⭐ PRESTIGE NOW ⭐';
+  }
   showScreen('prestigeScreen');
 }
 
 function closePrestige(){renderHub();showScreen('hub');}
 
 function doPrestige(){
+  if(GS.prestige>=20)return; // max prestige cap
   GS.prestige++;
+  // Grant Ascended unlocks for tiers 11+
+  if(GS.prestige>=11){
+    if(!GS.ascendedUnlocks)GS.ascendedUnlocks={};
+    for(const u of ASCENDED_UNLOCKS){
+      if(GS.prestige>=u.tier)GS.ascendedUnlocks[u.key]=true;
+    }
+  }
   // Reset progress, keep wallet + equipment + familiars + prestige
   GS.necroLv=1;
   GS.necroXP=0;
@@ -27749,7 +28072,11 @@ function doPrestige(){
   saveGame(false);
   renderHub();
   showScreen('hub');
-  showToast(`⭐ Prestige ${GS.prestige}! You are now ${PRESTIGE_NAMES[Math.min(GS.prestige,9)]}. Bonuses applied permanently.`);
+  const pName=PRESTIGE_NAMES[Math.min(GS.prestige-1,19)]||'Ascended Eternal';
+  const isAsc=GS.prestige>=11;
+  const ico=isAsc?'🌟':'⭐';
+  const unlockMsg=isAsc?(() => {const u=ASCENDED_UNLOCKS.find(a=>a.tier===GS.prestige);return u?` Unlocked: ${u.ico} ${u.label}!`:'';})():'';
+  showToast(`${ico} Prestige ${GS.prestige}! You are now ${pName}. Bonuses applied permanently.${unlockMsg}`);
   if(typeof checkAchievements==='function')checkAchievements();
 }
 
@@ -28382,7 +28709,7 @@ function renderAviaryRaidPicker() {
     gondor: {label:'Gondor',       color:'#93c5fd'},
     mordor: {label:'Mordor',       color:'#ef4444'},
   };
-  const DIFF_COLOR = {easy:'#22c55e',medium:'#f59e0b',hard:'#ef4444'};
+  const DIFF_COLOR = {easy:'#22c55e',medium:'#f59e0b',hard:'#ef4444',ascended:'#c084fc'};
   const DIFF_ICO   = {easy:'⚔',medium:'⚔⚔',hard:'⚔⚔⚔'};
 
   // Group regions by faction
@@ -32820,12 +33147,12 @@ function openHubPanel(){
     document.getElementById('hpXPnext').textContent='MAX';
   }else{
     document.getElementById('hpXP').textContent=GS.necroXP;
-    document.getElementById('hpXPnext').textContent=XP_TABLE[Math.min(GS.necroLv,19)];
+    document.getElementById('hpXPnext').textContent=Math.round(XP_TABLE[Math.min(GS.necroLv,19)]*GS.prestXPMult());
   }
   const ppEl=document.getElementById('hpPrestige');
-  if(ppEl){if(GS.prestige>0){ppEl.style.display='';ppEl.textContent=`★${GS.prestige} ${PRESTIGE_NAMES[Math.min(GS.prestige,9)]}`;}else ppEl.style.display='none';}
+  if(ppEl){if(GS.prestige>0){ppEl.style.display='';const _isA=GS.prestige>=11;ppEl.textContent=`${_isA?'🌟':'★'}${GS.prestige} ${PRESTIGE_NAMES[Math.min(GS.prestige,19)]||'Ascended'}`;if(_isA)ppEl.style.color='#c084fc';}else ppEl.style.display='none';}
   const titleEl=document.getElementById('hubPanelTitle');
-  if(titleEl)titleEl.textContent=GS.prestige>0?`☠ ${PRESTIGE_NAMES[Math.min(GS.prestige,9)]}'s Domain ☠`:'☠ Necromancer\'s Domain ☠';
+  if(titleEl)titleEl.textContent=GS.prestige>0?`☠ ${PRESTIGE_NAMES[Math.min(GS.prestige,19)]||'Ascended'}'s Domain ☠`:'☠ Necromancer\'s Domain ☠';
   // Equipment section (full: Hat, Robes, Staff, Pets, Dev Pet)
   const gearEl=document.getElementById('hubPanelGear');
   if(gearEl){
@@ -34436,7 +34763,7 @@ function swShowRaidPanel(region,diff){
   const rdKey=raidKeys[['easy','medium','hard'].indexOf(diff)];
   const cfg=RAID_CONFIGS[rdKey]||{};
   const boss=SW_BOSSES[cfg.bossKey]||(typeof REGION_BOSSES!=='undefined'?REGION_BOSSES[cfg.bossKey]:null)||(typeof BOSSES!=='undefined'?BOSSES[cfg.bossKey]:null)||{};
-  const diffColors={easy:'#22c55e',medium:'#eab308',hard:'#ef4444'};
+  const diffColors={easy:'#22c55e',medium:'#eab308',hard:'#ef4444',ascended:'#c084fc'};
   const dc=diffColors[diff]||'#a78bfa';
   const tIco={plains:'🌿',forest:'🌲',mountain:'🏙️',desert:'🏜️',tundra:'❄️',wasteland:'🌋',swamp:'🌿',sanctum:'⭕'}[region.terrain]||'⭐';
   const uniqE=[...new Set(cfg.enemyPool||[])];
