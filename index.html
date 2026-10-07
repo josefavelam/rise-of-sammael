@@ -29056,6 +29056,26 @@ function crDrawRoomInterior(c,rm,b,t,fl){
         const bankGp=GS.bank?.gold?.gp||0;
         c.fillText(`💰 Coffer: ${bankGp}gp`,cfx,cfy-22);
       }
+      // ── Decorative: Purple rug under bed area ──
+      {const rugX=b.x+b.w*.22,rugY=cy+14;
+      c.fillStyle='rgba(91,33,182,.25)';c.beginPath();c.ellipse(rugX+16,rugY,28,10,-.08,0,Math.PI*2);c.fill();
+      c.strokeStyle='rgba(124,58,237,.35)';c.lineWidth=.8;c.beginPath();c.ellipse(rugX+16,rugY,28,10,-.08,0,Math.PI*2);c.stroke();
+      c.strokeStyle='rgba(167,139,250,.2)';c.lineWidth=.5;c.beginPath();c.ellipse(rugX+16,rugY,22,7,-.08,0,Math.PI*2);c.stroke();}
+      // ── Decorative: Wardrobe against top wall ──
+      {const wdX=b.x+b.w*.48,wdY=b.y+8;
+      c.fillStyle='#1a0c30';c.fillRect(wdX-12,wdY,24,18);
+      c.strokeStyle='#3d2f50';c.lineWidth=1;c.strokeRect(wdX-12,wdY,24,18);
+      // Doors
+      c.strokeStyle='rgba(91,33,182,.4)';c.lineWidth=.6;c.strokeRect(wdX-10,wdY+2,10,14);c.strokeRect(wdX+1,wdY+2,10,14);
+      // Knobs
+      c.fillStyle='#7c3aed';c.beginPath();c.arc(wdX-2,wdY+10,1.2,0,Math.PI*2);c.fill();
+      c.beginPath();c.arc(wdX+3,wdY+10,1.2,0,Math.PI*2);c.fill();}
+      // ── Decorative: Wall sconce (top-left corner) ──
+      {const scX=b.x+10,scY=b.y+14;
+      const scfl=Math.sin(t*.006+1.2)*.2+.8;
+      c.fillStyle='#3d2f50';c.fillRect(scX-2,scY,4,6);
+      c.fillStyle=`rgba(255,160,30,${scfl*.7})`;c.beginPath();c.arc(scX,scY-2,3,0,Math.PI*2);c.fill();
+      c.fillStyle=`rgba(255,200,40,${scfl*.4})`;c.beginPath();c.arc(scX,scY-2,6,0,Math.PI*2);c.fill();}
       break;
     }
     case 'library': {
@@ -29411,6 +29431,47 @@ function crDrawRoomInterior(c,rm,b,t,fl){
         const bankBones=GS.bank?.bones||0;
         c.fillText(`🦴 Vault: ${bankBones} bones`,bpx,bpy-20);
       }
+      // ── Decorative: Cobwebs in corners ──
+      {const corners=[[b.x+CR_WALL,b.y+CR_WALL],[b.x+b.w-CR_WALL,b.y+CR_WALL]];
+      corners.forEach(([cwx,cwy],ci)=>{
+        c.strokeStyle='rgba(180,180,190,.15)';c.lineWidth=.4;
+        const dir=ci?-1:1;
+        for(let s=0;s<4;s++){
+          c.beginPath();c.moveTo(cwx,cwy);
+          c.lineTo(cwx+dir*(6+s*4),cwy+s*3+2);c.stroke();
+        }
+        for(let s=0;s<3;s++){
+          c.beginPath();c.moveTo(cwx,cwy);
+          c.lineTo(cwx+dir*(s*3+2),cwy+6+s*4);c.stroke();
+        }
+        // Cross threads
+        c.beginPath();c.moveTo(cwx+dir*4,cwy+10);c.lineTo(cwx+dir*16,cwy+4);c.stroke();
+      });}
+      // ── Decorative: Wall chains ──
+      {const chainPairs=[[b.x+b.w*.2,b.y+14],[b.x+b.w*.65,b.y+14]];
+      chainPairs.forEach(([chx,chy],chi)=>{
+        const chSway=Math.sin(t*.0015+chi*2.5)*.03;
+        c.save();c.translate(chx,chy);c.rotate(chSway);
+        c.strokeStyle='rgba(100,90,80,.5)';c.lineWidth=.8;
+        for(let cl=0;cl<4;cl++){
+          const cly=cl*5;
+          c.beginPath();c.ellipse(0,cly,2,3,0,0,Math.PI*2);c.stroke();
+        }
+        // Shackle at bottom
+        c.strokeStyle='rgba(120,100,80,.4)';c.lineWidth=1;
+        c.beginPath();c.arc(0,22,4,0,Math.PI);c.stroke();
+        c.restore();
+      });}
+      // ── Decorative: Scattered small bones ──
+      {c.fillStyle='#b8b0a5';
+      const smallBones=[[b.x+b.w*.35,b.y+b.h*.65,.3],[b.x+b.w*.55,b.y+b.h*.85,-.4],[b.x+b.w*.15,b.y+b.h*.55,.6]];
+      smallBones.forEach(([sbx,sby,rot])=>{
+        c.save();c.translate(sbx,sby);c.rotate(rot);
+        c.fillRect(-4,-1,8,2);
+        c.beginPath();c.arc(-4,0,1.2,0,Math.PI*2);c.fill();
+        c.beginPath();c.arc(4,0,1.2,0,Math.PI*2);c.fill();
+        c.restore();
+      });}
       break;
     }
     case 'exit': {
@@ -30432,6 +30493,30 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       const alchGlow=Math.sin(t*.004)*.15+.2;
       c.fillStyle=`rgba(16,185,129,${alchGlow})`;
       c.beginPath();c.ellipse(cauldX,cauldY+18,28,6,0,0,Math.PI*2);c.fill();
+      // ── Decorative: Workbench (left side) ──
+      {const wbX=b.x+b.w*.18,wbY=cy-6;
+      c.fillStyle='#2a1800';c.fillRect(wbX-14,wbY,28,16);
+      c.strokeStyle='#5a3a10';c.lineWidth=1;c.strokeRect(wbX-14,wbY,28,16);
+      // Legs
+      c.fillStyle='#1e1200';c.fillRect(wbX-12,wbY+16,3,8);c.fillRect(wbX+9,wbY+16,3,8);
+      // Items on bench
+      icoD(c,'⚗️',wbX-5,wbY-1,8);icoD(c,'📜',wbX+6,wbY-1,7);}
+      // ── Decorative: Hanging herb bundles (top wall) ──
+      {const hbY=b.y+10;
+      [b.x+b.w*.3, b.x+b.w*.5, b.x+b.w*.65].forEach((hx,hi)=>{
+        const sway=Math.sin(t*.002+hi*1.8)*.06;
+        c.save();c.translate(hx,hbY);c.rotate(sway);
+        c.strokeStyle='#5a4020';c.lineWidth=.8;c.beginPath();c.moveTo(0,-4);c.lineTo(0,0);c.stroke();
+        c.fillStyle=hi%2?'#2d5a1a':'#1a4a2a';c.beginPath();c.ellipse(0,4,3,6,0,0,Math.PI*2);c.fill();
+        c.fillStyle=hi%2?'#3a7a2a':'#2a5a3a';c.beginPath();c.ellipse(-1,3,2,4,.2,0,Math.PI*2);c.fill();
+        c.restore();
+      });}
+      // ── Decorative: Floor stains around cauldron ──
+      {c.fillStyle='rgba(16,185,129,0.08)';
+      c.beginPath();c.ellipse(cauldX-18,cauldY+14,8,4,.3,0,Math.PI*2);c.fill();
+      c.beginPath();c.ellipse(cauldX+14,cauldY+20,6,3,-.2,0,Math.PI*2);c.fill();
+      c.fillStyle='rgba(52,211,153,0.06)';
+      c.beginPath();c.ellipse(cauldX+22,cauldY+10,5,3,.5,0,Math.PI*2);c.fill();}
       break;
     }
 
@@ -30460,6 +30545,21 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       // Boss count label
       c.font='5px "Press Start 2P",monospace';c.fillStyle='#f59e0b';
       c.fillText(`${bossCount} bosses`,cx,cy+28);
+      // ── Decorative: Red carpet runner ──
+      {c.fillStyle='rgba(153,27,27,.3)';c.fillRect(cx-6,b.y+CR_WALL+2,12,b.h-CR_WALL*2-4);
+      c.strokeStyle='rgba(245,158,11,.2)';c.lineWidth=.5;
+      c.strokeRect(cx-6,b.y+CR_WALL+2,12,b.h-CR_WALL*2-4);
+      // Gold trim lines
+      c.strokeStyle='rgba(245,158,11,.15)';c.lineWidth=.4;
+      c.strokeRect(cx-4,b.y+CR_WALL+4,8,b.h-CR_WALL*2-8);}
+      // ── Decorative: Wall torches ──
+      {const torchPairs=[[b.x+14,cy-10],[b.x+b.w-14,cy-10],[b.x+14,cy+16],[b.x+b.w-14,cy+16]];
+      torchPairs.forEach(([wtx,wty],wi)=>{
+        const wfl=Math.sin(t*.006+wi*1.5)*.2+.8;
+        c.fillStyle='#5a4020';c.fillRect(wtx-1.5,wty+2,3,6);
+        c.fillStyle=`rgba(245,158,11,${wfl*.6})`;c.beginPath();c.arc(wtx,wty,4,0,Math.PI*2);c.fill();
+        c.fillStyle=`rgba(255,200,40,${wfl*.35})`;c.beginPath();c.arc(wtx,wty,7,0,Math.PI*2);c.fill();
+      });}
       break;
     }
 
@@ -30501,6 +30601,38 @@ function crDrawRoomInterior(c,rm,b,t,fl){
         c.font='10px serif';c.textAlign='center';c.fillStyle=`rgba(6,182,212,${runeGlow})`;
         c.fillText(runes[ri3],rx,ry+4);
       });
+      // ── Decorative: Stone pillars ──
+      {const pillarPairs=[[b.x+b.w*.25,cy-16],[b.x+b.w*.75,cy-16],[b.x+b.w*.25,cy+20],[b.x+b.w*.75,cy+20]];
+      pillarPairs.forEach(([ppx,ppy])=>{
+        c.fillStyle='#2a3a4a';c.fillRect(ppx-4,ppy-8,8,20);
+        c.strokeStyle='#3a4a5a';c.lineWidth=.8;c.strokeRect(ppx-4,ppy-8,8,20);
+        // Cap
+        c.fillStyle='#3a4a5a';c.fillRect(ppx-5,ppy-10,10,3);
+        // Rune glyph on pillar
+        const pgl=Math.sin(t*.004+ppx)*.2+.4;
+        c.fillStyle=`rgba(6,182,212,${pgl})`;c.font='5px serif';c.textAlign='center';
+        c.fillText('◆',ppx,ppy+4);
+      });}
+      // ── Decorative: Floor pentagon pattern ──
+      {c.strokeStyle='rgba(6,182,212,0.12)';c.lineWidth=.6;
+      c.beginPath();
+      for(let pi=0;pi<5;pi++){
+        const pa=Math.PI*2*pi/5-Math.PI/2;
+        const px2=cx+Math.cos(pa)*(portalR+14);
+        const py2=cy+Math.sin(pa)*(portalR+14);
+        if(pi===0)c.moveTo(px2,py2);else c.lineTo(px2,py2);
+      }
+      c.closePath();c.stroke();
+      // Inner pentagon
+      c.strokeStyle='rgba(6,182,212,0.08)';
+      c.beginPath();
+      for(let pi=0;pi<5;pi++){
+        const pa=Math.PI*2*pi/5-Math.PI/2+Math.PI/5;
+        const px2=cx+Math.cos(pa)*(portalR+8);
+        const py2=cy+Math.sin(pa)*(portalR+8);
+        if(pi===0)c.moveTo(px2,py2);else c.lineTo(px2,py2);
+      }
+      c.closePath();c.stroke();}
       // Label
       c.font='5px "Press Start 2P",monospace';c.textAlign='center';c.fillStyle='#06b6d4';
       const portalLv=getCastleLevel('portal');
