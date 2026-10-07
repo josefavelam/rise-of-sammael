@@ -883,6 +883,16 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
           <button class="toggle on" id="tog_weather" onclick="toggleSetting('weather')"></button>
         </div>
       </div>
+      <div class="set-row" style="padding:8px 10px" id="hapticToggleRow">
+        <div class="set-ico" style="font-size:16px;width:22px">📳</div>
+        <div class="set-body">
+          <div class="set-label" style="font-size:10px">Haptic Feedback</div>
+          <div class="set-desc" style="font-size:8px">Vibration on hits, kills &amp; level-ups (mobile)</div>
+        </div>
+        <div class="set-ctrl">
+          <button class="toggle on" id="tog_haptics" onclick="toggleSetting('haptics');if(SETTINGS.haptics&&navigator.vibrate)navigator.vibrate(10);"></button>
+        </div>
+      </div>
       <div class="set-row set-danger" style="padding:8px 10px">
         <div class="set-ico" style="font-size:16px;width:22px">🗑️</div>
         <div class="set-body">
@@ -15510,7 +15520,7 @@ function loadGame(){
 // ═══════════════════════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
-const SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click',weather:true};
+const SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click',weather:true,haptics:true};
 function loadSettings(){try{const s=JSON.parse(localStorage.getItem('necro_settings')||'{}');Object.assign(SETTINGS,s);}catch(e){}syncSettingsUI();}
 function saveSettings(){try{localStorage.setItem('necro_settings',JSON.stringify(SETTINGS));}catch(e){}}
 function syncSettingsUI(){
@@ -15521,6 +15531,7 @@ function syncSettingsUI(){
   if(t('tog_autoSave'))t('tog_autoSave').className='toggle'+(SETTINGS.autoSave?' on':'');
   if(t('tog_movement'))t('tog_movement').className='toggle'+(SETTINGS.movement==='joystick'?' on':'');
   if(t('tog_weather'))t('tog_weather').className='toggle'+(SETTINGS.weather?' on':'');
+  if(t('tog_haptics'))t('tog_haptics').className='toggle'+(SETTINGS.haptics?' on':'');
   if(t('movementDesc'))t('movementDesc').textContent=SETTINGS.movement==='joystick'?'Joystick':'Click to move';
   // Only show movement toggle on mobile
   const isMobile=('ontouchstart' in window)||(window.innerWidth<1024);
@@ -16861,6 +16872,200 @@ function toggleAuto(){
 })();
 
 
+// ─── MOBILE TOUCH CONTROLS ───────────────────────────────────
+(function(){
+  // ── Haptic Feedback ──
+  const HAPTICS={
+    tap:10,            // light tap feedback
+    hit:15,            // enemy takes damage
+    crit:40,           // critical hit
+    kill:25,           // enemy killed
+    playerHit:30,      // player/minion takes damage
+    levelUp:[50,30,50],// level-up pattern (vibrate,pause,vibrate)
+    loot:12,           // item/loot pickup
+    error:80,          // error or blocked action
+    uiTap:8            // UI button press
+  };
+  function haptic(type){
+    if(!SETTINGS.haptics)return;
+    if(!navigator.vibrate)return;
+    const v=HAPTICS[type];
+    if(!v)return;
+    try{navigator.vibrate(v);}catch(_){}
+  }
+  window._haptic=haptic;
+
+  // ── Double-Tap Detection (for auto-attack toggle) ──
+  let _lastTapTime=0;
+  const DOUBLE_TAP_MS=300;
+  window._checkDoubleTap=function(){
+    const now=Date.now();
+    if(now-_lastTapTime<DOUBLE_TAP_MS){
+      _lastTapTime=0;
+      return true;
+    }
+    _lastTapTime=now;
+    return false;
+  };
+
+  // ── Swipe Gesture Recognition ──
+  let _swipeStartX=0,_swipeStartY=0,_swipeStartTime=0,_swipeTouchId=null;
+  const SWIPE_MIN=60,SWIPE_MAX_TIME=400;
+  const _openPanelFuncs=['openShop','openSB','openArmy','openSettings'];
+
+  function _getActivePanel(){
+    const panels=[
+      {id:'shop',close:'closeShop',idx:0},
+      {id:'spellbook',close:'closeSB',idx:1},
+      {id:'army',close:'closeArmy',idx:2},
+      {id:'settings',close:'closeSettings',idx:3}
+    ];
+    for(const p of panels){
+      const el=document.getElementById(p.id);
+      if(el&&(el.style.display==='flex'||el.style.display==='block'||el.classList.contains('active')))return p;
+    }
+    return null;
+  }
+
+  function _handleSwipe(dx,dy){
+    if(!_isMobile())return false;
+    const absDx=Math.abs(dx),absDy=Math.abs(dy);
+    if(absDx<SWIPE_MIN&&absDy<SWIPE_MIN)return false;
+    const raidEl=document.getElementById('raid');
+    if(raidEl&&raidEl.classList.contains('active'))return false;
+    const panel=_getActivePanel();
+    if(!panel)return false;
+    if(absDy>absDx&&dy>SWIPE_MIN){
+      if(typeof window[panel.close]==='function'){window[panel.close]();haptic('uiTap');return true;}
+    }
+    if(absDx>absDy){
+      const dir=dx>0?-1:1;
+      let nextIdx=panel.idx+dir;
+      if(nextIdx<0)nextIdx=_openPanelFuncs.length-1;
+      if(nextIdx>=_openPanelFuncs.length)nextIdx=0;
+      if(typeof window[panel.close]==='function')window[panel.close]();
+      const nextFn=_openPanelFuncs[nextIdx];
+      if(typeof window[nextFn]==='function'){window[nextFn]();haptic('uiTap');return true;}
+    }
+    return false;
+  }
+
+  document.addEventListener('touchstart',function(e){
+    if(e.target.tagName==='CANVAS')return;
+    const t=e.touches[0];
+    _swipeStartX=t.clientX;_swipeStartY=t.clientY;
+    _swipeStartTime=Date.now();_swipeTouchId=t.identifier;
+  },{passive:true});
+
+  document.addEventListener('touchend',function(e){
+    if(Date.now()-_swipeStartTime>SWIPE_MAX_TIME)return;
+    for(let i=0;i<e.changedTouches.length;i++){
+      const t=e.changedTouches[i];
+      if(t.identifier!==_swipeTouchId)continue;
+      const dx=t.clientX-_swipeStartX,dy=t.clientY-_swipeStartY;
+      _handleSwipe(dx,dy);
+    }
+  },{passive:true});
+
+  // ── Long-Press Context Menu ──
+  let _longPressTimer=null,_longPressX=0,_longPressY=0;
+  const LONG_PRESS_MS=500;
+
+  function _showContextMenu(x,y){
+    if(!RS||RS.done||RS.necro.dead)return;
+    const canvas=document.getElementById('gameCanvas');
+    if(!canvas)return;
+    const r=canvas.getBoundingClientRect();
+    const sx=(x-r.left)/r.width,sy=(y-r.top)/r.height;
+    const wx=RS.camX+sx*RS.VW,wy=RS.camY+sy*RS.VH;
+    const allTargets=[...RS.enemies.filter(e=>!e.dead),...(RS.boss&&!RS.boss.dead?[RS.boss]:[])];
+    let hitEnemy=null,hitDist=36;
+    allTargets.forEach(e=>{const d=Math.hypot(wx-e.x,wy-e.y);if(d<hitDist){hitDist=d;hitEnemy=e;}});
+    if(hitEnemy){
+      const hp=Math.max(0,Math.round(hitEnemy.hp)),maxHP=Math.round(hitEnemy.maxHP);
+      const pct=Math.round(hp/maxHP*100);
+      const name=hitEnemy.name||hitEnemy.type||'Enemy';
+      const lv=hitEnemy.lv||'?';
+      showToast('\ud83d\udd0d '+name+' (Lv'+lv+') \u2014 '+hp+'/'+maxHP+' HP ('+pct+'%)');
+      haptic('tap');
+      return;
+    }
+    if(RS.minions){
+      let hitMinion=null,mDist=36;
+      RS.minions.filter(m=>!m.dead).forEach(m=>{
+        const d=Math.hypot(wx-m.x,wy-m.y);if(d<mDist){mDist=d;hitMinion=m;}
+      });
+      if(hitMinion){
+        const hp=Math.max(0,Math.round(hitMinion.hp)),maxHP=Math.round(hitMinion.maxHP);
+        const name=hitMinion.name||hitMinion.type||'Minion';
+        showToast('\ud83d\udc80 '+name+' \u2014 '+hp+'/'+maxHP+' HP');
+        haptic('tap');
+        return;
+      }
+    }
+  }
+
+  const _attachLongPress=function(){
+    const canvas=document.getElementById('gameCanvas');
+    if(!canvas)return;
+    canvas.addEventListener('touchstart',function(e){
+      if(e.touches.length!==1)return;
+      const t=e.touches[0];
+      _longPressX=t.clientX;_longPressY=t.clientY;
+      _longPressTimer=setTimeout(()=>{
+        haptic('tap');
+        _showContextMenu(_longPressX,_longPressY);
+      },LONG_PRESS_MS);
+    },{passive:true});
+    canvas.addEventListener('touchmove',function(e){
+      if(!_longPressTimer)return;
+      const t=e.touches[0];
+      if(Math.hypot(t.clientX-_longPressX,t.clientY-_longPressY)>15){
+        clearTimeout(_longPressTimer);_longPressTimer=null;
+      }
+    },{passive:true});
+    canvas.addEventListener('touchend',function(){
+      if(_longPressTimer){clearTimeout(_longPressTimer);_longPressTimer=null;}
+    },{passive:true});
+    canvas.addEventListener('touchcancel',function(){
+      if(_longPressTimer){clearTimeout(_longPressTimer);_longPressTimer=null;}
+    },{passive:true});
+  };
+  window.addEventListener('load',_attachLongPress);
+
+  // ── Tap-to-Target Highlight Ring (rendered in raid loop) ──
+  window._drawTargetRing=function(ctx,t){
+    if(!RS||!RS.focusTarget||RS.focusTarget.dead)return;
+    const en=RS.focusTarget;
+    const pulse=0.6+0.4*Math.sin(t*6);
+    const radius=18+4*Math.sin(t*4);
+    ctx.save();
+    ctx.strokeStyle='rgba(239,68,68,'+String(pulse*0.7)+')';
+    ctx.lineWidth=2;
+    ctx.setLineDash([4,4]);
+    ctx.lineDashOffset=-t*30;
+    ctx.beginPath();
+    ctx.arc(en.x,en.y,radius,0,Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle='rgba(239,68,68,'+String(pulse*0.4)+')';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.arc(en.x,en.y,radius-4,0,Math.PI*2);
+    ctx.stroke();
+    const cx=en.x,cy=en.y,cr=radius+6;
+    ctx.strokeStyle='rgba(239,68,68,'+String(pulse*0.5)+')';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(cx-cr,cy);ctx.lineTo(cx-cr+6,cy);
+    ctx.moveTo(cx+cr,cy);ctx.lineTo(cx+cr-6,cy);
+    ctx.moveTo(cx,cy-cr);ctx.lineTo(cx,cy-cr+6);
+    ctx.moveTo(cx,cy+cr);ctx.lineTo(cx,cy+cr-6);
+    ctx.stroke();
+    ctx.restore();
+  };
+})();
+
 // ═══════════════════════════════════════════════════════
 //  PMD DUNGEON GENERATOR (BSP)
 // ═══════════════════════════════════════════════════════
@@ -17947,6 +18152,8 @@ function drawSpellRanges(){
 
 function onTouch(e){
   e.preventDefault();if(!RS)return;
+  // Double-tap to toggle auto-attack
+  if(typeof _checkDoubleTap==='function'&&_checkDoubleTap()){autoMode=!autoMode;_updateAutoBtn();if(typeof _haptic==='function')_haptic('tap');showToast(autoMode?'\ud83e\udd16 Auto-Attack ON':'\u2694\ufe0f Manual Mode');return;}
   if(RS.done){finishRaid();return;}
   const r=canvas.getBoundingClientRect(),t=e.touches[0];
   if(_pendingAOESpell){
@@ -18081,7 +18288,8 @@ function setTarget(sx,sy){
   allTargets.forEach(e=>{const d=Math.hypot(wx-e.x,wy-e.y);if(d<hitDist){hitDist=d;hitEnemy=e;}});
   if(hitEnemy){
     RS.focusTarget=hitEnemy;
-    RS.focusUntil=null; // held until enemy dies
+    RS.focusUntil=null;
+    if(typeof _haptic==='function')_haptic('hit'); // held until enemy dies
     RS.necro.tx=hitEnemy.x;RS.necro.ty=hitEnemy.y;
     RS.manualUntil=(RS.lastTs||0)/1000+999; // lock until dead
     // Visual: red target ring
@@ -19968,6 +20176,7 @@ function hitTarget(tgt,dmg,fx,fy,ranged,t,attacker){
 }
 
 function onEnemyKilled(en,t){
+  if(typeof _haptic==='function')_haptic('kill');
   GS.totalEnemiesKilled=(GS.totalEnemiesKilled||0)+1;
   if(EventManager.isActive()){const _evDrop=EventManager.getCurrencyDrop(en.type||'');if(_evDrop>0)EventManager.addCurrency(_evDrop);EventManager.addKill(en.type||'');}
   Analytics.enemyKills(1);
@@ -21619,7 +21828,9 @@ function draw(t,dt){
   drawMap(t);
   TacticalOverlay.render(ctx,t);
   RS.enemies.forEach(e=>{if(!e.dead||e.corpse)drawEnemy(e,t);});
-  
+  // Target highlight ring (mobile tap-to-target)
+  if(typeof _drawTargetRing==='function')_drawTargetRing(ctx,t/1000);
+
   // Draw NPCs
   if(RS.npcs){
     RS.npcs.forEach(npc=>{
@@ -33877,6 +34088,7 @@ const CombatPresentation=(function(){
   // ── LEVEL-UP STAT PANEL ──
   // Shows stat increases with +N deltas, bottom-right corner
   function levelUpPanel(oldLv,newLv,oldMaxHP,newMaxHP){
+    if(typeof _haptic==='function')_haptic('levelUp');
     const ov=_getOverlay();
     const hpDelta=newMaxHP-oldMaxHP;
     const prof=profBonus(newLv);
