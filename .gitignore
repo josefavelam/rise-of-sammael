@@ -1,2 +1,3 @@
 .netlify/
 *.patch  
+index.html.bak.*
