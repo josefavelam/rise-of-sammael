@@ -23318,150 +23318,117 @@ function _buildCrBgCanvas(W, H, DPR) {
   bg.width = Math.floor(W * DPR); bg.height = Math.floor(H * DPR);
   const c = bg.getContext('2d');
   c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c.imageSmoothingEnabled=false;
 
   const WX = Math.max(8, Math.floor(W * .022));
   const WY = Math.max(8, Math.floor(H * .030));
   const roomW = (W - 4 * WX) / 3;
   const roomH = (H - 4 * WY) / 3;
 
-  // Parse hex once, return pre-filled color array for a rect region
-  function parseHex(hx) {
-    return [parseInt(hx.slice(1,3),16), parseInt(hx.slice(3,5),16), parseInt(hx.slice(5,7),16)];
-  }
+  const ct=TilesetEngine.getCastleTiles();
+  const TS2=32;
 
-  function drawStoneWall(sx, sy, sw, sh, baseHex, mortarHex) {
+  // ── Tile-based wall renderer (Zelda ALTTP-style stone blocks)
+  function drawTileWall(sx, sy, sw, sh) {
     c.save(); c.beginPath(); c.rect(sx, sy, sw, sh); c.clip();
-    c.fillStyle = mortarHex; c.fillRect(sx, sy, sw, sh);
-    const BW = 22, BH = Math.max(7, Math.round(Math.min(WX, WY) * .78));
-    const [br, bg2, bb] = parseHex(baseHex);
-    for (let row = -1; row * BH < sh + BH; row++) {
-      const off = (((row % 2) + 2) % 2) * (BW / 2);
-      for (let col = -1; col * BW < sw + BW; col++) {
-        const bx = sx + col * BW + off, by = sy + row * BH;
-        const sh2 = ((row * 7 + col * 13 + row * col) % 7 - 3) * 8;
-        c.fillStyle = `rgb(${Math.max(0,Math.min(255,br+sh2))},${Math.max(0,Math.min(255,bg2+Math.floor(sh2*.7)))},${Math.max(0,Math.min(255,bb+Math.floor(sh2*.5)))})`;
-        c.fillRect(bx+1, by+1, BW-2, BH-2);
-        c.fillStyle = 'rgba(255,255,255,.06)'; c.fillRect(bx+1, by+1, BW-2, 1);
-        c.fillStyle = 'rgba(0,0,0,.22)'; c.fillRect(bx+1, by+BH-2, BW-2, 1);
-        c.fillStyle = 'rgba(0,0,0,.10)'; c.fillRect(bx+BW-2, by+1, 1, BH-2);
+    for(let ty=sy;ty<sy+sh;ty+=TS2){
+      for(let tx=sx;tx<sx+sw;tx+=TS2){
+        const v=((Math.floor(tx/TS2)*7+Math.floor(ty/TS2)*13)%4+4)%4;
+        c.drawImage(ct.castleWall[v], tx, ty, TS2, TS2);
       }
     }
     c.restore();
   }
 
-  function drawCobble(sx, sy, sw, sh, baseHex) {
+  // ── Tile-based cobblestone floor renderer
+  function drawTileCobble(sx, sy, sw, sh, tint) {
     c.save(); c.beginPath(); c.rect(sx, sy, sw, sh); c.clip();
-    const [br, bg2, bb] = parseHex(baseHex);
-    c.fillStyle = `rgb(${Math.max(0,br-20)},${Math.max(0,bg2-15)},${Math.max(0,bb-12)})`;
-    c.fillRect(sx, sy, sw, sh);
-    const CW = 15, CH = 11;
-    for (let row = -1; row * CH < sh + CH; row++) {
-      const off = (((row % 2) + 2) % 2) * (CW / 2);
-      for (let col = -1; col * CW < sw + CW; col++) {
-        const cx2 = sx + col * CW + off, cy2 = sy + row * CH;
-        const seed = ((row * 31 + col * 17) % 7 + 7) % 7;
-        const sw2 = CW - 2 - seed % 3, sh2 = CH - 2 - seed % 2;
-        const shade = seed * 5 - 13;
-        c.fillStyle = `rgb(${Math.max(0,Math.min(255,br+shade))},${Math.max(0,Math.min(255,bg2+Math.floor(shade*.85)))},${Math.max(0,Math.min(255,bb+Math.floor(shade*.7)))})`;
-        c.beginPath(); c.roundRect(cx2+1, cy2+1, sw2, sh2, 1); c.fill();
-        c.fillStyle = 'rgba(255,255,255,.055)'; c.fillRect(cx2+2, cy2+2, sw2-2, 1);
-        c.fillStyle = 'rgba(0,0,0,.20)'; c.fillRect(cx2+1, cy2+sh2, sw2, 1);
+    for(let ty=sy;ty<sy+sh;ty+=TS2){
+      for(let tx=sx;tx<sx+sw;tx+=TS2){
+        const v=((Math.floor(tx/TS2)*11+Math.floor(ty/TS2)*17)%4+4)%4;
+        c.drawImage(ct.cobble[v], tx, ty, TS2, TS2);
+      }
+    }
+    // Room tint overlay for color variation per room
+    if(tint){
+      c.fillStyle=tint;
+      c.fillRect(sx, sy, sw, sh);
+    }
+    c.restore();
+  }
+
+  // ── Tile-based grass floor renderer
+  function drawTileGrass(sx, sy, sw, sh) {
+    c.save(); c.beginPath(); c.rect(sx, sy, sw, sh); c.clip();
+    for(let ty=sy;ty<sy+sh;ty+=TS2){
+      for(let tx=sx;tx<sx+sw;tx+=TS2){
+        const v=((Math.floor(tx/TS2)*5+Math.floor(ty/TS2)*9)%4+4)%4;
+        c.drawImage(ct.castleGrass[v], tx, ty, TS2, TS2);
       }
     }
     c.restore();
   }
 
-  // Outer walls
+  // ── Room floor tint map (subtle rgba overlay to give each room its color identity)
+  const ROOM_TINTS={
+    bedroom:'rgba(90,40,180,0.08)', library:'rgba(40,80,200,0.08)',
+    barracks:'rgba(180,40,40,0.08)', hall:'rgba(120,130,150,0.06)',
+    catacombs:'rgba(60,60,70,0.12)', exit:null, maproom:'rgba(60,100,200,0.08)',
+    menagerie:null, aviary:'rgba(80,80,200,0.06)'
+  };
+
+  // Outer walls — tile-based
   c.fillStyle = '#1e1c2a'; c.fillRect(0, 0, W, H);
-  drawStoneWall(0, 0, W, WY, '#2c2a38', '#1e1c28');
-  // South outer wall — draw grass opening below exit room (col:1, row:2) before placing stone
+  drawTileWall(0, 0, W, WY);
+  // South outer wall with grass opening below exit room
   {
     const exitRm = CASTLE_ROOMS.find(r=>r.id==='exit');
     if(exitRm){
       const eb=crRoomBounds('exit',W,H);
       if(eb){
-        // Draw full south wall stone first
-        drawStoneWall(0, H-WY, W, WY, '#2c2a38', '#1e1c28');
-        // Then paint grass over the opening below exit room
+        drawTileWall(0, H-WY, W, WY);
         const gOx=Math.ceil(eb.x), gOw=Math.floor(eb.w);
-        c.save(); c.beginPath(); c.rect(gOx, H-WY, gOw, WY); c.clip();
-        const [gr,gg,gb]=[45,90,30];
-        c.fillStyle=`rgb(${gr},${gg},${gb})`;c.fillRect(gOx,H-WY,gOw,WY);
-        const GS2=8;
-        for(let gx=gOx;gx<gOx+gOw;gx+=GS2)for(let gy=H-WY;gy<H;gy+=GS2){
-          const seed=((gx/GS2*7+gy/GS2*13)%9+9)%9;
-          const shade=seed*4-16;
-          c.fillStyle=`rgb(${Math.max(0,gr+shade)},${Math.max(0,gg+shade*1.2)},${Math.max(0,gb+shade*.5)})`;
-          c.fillRect(gx+1,gy+1,GS2-1,GS2-1);
-        }
-        c.fillStyle='rgba(80,140,40,.35)';
-        for(let gx=gOx+3;gx<gOx+gOw-3;gx+=12)for(let gy=H-WY+2;gy<H-2;gy+=12){
-          const s=((gx*3+gy*7)%5+5)%5;
-          c.fillRect(gx+s,gy,1,4+s%3);
-        }
-        c.restore();
-      } else { drawStoneWall(0, H-WY, W, WY, '#2c2a38', '#1e1c28'); }
-    } else { drawStoneWall(0, H-WY, W, WY, '#2c2a38', '#1e1c28'); }
+        drawTileGrass(gOx, H-WY, gOw, WY);
+      } else { drawTileWall(0, H-WY, W, WY); }
+    } else { drawTileWall(0, H-WY, W, WY); }
   }
-  drawStoneWall(0, WY, WX, H-2*WY, '#2e2c3a', '#201e2c');
-  drawStoneWall(W-WX, WY, WX, H-2*WY, '#2e2c3a', '#201e2c');
+  drawTileWall(0, WY, WX, H-2*WY);
+  drawTileWall(W-WX, WY, WX, H-2*WY);
 
-  // Inner walls
+  // Inner walls — tile-based
   for (let col = 0; col < 2; col++) {
     const wx = WX + (col+1) * (roomW+WX) - WX;
-    drawStoneWall(wx, WY, WX, H-2*WY, '#282636', '#1a1826');
+    drawTileWall(wx, WY, WX, H-2*WY);
   }
   for (let row = 0; row < 2; row++) {
     const wy = WY + (row+1) * (roomH+WY) - WY;
-    drawStoneWall(WX, wy, W-2*WX, WY, '#282636', '#1a1826');
+    drawTileWall(WX, wy, W-2*WX, WY);
   }
 
   // Stone color used for any doorway that touches a grass room
   const GRASS_ROOMS = new Set(['menagerie','exit']);
-  function doorFloorColor(rm0, rm1) {
-    // If either side is a grass room, use neutral stone — never bleed green into corridors
-    if(GRASS_ROOMS.has(rm0.id)||GRASS_ROOMS.has(rm1.id)) return '#505860';
-    return _lerpColor(rm0.floorColor, rm1.floorColor, .5);
-  }
 
-  // Room floors
+  // Room floors — tile-based cobble or grass
   CASTLE_ROOMS.forEach(rm => {
     const b = crRoomBounds(rm.id, W, H); if (!b) return;
-    // Snap to integer pixels so floating-point roomW can't bleed into adjacent walls
     const bx=Math.ceil(b.x), by=Math.ceil(b.y), bw=Math.floor(b.w), bh=Math.floor(b.h);
     if(GRASS_ROOMS.has(rm.id)){
-      // Clip strictly to room bounds before drawing grass
-      c.save();
-      c.beginPath(); c.rect(bx, by, bw, bh); c.clip();
-      const [gr,gg,gb]=[45,90,30];
-      c.fillStyle=`rgb(${gr},${gg},${gb})`;c.fillRect(bx,by,bw,bh);
-      const GS2=8;
-      for(let gx=bx;gx<bx+bw;gx+=GS2)for(let gy=by;gy<by+bh;gy+=GS2){
-        const seed=((gx/GS2*7+gy/GS2*13)%9+9)%9;
-        const shade=seed*4-16;
-        c.fillStyle=`rgb(${Math.max(0,gr+shade)},${Math.max(0,gg+shade*1.2)},${Math.max(0,gb+shade*.5)})`;
-        c.fillRect(gx+1,gy+1,GS2-1,GS2-1);
-      }
-      // Grass blades texture
-      c.fillStyle='rgba(80,140,40,.35)';
-      for(let gx=bx+3;gx<bx+bw-3;gx+=12)for(let gy=by+4;gy<by+bh-4;gy+=12){
-        const s=((gx*3+gy*7)%5+5)%5;
-        c.fillRect(gx+s,gy,1,4+s%3);
-      }
-      c.restore();
+      drawTileGrass(bx, by, bw, bh);
       c.strokeStyle=rm.wallColor;c.lineWidth=2;
     } else {
-      drawCobble(bx, by, bw, bh, rm.floorColor);
+      drawTileCobble(bx, by, bw, bh, ROOM_TINTS[rm.id]||null);
       c.strokeStyle = rm.wallColor; c.lineWidth = 2;
     }
+    // Room border
     c.strokeRect(bx+1, by+1, bw-2, bh-2);
+    // Corner stone brackets
     [[bx,by],[bx+bw-7,by],[bx,by+bh-7],[bx+bw-7,by+bh-7]].forEach(([px2,py2]) => {
       c.fillStyle = _lighten(rm.wallColor, .18); c.fillRect(px2, py2, 7, 7);
       c.strokeStyle = _lighten(rm.wallColor, .45); c.lineWidth = .5; c.strokeRect(px2, py2, 7, 7);
     });
   });
 
-  // ── Doorway openings: carve floor through walls, draw stone arch frame
+  // ── Doorway openings: tile-based floor through walls, stone arch frame
   const DOOR_H = roomH * .38, DOOR_W = roomW * .38;
   // Horizontal doors (left↔right between columns)
   for (let row = 0; row < 3; row++) {
@@ -23471,7 +23438,11 @@ function _buildCrBgCanvas(W, H, DPR) {
       const rm1 = CASTLE_ROOMS.find(r => r.col===col+1 && r.row===row);
       if (!rm0 || !rm1) continue;
       const wallX = WX + (col+1) * (roomW+WX) - WX;
-      drawCobble(wallX, rowCy-DOOR_H/2, WX, DOOR_H, doorFloorColor(rm0, rm1));
+      if(GRASS_ROOMS.has(rm0.id)||GRASS_ROOMS.has(rm1.id)){
+        drawTileCobble(wallX, rowCy-DOOR_H/2, WX, DOOR_H, null);
+      } else {
+        drawTileCobble(wallX, rowCy-DOOR_H/2, WX, DOOR_H, null);
+      }
       c.fillStyle='#050010';
       c.beginPath();c.ellipse(wallX+WX/2,rowCy-DOOR_H/2,WX*.55,5,0,Math.PI,0);c.fill();
       c.strokeStyle='#2a1840';c.lineWidth=1;
@@ -23486,7 +23457,7 @@ function _buildCrBgCanvas(W, H, DPR) {
       const rm1 = CASTLE_ROOMS.find(r => r.col===col && r.row===row+1);
       if (!rm0 || !rm1) continue;
       const wallY = WY + (row+1) * (roomH+WY) - WY;
-      drawCobble(colCx-DOOR_W/2, wallY, DOOR_W, WY, doorFloorColor(rm0, rm1));
+      drawTileCobble(colCx-DOOR_W/2, wallY, DOOR_W, WY, null);
       c.fillStyle='#050010';
       c.beginPath();c.ellipse(colCx,wallY,DOOR_W*.52,5,0,0,Math.PI);c.fill();
       c.strokeStyle='#2a1840';c.lineWidth=1;
@@ -23696,26 +23667,12 @@ function drawCastleRoom() {
 // Draw rich interior for each room type
 function crDrawRoomInterior(c,rm,b,t,fl,W,H){
   const cx=b.cx, cy=b.cy;
+  const ct=TilesetEngine.getCastleTiles();
   switch(rm.id){
     case 'bedroom': {
-      // Ornate bed (left-center)
+      // Ornate bed (left-center) — tile sprite from TilesetEngine
       const bx2=b.x+b.w*.2, by2=cy-22;
-      // Headboard
-      c.fillStyle='#1e0e38';c.fillRect(bx2-4,by2-10,36,8);
-      c.strokeStyle='#6d28d9';c.lineWidth=1.5;c.strokeRect(bx2-4,by2-10,36,8);
-      // Footboard
-      c.fillStyle='#1e0e38';c.fillRect(bx2-4,by2+32,36,6);
-      c.strokeStyle='#6d28d9';c.lineWidth=1;c.strokeRect(bx2-4,by2+32,36,6);
-      // Mattress
-      c.fillStyle='#2d1a50';c.fillRect(bx2-2,by2-2,32,34);
-      // Purple blanket with fold
-      c.fillStyle='#4c1d95';c.fillRect(bx2,by2+8,28,24);
-      c.fillStyle='#5b21b6';c.fillRect(bx2,by2+8,28,8);
-      c.strokeStyle='#7c3aed';c.lineWidth=.5;c.strokeRect(bx2,by2+8,28,24);
-      // Pillow
-      c.fillStyle='#3b0764';c.fillRect(bx2+2,by2,20,10);
-      c.fillStyle='rgba(124,58,237,.4)';c.fillRect(bx2+4,by2+2,16,6);
-      c.font='8px serif';c.textAlign='center';c.fillText('☠',bx2+10,by2+8);
+      c.drawImage(ct.bed, bx2-4, by2-10, 64, 32);
       // Nightstand + candle
       const nx=b.x+b.w*.55;
       c.fillStyle='#1a0c30';c.fillRect(nx-8,cy-4,16,22);
@@ -23742,23 +23699,10 @@ function crDrawRoomInterior(c,rm,b,t,fl,W,H){
         c.fillStyle='#c4b5fd';c.font='bold 7px "Cinzel",serif';c.textAlign='center';
         c.fillText('▶ Hero Panel',mx2,cy-24);
       }
-      // Gold Coffer sprite (bottom-center of bedroom)
+      // Gold Coffer (bottom-center of bedroom) — tile sprite from TilesetEngine
       const cfx=b.x+b.w*.5, cfy=b.y+b.h*.75;
       const cofferNear=CR&&Math.hypot(CR.px-cfx,CR.py-cfy)<46;
-      // Chest body
-      c.fillStyle='#3a2200';c.fillRect(cfx-16,cfy-8,32,18);
-      c.strokeStyle='#7a5800';c.lineWidth=1.5;c.strokeRect(cfx-16,cfy-8,32,18);
-      // Lid
-      const cfLidG=c.createLinearGradient(cfx-16,cfy-18,cfx-16,cfy-8);
-      cfLidG.addColorStop(0,'#5a3800');cfLidG.addColorStop(1,'#3a2200');
-      c.fillStyle=cfLidG;c.beginPath();c.moveTo(cfx-16,cfy-8);c.lineTo(cfx+16,cfy-8);c.lineTo(cfx+14,cfy-17);c.lineTo(cfx-14,cfy-17);c.closePath();c.fill();
-      c.strokeStyle='#7a5800';c.lineWidth=1;c.stroke();
-      // Gold bands
-      c.fillStyle='#c4960a';c.fillRect(cfx-16,cfy-2,32,2);c.fillRect(cfx-16,cfy+4,32,2);
-      c.fillRect(cfx-1,cfy-8,2,18); // center clasp
-      // Lock
-      c.fillStyle='#fcd34d';c.beginPath();c.arc(cfx,cfy-13,3,0,Math.PI*2);c.fill();
-      c.fillStyle='#7a5800';c.fillRect(cfx-2,cfy-12,4,5);
+      c.drawImage(ct.chest, cfx-16, cfy-16, 32, 32);
       // Glow if near
       const cfgl=cofferNear?0.35+Math.sin(t*.006)*.12:0.12;
       c.fillStyle=`rgba(252,211,77,${cfgl})`;c.beginPath();c.arc(cfx,cfy,22,0,Math.PI*2);c.fill();
@@ -23771,77 +23715,23 @@ function crDrawRoomInterior(c,rm,b,t,fl,W,H){
       break;
     }
     case 'library': {
-      // Multiple bookshelves lining walls
+      // Bookshelves lining walls — tile sprites from TilesetEngine
       const shelf_h=Math.min(b.h*.7,70);
-      const shelfColors=['#7c3aed','#2563eb','#dc2626','#059669','#d97706','#7c3aed','#be185d','#0891b2'];
-      // Left shelf
       const lsx=b.x+b.w*.12;
-      c.fillStyle='#2a1400';c.fillRect(lsx-6,cy-shelf_h/2,14,shelf_h);
-      c.strokeStyle='#4a2800';c.lineWidth=1;c.strokeRect(lsx-6,cy-shelf_h/2,14,shelf_h);
-      const bookH=(shelf_h-8)/8;
-      for(let i=0;i<8;i++){c.fillStyle=shelfColors[i];c.fillRect(lsx-4,cy-shelf_h/2+4+i*bookH,10,bookH-1);}
-      // Shelf lines
-      for(let s=0;s<4;s++){c.strokeStyle='#4a2800';c.lineWidth=.5;c.beginPath();c.moveTo(lsx-6,cy-shelf_h/2+shelf_h/4*(s+1));c.lineTo(lsx+8,cy-shelf_h/2+shelf_h/4*(s+1));c.stroke();}
-      // Right shelf
+      // Stack 2 bookshelf tiles vertically on each side
+      const shelfScale=shelf_h/64; // 2 tiles stacked = 64px native
+      c.drawImage(ct.bookshelf, lsx-8, cy-shelf_h/2, 32*shelfScale, shelf_h/2);
+      c.drawImage(ct.bookshelf, lsx-8, cy, 32*shelfScale, shelf_h/2);
       const rsx=b.x+b.w*.88;
-      c.fillStyle='#2a1400';c.fillRect(rsx-8,cy-shelf_h/2,14,shelf_h);
-      c.strokeStyle='#4a2800';c.lineWidth=1;c.strokeRect(rsx-8,cy-shelf_h/2,14,shelf_h);
-      for(let i=0;i<8;i++){c.fillStyle=shelfColors[(i+3)%8];c.fillRect(rsx-6,cy-shelf_h/2+4+i*bookH,10,bookH-1);}
-      // ── Research Desk (lower-left of library) — large & cluttered
+      c.drawImage(ct.bookshelf, rsx-8, cy-shelf_h/2, 32*shelfScale, shelf_h/2);
+      c.drawImage(ct.bookshelf, rsx-8, cy, 32*shelfScale, shelf_h/2);
+      // ── Research Desk (lower-left of library) — tile sprite from TilesetEngine
       const deskObj=CASTLE_OBJECTS.find(o=>o.id==='desk');
       const deskPos=deskObj?crObjWorld(deskObj,W,H):{x:b.x+b.w*.25,y:b.y+b.h*.75};
       const dx=deskPos.x, dy=deskPos.y;
       const deskNear=CR&&Math.hypot(CR.px-dx,CR.py-dy)<44;
       const deskW=52, deskH=30;
-      // Desk legs (draw first, behind surface)
-      c.fillStyle='#3d2810';
-      [[dx-deskW/2+3,dy+deskH/2],[dx-deskW/2+3+6,dy+deskH/2],[dx+deskW/2-9,dy+deskH/2],[dx+deskW/2-3,dy+deskH/2]].forEach(([lx,ly])=>{c.fillRect(lx,ly,4,8);});
-      // Desk surface
-      c.fillStyle='#6b4a22';c.fillRect(dx-deskW/2,dy-deskH/2,deskW,deskH);
-      // Wood grain lines
-      c.strokeStyle='rgba(90,60,25,.45)';c.lineWidth=.6;
-      [.25,.5,.75].forEach(f=>{c.beginPath();c.moveTo(dx-deskW/2,dy-deskH/2+deskH*f);c.lineTo(dx+deskW/2,dy-deskH/2+deskH*f);c.stroke();});
-      c.strokeStyle='#8a6030';c.lineWidth=1;c.strokeRect(dx-deskW/2,dy-deskH/2,deskW,deskH);
-      // ── Scattered papers (seeded pseudo-random by position for stability)
-      const paperDefs=[
-        {ox:-18,oy:-4, w:18,h:13, rot:-.18, color:'#f0e8d0'},
-        {ox:-6, oy:-8, w:16,h:12, rot: .08, color:'#ede0c2'},
-        {ox: 4, oy:-5, w:15,h:11, rot:-.06, color:'#f5eedd'},
-        {ox:-14,oy: 2, w:14,h:10, rot: .22, color:'#e8dcc8'},
-        {ox: 8, oy: 2, w:17,h:11, rot:-.14, color:'#efe3cc'},
-        {ox:-2, oy: 4, w:13,h: 9, rot: .31, color:'#f2e8d5'},
-      ];
-      paperDefs.forEach(p=>{
-        c.save();c.translate(dx+p.ox+p.w/2,dy+p.oy+p.h/2);c.rotate(p.rot);
-        c.fillStyle=p.color;c.fillRect(-p.w/2,-p.h/2,p.w,p.h);
-        c.strokeStyle='rgba(160,130,80,.35)';c.lineWidth=.4;c.strokeRect(-p.w/2,-p.h/2,p.w,p.h);
-        // scribble lines on each paper
-        c.strokeStyle='rgba(60,40,10,.25)';c.lineWidth=.5;
-        for(let li=0;li<3;li++){const ly2=-p.h/2+3+li*3;c.beginPath();c.moveTo(-p.w/2+2,ly2);c.lineTo(p.w/2-2-(li%2)*3,ly2);c.stroke();}
-        c.restore();
-      });
-      // ── Open tome (center of desk, on top of papers)
-      c.fillStyle='#c8a060';c.beginPath();c.ellipse(dx+2,dy-3,13,8,0,0,Math.PI*2);c.fill();
-      c.strokeStyle='#a07840';c.lineWidth=.6;c.stroke();
-      c.strokeStyle='#7a5828';c.lineWidth=1;c.beginPath();c.moveTo(dx+2,dy-11);c.lineTo(dx+2,dy+5);c.stroke();
-      c.strokeStyle='rgba(60,35,8,.3)';c.lineWidth=.4;
-      [-5,-2,1,4].forEach(oy=>{c.beginPath();c.moveTo(dx-9,dy+oy-3);c.lineTo(dx+.5,dy+oy-3);c.stroke();});
-      [-5,-2,1,4].forEach(oy=>{c.beginPath();c.moveTo(dx+3.5,dy+oy-3);c.lineTo(dx+13,dy+oy-3);c.stroke();});
-      // ── Inkwell (right side)
-      c.fillStyle='#1a0a00';c.beginPath();c.ellipse(dx+deskW/2-8,dy+2,4,3,0,0,Math.PI*2);c.fill();
-      c.strokeStyle='#3d2010';c.lineWidth=.7;c.stroke();
-      c.fillStyle='#120600';c.beginPath();c.ellipse(dx+deskW/2-8,dy+1,2.5,2,.0,0,Math.PI*2);c.fill();
-      // ── Quill pen
-      c.save();c.translate(dx+deskW/2-8,dy+2);c.rotate(-.55);
-      c.strokeStyle='#d4c070';c.lineWidth=1;c.beginPath();c.moveTo(0,-12);c.lineTo(0,4);c.stroke();
-      c.fillStyle='#c8b860';c.beginPath();c.moveTo(0,-12);c.lineTo(-4,-6);c.lineTo(0,-2);c.lineTo(4,-6);c.closePath();c.fill();
-      c.restore();
-      // ── Candle (left corner, flickering)
-      const flicker=Math.sin(t*.07+1.3)*.3+.7;
-      c.fillStyle='#f0ebe0';c.fillRect(dx-deskW/2+5,dy-deskH/2-12,5,12);
-      c.fillStyle=`rgba(251,191,36,${flicker})`;
-      c.beginPath();c.moveTo(dx-deskW/2+7.5,dy-deskH/2-13);c.quadraticCurveTo(dx-deskW/2+10,dy-deskH/2-17,dx-deskW/2+7.5,dy-deskH/2-20);c.quadraticCurveTo(dx-deskW/2+5,dy-deskH/2-17,dx-deskW/2+7.5,dy-deskH/2-13);c.fill();
-      c.fillStyle=`rgba(253,186,116,${flicker*.35})`;c.beginPath();c.arc(dx-deskW/2+7.5,dy-deskH/2-16,9,0,Math.PI*2);c.fill();
+      c.drawImage(ct.desk, dx-deskW/2, dy-deskH/2, 64, 32);
       // ── Highlight glow when near
       if(deskNear){
         c.strokeStyle='#60a5fa';c.lineWidth=2;c.shadowColor='#3b82f6';c.shadowBlur=10;
