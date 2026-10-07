@@ -28406,8 +28406,11 @@ function openCastle_fromHub() {
   if(exitObj&&CR){
     const pos=crObjWorld(exitObj);
     CR.px=pos.x;CR.py=pos.y;CR.tx=pos.x;CR.ty=pos.y;
-    const vw=CR_WORLD_W/CASTLE_ZOOM,vh=CR_WORLD_H/CASTLE_ZOOM;
-    _crCamX=clamp(pos.x-vw/2,0,CR_WORLD_W-vw);_crCamY=clamp(pos.y-vh/2,0,CR_WORLD_H-vh);
+    const cvEl=document.getElementById('castleCanvas');
+    const sw=cvEl?(parseInt(cvEl.style.width)||cvEl.width):gameW();
+    const sh=cvEl?(parseInt(cvEl.style.height)||cvEl.height):(gameH()-42);
+    const vw=sw/CASTLE_ZOOM,vh=sh/CASTLE_ZOOM;
+    _crCamX=clamp(pos.x-vw/2,0,Math.max(0,CR_WORLD_W-vw));_crCamY=clamp(pos.y-vh/2,0,Math.max(0,CR_WORLD_H-vh));
   }else if(!CR){
     CR=null;
     _castleSpawnAtExit=true;
@@ -28441,9 +28444,9 @@ function startCastleRoom() {
       _waypoints: [], _waypointIdx: 0,
     };
     // Snap castle camera to spawn
-    const vw=CR_WORLD_W/CASTLE_ZOOM, vh=CR_WORLD_H/CASTLE_ZOOM;
-    _crCamX=clamp(spawnPos.x-vw/2,0,CR_WORLD_W-vw);
-    _crCamY=clamp(spawnPos.y-vh/2,0,CR_WORLD_H-vh);
+    const vw=W/CASTLE_ZOOM, vh=H/CASTLE_ZOOM;
+    _crCamX=clamp(spawnPos.x-vw/2,0,Math.max(0,CR_WORLD_W-vw));
+    _crCamY=clamp(spawnPos.y-vh/2,0,Math.max(0,CR_WORLD_H-vh));
   }
   // Returning from a menu — positions are in fixed world coords, no rescaling needed
   
@@ -28642,8 +28645,8 @@ function tickCastleRoom(dt) {
   else if(px2>dzR) tx2=CR.px-dzR;
   if(py2<dzT) ty2=CR.py-dzT;
   else if(py2>dzB) ty2=CR.py-dzB;
-  tx2=clamp(tx2,0,CR_WORLD_W-cvW);
-  ty2=clamp(ty2,0,CR_WORLD_H-cvH);
+  tx2=clamp(tx2,0,Math.max(0,CR_WORLD_W-cvW));
+  ty2=clamp(ty2,0,Math.max(0,CR_WORLD_H-cvH));
   _crCamX+=((tx2-_crCamX)*0.10);
   _crCamY+=((ty2-_crCamY)*0.10);
 }
