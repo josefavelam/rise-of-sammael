@@ -1140,6 +1140,47 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   </div>
 </div>
 
+<!-- PVP LOBBY SCREEN -->
+<div id="pvpLobby" class="screen" style="overflow-y:auto">
+  <div style="width:100%;max-width:480px;padding:20px 16px 40px;display:flex;flex-direction:column;align-items:center;gap:14px">
+    <div style="font-family:'Cinzel Decorative',serif;font-size:18px;color:#ef4444;margin-top:16px">⚔ PvP Arena</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-family:'Cinzel',serif;font-size:10px;color:#6b7280;letter-spacing:2px">DUEL CODE</div>
+      <div id="pvpCodeDisplay" style="font-family:'Cinzel Decorative',serif;font-size:28px;color:#fca5a5;letter-spacing:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px 24px">------</div>
+      <div style="font-family:'Cinzel',serif;font-size:10px;color:#4b5563">Share this code for a 1v1 duel</div>
+    </div>
+    <div id="pvpLobbyPlayers" style="width:100%;display:flex;flex-direction:column;gap:8px"></div>
+    <div id="pvpLobbyInfo" style="font-family:'Cinzel',serif;font-size:11px;color:#ef4444;text-align:center"></div>
+    <div id="pvpLobbyStatus" style="color:#6b7280;font-family:'Cinzel',serif;font-size:11px;text-align:center;min-height:14px"></div>
+    <div style="display:flex;gap:8px;width:100%;max-width:300px">
+      <label style="display:flex;align-items:center;gap:6px;font-family:'Cinzel',serif;font-size:10px;color:#9ca3af;cursor:pointer">
+        <input type="checkbox" id="pvpNormalize" style="accent-color:#ef4444"> Normalize stats
+      </label>
+    </div>
+    <button id="pvpReadyBtn" onclick="pvpReady()" style="width:100%;max-width:300px;padding:13px;font-family:'Cinzel',serif;font-size:13px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5);border-radius:10px;color:#fca5a5;cursor:pointer;-webkit-appearance:none">⚔ Ready to Duel</button>
+    <button onclick="pvpLobbyReturn()" style="width:100%;max-width:300px;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.3);border-radius:10px;color:#9ca3af;cursor:pointer;-webkit-appearance:none">↩ Return to Stronghold</button>
+  </div>
+</div>
+
+<!-- PVP QUEUE SCREEN -->
+<div id="pvpQueue" class="screen" style="overflow-y:auto">
+  <div style="width:100%;max-width:480px;padding:20px 16px 40px;display:flex;flex-direction:column;align-items:center;gap:18px">
+    <div style="font-family:'Cinzel Decorative',serif;font-size:18px;color:#ef4444;margin-top:16px">⚔ Arena Queue</div>
+    <div id="pvpRatingDisplay" style="font-family:'Cinzel',serif;font-size:13px;color:#fca5a5;text-align:center"></div>
+    <div style="display:flex;gap:12px;width:100%;max-width:320px;flex-wrap:wrap;justify-content:center">
+      <button onclick="pvpCreateDuel()" style="flex:1;min-width:140px;padding:13px;font-family:'Cinzel',serif;font-size:12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5);border-radius:10px;color:#fca5a5;cursor:pointer;-webkit-appearance:none">🏟 Host Duel</button>
+      <button onclick="pvpJoinPrompt()" style="flex:1;min-width:140px;padding:13px;font-family:'Cinzel',serif;font-size:12px;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.5);border-radius:10px;color:#d8b4fe;cursor:pointer;-webkit-appearance:none">🎯 Join Duel</button>
+    </div>
+    <div style="display:flex;gap:12px;width:100%;max-width:320px;flex-wrap:wrap;justify-content:center">
+      <button onclick="pvpOpenShop()" style="flex:1;min-width:140px;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);border-radius:10px;color:#fcd34d;cursor:pointer;-webkit-appearance:none">🏪 Glory Shop</button>
+      <button onclick="pvpOpenStats()" style="flex:1;min-width:140px;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.3);border-radius:10px;color:#9ca3af;cursor:pointer;-webkit-appearance:none">📊 My Record</button>
+    </div>
+    <div id="pvpStatsPanel" style="display:none;width:100%;max-width:320px;background:rgba(0,0,0,.3);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:14px;font-family:'Cinzel',serif;font-size:11px;color:#d1d5db"></div>
+    <div id="pvpShopPanel" style="display:none;width:100%;max-width:380px"></div>
+    <button onclick="pvpQueueReturn()" style="width:100%;max-width:300px;padding:10px;font-family:'Cinzel',serif;font-size:11px;background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.3);border-radius:10px;color:#9ca3af;cursor:pointer;-webkit-appearance:none">↩ Return to Stronghold</button>
+  </div>
+</div>
+
 <div id="raid" class="screen">
   <canvas id="gameCanvas"></canvas>
   <!-- ── BOTTOM-LEFT: minimap cluster ── -->
@@ -2205,6 +2246,8 @@ const GS={
   necroMaxHP:100,
   necroHP:100,
   prestige:0,       // New Game+ counter — each run carries permanent bonuses
+  pvpWins:0, pvpLosses:0, pvpCurrency:0, pvpRating:1000, pvpTitles:[],
+  pvpCosmetics:{},   // {id:true} — unlocked PvP cosmetic items
   skeletons:[],     // {type, hp} — PERSISTS between raids
   raidParty:new Set(), // indices of skeletons selected for raids
   raisedBosses:[],  // [{bossKey, name, type, def}] — permanently raised boss minions
@@ -10265,7 +10308,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -21820,6 +21863,7 @@ const CASTLE_OBJECTS = [
   {id:'caretaker',  room:'menagerie', rx:.18, ry:.50, ico:'🦴', label:'Caretaker',      action:'openPetRoster',   color:'#c084fc', tapR:22},
   // aviary — co-op raven (left cage) and white raven (center cage): exact sprite centers, small tapR
   {id:'raven',      room:'aviary',    rx:.14, ry:.45, ico:'🐦', label:'Co-op Raid',     action:'openAviary',      color:'#818cf8', tapR:18},
+  {id:'pvpArena',   room:'aviary',    rx:.86, ry:.45, ico:'⚔', label:'PvP Arena',       action:'openPvPQueue',    color:'#ef4444', tapR:18},
   {id:'whiteRaven', room:'aviary',    rx:.50, ry:.45, ico:'🕊', label:'Dev Gift',        action:'openDevGiftMenu', color:'#fef3c7', tapR:18},
   // hall — throne top-center, two map trophy pedestals
   {id:'throne',      room:'hall', rx:.50, ry:.30, ico:'👑', label:'Open Hub Panel',      action:'openHubPanel',       color:'#9ca3af', tapR:20},
@@ -29981,6 +30025,848 @@ _hostBroadcastState = function() {
 
 // ── Enemy AI: enemies only target RS.necro / RS.minions / RS.activePet
 //    Remote necros are visual-only and are NOT in any of those arrays → ✓
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PVP ARENA — 1v1 Necromancer Army Duels
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── PvP State ────────────────────────────────────────────────────────────────
+let PVP = null; // active PvP session state
+
+// PvP rating titles
+const PVP_TITLES = [
+  {rating:0,    title:'Gravedigger',    color:'#6b7280'},
+  {rating:800,  title:'Bone Warden',    color:'#9ca3af'},
+  {rating:1000, title:'Crypt Knight',   color:'#60a5fa'},
+  {rating:1200, title:'Death Marshal',  color:'#a855f7'},
+  {rating:1400, title:'Lich Commander', color:'#f59e0b'},
+  {rating:1600, title:'Overlord',       color:'#ef4444'},
+  {rating:1800, title:'Grand Lich',     color:'#ec4899'},
+  {rating:2000, title:'Samma\'el\'s Champion', color:'#fcd34d'},
+];
+
+function pvpGetTitle(rating){
+  let t=PVP_TITLES[0];
+  for(const tt of PVP_TITLES) if(rating>=tt.rating) t=tt;
+  return t;
+}
+
+// PvP Cosmetic Shop
+const PVP_SHOP = [
+  {id:'robe_blood',   type:'robe', label:'Bloodstained Robe',  cost:200, color:'#991b1b', desc:'Crimson robes stained by arena victories'},
+  {id:'robe_shadow',  type:'robe', label:'Shadow Weave Robe',  cost:350, color:'#1e1b4b', desc:'Woven from the darkness between worlds'},
+  {id:'hat_crown',    type:'hat',  label:'Arena Champion Crown',cost:500, color:'#fcd34d', desc:'A crown forged from conquered bones'},
+  {id:'staff_arena',  type:'staff',label:'Duelist\'s Staff',    cost:300, color:'#ef4444', desc:'Crackles with competitive fury'},
+  {id:'aura_fire',    type:'aura', label:'Infernal Aura',       cost:400, color:'#f97316', desc:'Wreathed in arena flames'},
+  {id:'banner_skull', type:'banner',label:'Skull Banner',       cost:150, color:'#d1d5db', desc:'Display your arena prowess'},
+  {id:'trail_blood',  type:'trail',label:'Blood Trail',         cost:250, color:'#dc2626', desc:'Leave crimson footsteps in battle'},
+  {id:'emote_taunt',  type:'emote',label:'Taunt Emote',         cost:100, color:'#fbbf24', desc:'Mock your fallen enemies'},
+];
+
+// ── PvP Queue Screen ─────────────────────────────────────────────────────────
+function openPvPQueue() {
+  showScreen('pvpQueue');
+  const t = pvpGetTitle(GS.pvpRating||1000);
+  const rEl = document.getElementById('pvpRatingDisplay');
+  if(rEl) rEl.innerHTML = `<span style="color:${t.color}">${t.title}</span> · Rating: <b>${GS.pvpRating||1000}</b><br>` +
+    `<span style="font-size:10px;color:#6b7280">W: ${GS.pvpWins||0} / L: ${GS.pvpLosses||0} · Glory: ${GS.pvpCurrency||0} ⚜</span>`;
+  // Hide sub-panels
+  const sp = document.getElementById('pvpStatsPanel'); if(sp) sp.style.display='none';
+  const sh = document.getElementById('pvpShopPanel'); if(sh) sh.style.display='none';
+}
+
+function pvpQueueReturn() {
+  if(PVP) _pvpDestroy();
+  showScreen('castle');
+}
+
+// ── PvP Stats Panel ──────────────────────────────────────────────────────────
+function pvpOpenStats() {
+  const p = document.getElementById('pvpStatsPanel');
+  if(!p) return;
+  if(p.style.display !== 'none') { p.style.display='none'; return; }
+  const t = pvpGetTitle(GS.pvpRating||1000);
+  const total = (GS.pvpWins||0)+(GS.pvpLosses||0);
+  const winRate = total ? Math.round((GS.pvpWins||0)/total*100) : 0;
+  let html = `<div style="text-align:center;margin-bottom:8px;font-size:13px;color:${t.color}">${t.title}</div>`;
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">`;
+  html += `<div>Rating: <b>${GS.pvpRating||1000}</b></div>`;
+  html += `<div>Win Rate: <b>${winRate}%</b></div>`;
+  html += `<div style="color:#86efac">Wins: <b>${GS.pvpWins||0}</b></div>`;
+  html += `<div style="color:#fca5a5">Losses: <b>${GS.pvpLosses||0}</b></div>`;
+  html += `<div>Glory: <b>${GS.pvpCurrency||0} ⚜</b></div>`;
+  html += `<div>Duels: <b>${total}</b></div>`;
+  html += `</div>`;
+  // Title progression
+  html += `<div style="margin-top:10px;border-top:1px solid rgba(239,68,68,.15);padding-top:8px;font-size:10px;color:#6b7280">`;
+  html += `<div style="margin-bottom:4px">Title Progression:</div>`;
+  PVP_TITLES.forEach(tt => {
+    const active = (GS.pvpRating||1000) >= tt.rating;
+    html += `<div style="color:${active?tt.color:'#374151'};${active?'font-weight:bold':''}"> ${active?'★':'☆'} ${tt.rating}+ — ${tt.title}</div>`;
+  });
+  html += `</div>`;
+  p.innerHTML = html;
+  p.style.display = 'block';
+}
+
+// ── PvP Glory Shop ───────────────────────────────────────────────────────────
+function pvpOpenShop() {
+  const p = document.getElementById('pvpShopPanel');
+  if(!p) return;
+  if(p.style.display !== 'none') { p.style.display='none'; return; }
+  let html = `<div style="font-family:'Cinzel Decorative',serif;font-size:14px;color:#fcd34d;text-align:center;margin-bottom:10px">🏪 Glory Shop</div>`;
+  html += `<div style="text-align:center;font-family:'Cinzel',serif;font-size:11px;color:#6b7280;margin-bottom:12px">Glory: ${GS.pvpCurrency||0} ⚜</div>`;
+  PVP_SHOP.forEach(item => {
+    const owned = GS.pvpCosmetics?.[item.id];
+    const canBuy = !owned && (GS.pvpCurrency||0) >= item.cost;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;margin-bottom:6px;background:rgba(0,0,0,.3);border:1px solid ${owned?'rgba(34,197,94,.3)':canBuy?'rgba(239,68,68,.3)':'rgba(107,114,128,.2)'};border-radius:8px">`;
+    html += `<div style="width:32px;height:32px;border-radius:6px;background:${item.color}22;border:1px solid ${item.color}55;display:flex;align-items:center;justify-content:center;font-size:16px">${item.type==='robe'?'👘':item.type==='hat'?'👑':item.type==='staff'?'🪄':item.type==='aura'?'✨':item.type==='banner'?'🏴':item.type==='trail'?'💫':'💬'}</div>`;
+    html += `<div style="flex:1"><div style="font-family:'Cinzel',serif;font-size:11px;color:${item.color}">${item.label}</div>`;
+    html += `<div style="font-family:'Cinzel',serif;font-size:9px;color:#6b7280">${item.desc}</div></div>`;
+    if(owned) {
+      html += `<div style="font-family:'Cinzel',serif;font-size:10px;color:#86efac">Owned</div>`;
+    } else {
+      html += `<button onclick="pvpBuyItem('${item.id}')" style="padding:5px 10px;font-family:'Cinzel',serif;font-size:10px;background:${canBuy?'rgba(239,68,68,.2)':'rgba(107,114,128,.1)'};border:1px solid ${canBuy?'rgba(239,68,68,.4)':'rgba(107,114,128,.2)'};border-radius:6px;color:${canBuy?'#fca5a5':'#4b5563'};cursor:${canBuy?'pointer':'default'};-webkit-appearance:none">${item.cost} ⚜</button>`;
+    }
+    html += `</div>`;
+  });
+  p.innerHTML = html;
+  p.style.display = 'block';
+}
+
+function pvpBuyItem(id) {
+  const item = PVP_SHOP.find(i=>i.id===id);
+  if(!item || GS.pvpCosmetics?.[id] || (GS.pvpCurrency||0) < item.cost) return;
+  GS.pvpCurrency -= item.cost;
+  if(!GS.pvpCosmetics) GS.pvpCosmetics = {};
+  GS.pvpCosmetics[id] = true;
+  // Apply cosmetic to GS.cosmetics if it's a wearable
+  if(item.type==='robe'||item.type==='hat'||item.type==='staff') {
+    if(!GS.cosmetics) GS.cosmetics = {};
+    GS.cosmetics[item.type] = id;
+  }
+  saveGame(false);
+  showToast(`⚜ Purchased ${item.label}!`);
+  pvpOpenShop(); // refresh
+  // Also refresh the header
+  openPvPQueue();
+  const sh = document.getElementById('pvpShopPanel');
+  if(sh) sh.style.display = 'block';
+}
+
+// ── Create / Join PvP Duel ───────────────────────────────────────────────────
+function pvpCreateDuel() {
+  const code = String(Math.floor(1000+Math.random()*9000));
+  PVP = {
+    role: 'host',
+    code,
+    peer: null,
+    conn: null,
+    started: false,
+    round: 0,
+    totalRounds: 3,
+    myScore: 0,
+    opScore: 0,
+    normalize: !!document.getElementById('pvpNormalize')?.checked,
+    opponentData: null,
+    myReady: false,
+    opReady: false,
+    roundTimer: 0,
+    roundDuration: 180, // 3 minutes per round in seconds
+  };
+  try {
+    PVP.peer = new Peer('PVP-' + code, { debug: 0 });
+  } catch(e) {
+    showToast('⚠ PeerJS failed: ' + e.message);
+    PVP = null;
+    return;
+  }
+  PVP.peer.on('open', () => {
+    showScreen('pvpLobby');
+    document.getElementById('pvpCodeDisplay').textContent = code;
+    _pvpRenderLobby();
+    _pvpSetStatus('Waiting for challenger...');
+  });
+  PVP.peer.on('connection', conn => {
+    if(PVP.conn) { conn.close(); return; } // only 1v1
+    PVP.conn = conn;
+    conn.on('open', () => {
+      conn.send({ type:'pvp_welcome', hostName: GS.necroName||'Host', hostLv: GS.necroLv, normalize: PVP.normalize });
+      _pvpSetStatus('Challenger connected!');
+      _pvpRenderLobby();
+    });
+    conn.on('data', d => _pvpHostOnData(d));
+    conn.on('close', () => {
+      if(PVP && !PVP.started) {
+        PVP.conn = null;
+        PVP.opponentData = null;
+        _pvpSetStatus('Challenger disconnected.');
+        _pvpRenderLobby();
+      }
+    });
+  });
+  PVP.peer.on('error', e => {
+    _pvpSetStatus('Connection error: ' + e.type);
+  });
+}
+
+function pvpJoinPrompt() {
+  const code = prompt('Enter duel code:');
+  if(!code || !/^\d{4}$/.test(code.trim())) return;
+  pvpJoinDuel(code.trim());
+}
+
+function pvpJoinDuel(code) {
+  PVP = {
+    role: 'guest',
+    code,
+    peer: null,
+    hostConn: null,
+    started: false,
+    round: 0,
+    totalRounds: 3,
+    myScore: 0,
+    opScore: 0,
+    normalize: false,
+    opponentData: null,
+    myReady: false,
+    opReady: false,
+    roundTimer: 0,
+    roundDuration: 180,
+  };
+  try {
+    PVP.peer = new Peer(null, { debug: 0 });
+  } catch(e) {
+    showToast('⚠ PeerJS failed: ' + e.message);
+    PVP = null;
+    return;
+  }
+  PVP.peer.on('open', () => {
+    const conn = PVP.peer.connect('PVP-' + code, { reliable: true });
+    PVP.hostConn = conn;
+    conn.on('open', () => {
+      conn.send({ type:'pvp_join', name: GS.necroName||'Challenger', lv: GS.necroLv });
+      showScreen('pvpLobby');
+      document.getElementById('pvpCodeDisplay').textContent = code;
+      _pvpSetStatus('Connected! Waiting for host...');
+      _pvpRenderLobby();
+    });
+    conn.on('data', d => _pvpGuestOnData(d));
+    conn.on('close', () => {
+      if(PVP && !PVP.started) {
+        _pvpSetStatus('Host disconnected.');
+        setTimeout(() => { if(PVP && !PVP.started) pvpLobbyReturn(); }, 3000);
+      }
+    });
+  });
+  PVP.peer.on('error', e => {
+    _pvpSetStatus('Connection error: ' + e.type);
+    showToast('⚠ Could not connect — check the code');
+  });
+}
+
+// ── PvP Data Handlers ────────────────────────────────────────────────────────
+function _pvpHostOnData(d) {
+  if(!PVP || PVP.role !== 'host') return;
+  if(d.type === 'pvp_join') {
+    PVP.opponentData = { name: d.name, lv: d.lv };
+    _pvpRenderLobby();
+    _pvpSetStatus(d.name + ' has entered the arena!');
+  }
+  if(d.type === 'pvp_ready') {
+    PVP.opReady = true;
+    _pvpRenderLobby();
+    _pvpCheckBothReady();
+  }
+  if(d.type === 'pvp_state') {
+    // Guest sends their army position+HP each tick during combat
+    if(PVP._opArmy) {
+      d.army.forEach((u,i) => {
+        if(PVP._opArmy[i]) {
+          PVP._opArmy[i].x = u.x; PVP._opArmy[i].y = u.y;
+          PVP._opArmy[i].hp = u.hp; PVP._opArmy[i].tx = u.tx; PVP._opArmy[i].ty = u.ty;
+        }
+      });
+    }
+    if(PVP._opNecro && d.necro) {
+      PVP._opNecro.x = d.necro.x; PVP._opNecro.y = d.necro.y;
+      PVP._opNecro.hp = d.necro.hp;
+    }
+  }
+  if(d.type === 'pvp_round_result_ack') {
+    // Guest acknowledged round result
+  }
+}
+
+function _pvpGuestOnData(d) {
+  if(!PVP || PVP.role !== 'guest') return;
+  if(d.type === 'pvp_welcome') {
+    PVP.opponentData = { name: d.hostName, lv: d.hostLv };
+    PVP.normalize = d.normalize;
+    _pvpRenderLobby();
+  }
+  if(d.type === 'pvp_host_ready') {
+    PVP.opReady = true;
+    _pvpRenderLobby();
+    _pvpCheckBothReady();
+  }
+  if(d.type === 'pvp_start_round') {
+    PVP.round = d.round;
+    PVP.arenaW = d.arenaW;
+    PVP.arenaH = d.arenaH;
+    PVP.obstacles = d.obstacles;
+    _pvpStartRound();
+  }
+  if(d.type === 'pvp_state') {
+    if(PVP._opArmy) {
+      d.army.forEach((u,i) => {
+        if(PVP._opArmy[i]) {
+          PVP._opArmy[i].x = u.x; PVP._opArmy[i].y = u.y;
+          PVP._opArmy[i].hp = u.hp; PVP._opArmy[i].tx = u.tx; PVP._opArmy[i].ty = u.ty;
+        }
+      });
+    }
+    if(PVP._opNecro && d.necro) {
+      PVP._opNecro.x = d.necro.x; PVP._opNecro.y = d.necro.y;
+      PVP._opNecro.hp = d.necro.hp;
+    }
+  }
+  if(d.type === 'pvp_round_end') {
+    _pvpRoundEnd(d.winner, d.round);
+    try { (PVP.hostConn||PVP.conn)?.send({type:'pvp_round_result_ack'}); } catch(_) {}
+  }
+  if(d.type === 'pvp_match_end') {
+    _pvpMatchEnd(d.winner, d.myScore, d.opScore);
+  }
+}
+
+// ── PvP Lobby Rendering ──────────────────────────────────────────────────────
+function _pvpSetStatus(msg) {
+  const el = document.getElementById('pvpLobbyStatus');
+  if(el) el.textContent = msg;
+}
+
+function _pvpRenderLobby() {
+  const container = document.getElementById('pvpLobbyPlayers');
+  if(!container) return;
+  const myName = GS.necroName || 'You';
+  const myLv = GS.necroLv;
+  let html = '';
+  // Player 1 (me)
+  html += `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px">`;
+  html += `<div style="width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,.2);display:flex;align-items:center;justify-content:center;font-size:18px">⚔</div>`;
+  html += `<div style="flex:1"><div style="font-family:'Cinzel',serif;font-size:12px;color:#fca5a5">${myName} <span style="font-size:9px;color:#6b7280">Lv.${myLv}</span></div>`;
+  html += `<div style="font-size:9px;color:#6b7280">${PVP?.myReady?'<span style="color:#86efac">✓ READY</span>':'Waiting...'}</div></div></div>`;
+  // Player 2 (opponent)
+  if(PVP?.opponentData) {
+    const op = PVP.opponentData;
+    html += `<div style="text-align:center;font-family:'Cinzel Decorative',serif;font-size:14px;color:#ef4444;padding:4px">⚔ VS ⚔</div>`;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:8px">`;
+    html += `<div style="width:36px;height:36px;border-radius:50%;background:rgba(168,85,247,.2);display:flex;align-items:center;justify-content:center;font-size:18px">💀</div>`;
+    html += `<div style="flex:1"><div style="font-family:'Cinzel',serif;font-size:12px;color:#d8b4fe">${op.name} <span style="font-size:9px;color:#6b7280">Lv.${op.lv}</span></div>`;
+    html += `<div style="font-size:9px;color:#6b7280">${PVP?.opReady?'<span style="color:#86efac">✓ READY</span>':'Waiting...'}</div></div></div>`;
+  } else {
+    html += `<div style="display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(107,114,128,.05);border:1px dashed rgba(107,114,128,.2);border-radius:8px;color:#4b5563;font-family:'Cinzel',serif;font-size:11px">Waiting for challenger...</div>`;
+  }
+  // Match info
+  const infoEl = document.getElementById('pvpLobbyInfo');
+  if(infoEl) {
+    infoEl.innerHTML = `Best of ${PVP?.totalRounds||3} · ${PVP?.normalize?'Normalized':'Level-scaled'} · 3 min rounds`;
+  }
+  container.innerHTML = html;
+}
+
+// ── PvP Ready & Start ────────────────────────────────────────────────────────
+function pvpReady() {
+  if(!PVP || !PVP.opponentData) { showToast('Waiting for an opponent...'); return; }
+  PVP.myReady = true;
+  _pvpRenderLobby();
+  if(PVP.role === 'host') {
+    try { PVP.conn?.send({type:'pvp_host_ready'}); } catch(_) {}
+  } else {
+    try { PVP.hostConn?.send({type:'pvp_ready'}); } catch(_) {}
+  }
+  _pvpCheckBothReady();
+}
+
+function _pvpCheckBothReady() {
+  if(!PVP?.myReady || !PVP?.opReady) return;
+  _pvpSetStatus('Starting duel...');
+  if(PVP.role === 'host') {
+    setTimeout(() => _pvpHostStartRound(), 1500);
+  }
+}
+
+function pvpLobbyReturn() {
+  _pvpDestroy();
+  showScreen('castle');
+}
+
+// ── PvP Arena Generation ─────────────────────────────────────────────────────
+function _pvpGenArena() {
+  // Symmetrical open arena with scattered obstacles
+  const W = 800, H = 600;
+  const obstacles = [];
+  // Central divider pillars
+  const pillarCount = 3;
+  for(let i = 0; i < pillarCount; i++) {
+    const py = H * (0.25 + i * 0.25);
+    obstacles.push({x: W/2 - 20, y: py - 15, w: 40, h: 30, type:'pillar'});
+  }
+  // Symmetrical cover rocks
+  const rockPositions = [
+    {x: 150, y: 150}, {x: 150, y: 450},
+    {x: 650, y: 150}, {x: 650, y: 450},
+    {x: 300, y: 300}, {x: 500, y: 300},
+  ];
+  rockPositions.forEach(p => {
+    obstacles.push({x: p.x - 18, y: p.y - 14, w: 36, h: 28, type:'rock'});
+  });
+  return {W, H, obstacles};
+}
+
+// ── PvP Round Start ──────────────────────────────────────────────────────────
+function _pvpHostStartRound() {
+  if(!PVP || PVP.role !== 'host') return;
+  PVP.round++;
+  PVP.myReady = false;
+  PVP.opReady = false;
+  const arena = _pvpGenArena();
+  PVP.arenaW = arena.W;
+  PVP.arenaH = arena.H;
+  PVP.obstacles = arena.obstacles;
+  // Tell guest
+  try {
+    PVP.conn?.send({type:'pvp_start_round', round: PVP.round, arenaW: arena.W, arenaH: arena.H, obstacles: arena.obstacles});
+  } catch(_) {}
+  _pvpStartRound();
+}
+
+function _pvpStartRound() {
+  if(!PVP) return;
+  // Switch to raid canvas for the arena
+  showScreen('raid');
+  canvas = document.getElementById('gameCanvas');
+  const {W,H} = gameWH(0), DPR = window.devicePixelRatio||1;
+  canvas.width = W*DPR; canvas.height = H*DPR;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  ctx = canvas.getContext('2d'); ctx.scale(DPR,DPR);
+
+  // Build my army from raid party
+  const normalize = PVP.normalize;
+  const lScale = normalize ? 1 : (1 + Math.max(0, GS.necroLv-1) * 0.08);
+  const myArmy = GS.raiders().map((s, i) => {
+    const md = MINIONS[s.type] || {};
+    const mhp = normalize ? (md.maxHP||20) : Math.round((md.maxHP||20) * lScale);
+    const isLeft = PVP.role === 'host';
+    const baseX = isLeft ? 80 : (PVP.arenaW - 80);
+    const cols = 3, spacing = 30;
+    const col2 = i % cols, row2 = Math.floor(i/cols);
+    const mx = baseX + (isLeft ? 1 : -1) * col2 * spacing;
+    const my = PVP.arenaH/2 + (row2 - 2) * spacing;
+    return {
+      type: s.type, x: mx, y: my, tx: mx, ty: my,
+      hp: mhp, maxHP: mhp,
+      dmg: Math.round((md.dmg||5) * lScale),
+      spd: md.spd||1.5, rng: md.rng||30,
+      dead: false, lat: 0, _aiMode: 'aggressive',
+      _wp: Math.random()*6, _atkCd: 0,
+    };
+  });
+
+  // Opponent army placeholder — gets synced from peer
+  const opArmy = [];
+  if(PVP.opponentData) {
+    const opLv = normalize ? 1 : PVP.opponentData.lv;
+    const opScale = normalize ? 1 : (1 + Math.max(0, opLv-1) * 0.08);
+    // Create opponent minion placeholders (will be updated by state sync)
+    const cap = armyCap(opLv);
+    for(let i = 0; i < Math.min(cap, 20); i++) {
+      const isRight = PVP.role === 'host';
+      const baseX = isRight ? (PVP.arenaW - 80) : 80;
+      const mx = baseX + (isRight ? -1 : 1) * (i%3) * 30;
+      const my = PVP.arenaH/2 + (Math.floor(i/3) - 2) * 30;
+      opArmy.push({
+        type:'skeleton', x: mx, y: my, tx: mx, ty: my,
+        hp: 20, maxHP: 20, dmg: 5, spd: 1.5, rng: 30,
+        dead: false, lat: 0, _wp: Math.random()*6, _atkCd: 0,
+      });
+    }
+  }
+
+  // Necro positions
+  const isLeft = PVP.role === 'host';
+  const myNecro = {
+    x: isLeft ? 60 : PVP.arenaW-60,
+    y: PVP.arenaH/2,
+    hp: normalize ? 100 : GS.necroMaxHP,
+    maxHP: normalize ? 100 : GS.necroMaxHP,
+    dead: false
+  };
+  const opNecro = {
+    x: isLeft ? PVP.arenaW-60 : 60,
+    y: PVP.arenaH/2,
+    hp: 100, maxHP: 100, dead: false,
+    name: PVP.opponentData?.name || 'Opponent'
+  };
+
+  PVP._myArmy = myArmy;
+  PVP._opArmy = opArmy;
+  PVP._myNecro = myNecro;
+  PVP._opNecro = opNecro;
+  PVP._roundStart = Date.now();
+  PVP._tick = 0;
+  PVP.started = true;
+
+  // Hide HUD elements not needed for PvP
+  const mmCluster = document.getElementById('minimapCluster'); if(mmCluster) mmCluster.style.display='none';
+  const bossBar = document.getElementById('bossBar'); if(bossBar) bossBar.style.display='none';
+  const spellArea = document.getElementById('spellArea'); if(spellArea) spellArea.style.display='none';
+
+  // Start PvP render loop
+  _pvpLoop();
+}
+
+// ── PvP Game Loop ────────────────────────────────────────────────────────────
+function _pvpLoop() {
+  if(!PVP?.started) return;
+  const W = PVP.arenaW, H = PVP.arenaH;
+  const {W: cW, H: cH} = gameWH(0);
+  const scaleX = cW / W, scaleY = cH / H;
+  const scale = Math.min(scaleX, scaleY);
+
+  ctx.clearRect(0, 0, cW, cH);
+
+  // Draw arena background
+  ctx.save();
+  ctx.translate((cW - W*scale)/2, (cH - H*scale)/2);
+  ctx.scale(scale, scale);
+
+  // Arena floor
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+  // Grid lines
+  ctx.strokeStyle = 'rgba(239,68,68,.06)';
+  ctx.lineWidth = 1;
+  for(let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for(let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  // Arena border
+  ctx.strokeStyle = 'rgba(239,68,68,.3)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, W-4, H-4);
+  // Center line
+  ctx.setLineDash([8,6]);
+  ctx.strokeStyle = 'rgba(239,68,68,.15)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Obstacles
+  PVP.obstacles.forEach(ob => {
+    if(ob.type === 'pillar') {
+      ctx.fillStyle = '#374151';
+      ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+      ctx.strokeStyle = '#4b5563';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ob.x, ob.y, ob.w, ob.h);
+    } else {
+      ctx.fillStyle = '#292524';
+      ctx.beginPath();
+      ctx.ellipse(ob.x+ob.w/2, ob.y+ob.h/2, ob.w/2, ob.h/2, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#44403c';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  });
+
+  const t = Date.now()/1000;
+
+  // Draw my army (red team)
+  PVP._myArmy.forEach(u => {
+    if(u.dead) return;
+    ctx.save();
+    ctx.translate(u.x, u.y);
+    try { drawSprite(ctx, u.type, 0, 0, 0.8, 1, t, Math.sin(u._wp||0)); } catch(_) {
+      ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    // HP bar
+    const pct = Math.max(0, u.hp / u.maxHP);
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(u.x-12, u.y-18, 24, 3);
+    ctx.fillStyle = pct > .5 ? '#22c55e' : pct > .25 ? '#f59e0b' : '#ef4444';
+    ctx.fillRect(u.x-12, u.y-18, 24*pct, 3);
+  });
+
+  // Draw opponent army (purple team)
+  PVP._opArmy.forEach(u => {
+    if(u.dead) return;
+    ctx.save();
+    ctx.translate(u.x, u.y);
+    ctx.globalAlpha = 0.85;
+    try { drawSprite(ctx, u.type, 0, 0, 0.8, 1, t, Math.sin(u._wp||0)); } catch(_) {
+      ctx.fillStyle='#a855f7'; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    const pct = Math.max(0, u.hp / u.maxHP);
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(u.x-12, u.y-18, 24, 3);
+    ctx.fillStyle = '#a855f7';
+    ctx.fillRect(u.x-12, u.y-18, 24*pct, 3);
+  });
+
+  // Draw necromancers
+  // My necro
+  const mn = PVP._myNecro;
+  if(!mn.dead) {
+    ctx.save(); ctx.translate(mn.x, mn.y);
+    try { drawSprite(ctx, 'necromancer', 0, 0, 1, 1, t, 0); } catch(_) {
+      ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    hpBar(mn.x, mn.y-32, 34, 4, mn.hp/mn.maxHP, '#ef4444');
+    ctx.save(); ctx.font='bold 9px "Cinzel",serif'; ctx.textAlign='center';
+    ctx.fillStyle='#fca5a5'; ctx.fillText(GS.necroName||'You', mn.x, mn.y-38); ctx.restore();
+  }
+  // Opponent necro
+  const on = PVP._opNecro;
+  if(on && !on.dead) {
+    ctx.save(); ctx.translate(on.x, on.y);
+    const orc = COOP_ROBE_COLORS[2]; // purple team color
+    window._mpRobeRC = orc;
+    try { drawSprite(ctx, 'necromancer_coop', 0, 0, 1, 1, t, 0); } catch(_) {
+      ctx.fillStyle='#a855f7'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
+    }
+    window._mpRobeRC = null;
+    ctx.restore();
+    hpBar(on.x, on.y-32, 34, 4, on.hp/on.maxHP, '#a855f7');
+    ctx.save(); ctx.font='bold 9px "Cinzel",serif'; ctx.textAlign='center';
+    ctx.fillStyle='#d8b4fe'; ctx.fillText(on.name||'Opponent', on.x, on.y-38); ctx.restore();
+  }
+
+  ctx.restore(); // end arena transform
+
+  // HUD overlay
+  const elapsed = (Date.now() - PVP._roundStart) / 1000;
+  const remaining = Math.max(0, PVP.roundDuration - elapsed);
+  const mins = Math.floor(remaining / 60);
+  const secs = Math.floor(remaining % 60);
+
+  ctx.save();
+  // Round & Timer
+  ctx.font = 'bold 14px "Cinzel",serif'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#ef4444';
+  ctx.fillText(`Round ${PVP.round} / ${PVP.totalRounds}`, cW/2, 24);
+  ctx.font = 'bold 20px "Cinzel Decorative",serif';
+  ctx.fillStyle = remaining < 30 ? '#ef4444' : '#fca5a5';
+  ctx.fillText(`${mins}:${secs.toString().padStart(2,'0')}`, cW/2, 48);
+  // Score
+  ctx.font = 'bold 16px "Cinzel",serif';
+  ctx.fillStyle = '#fca5a5'; ctx.textAlign = 'left';
+  ctx.fillText(`You: ${PVP.myScore}`, 16, 30);
+  ctx.fillStyle = '#d8b4fe'; ctx.textAlign = 'right';
+  ctx.fillText(`${PVP.opponentData?.name||'Opponent'}: ${PVP.opScore}`, cW-16, 30);
+  // Army counts
+  const myAlive = PVP._myArmy.filter(u=>!u.dead).length;
+  const opAlive = PVP._opArmy.filter(u=>!u.dead).length;
+  ctx.font = '11px "Cinzel",serif'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText(`Army: ${myAlive}/${PVP._myArmy.length}`, 16, 50);
+  ctx.textAlign = 'right';
+  ctx.fillText(`Army: ${opAlive}/${PVP._opArmy.length}`, cW-16, 50);
+  ctx.restore();
+
+  // ── AI: move my army toward opponents ──
+  PVP._tick++;
+  const dt = 1/60;
+  PVP._myArmy.forEach(u => {
+    if(u.dead) return;
+    u._wp = (u._wp||0) + dt * 3;
+    // Find nearest enemy
+    let nearest = null, nd = Infinity;
+    PVP._opArmy.forEach(e => {
+      if(e.dead) return;
+      const d = Math.hypot(e.x-u.x, e.y-u.y);
+      if(d < nd) { nd = d; nearest = e; }
+    });
+    // Also target opponent necro if closer and no minions left
+    if(PVP._opNecro && !PVP._opNecro.dead) {
+      const dnecro = Math.hypot(PVP._opNecro.x-u.x, PVP._opNecro.y-u.y);
+      if(!nearest || dnecro < nd) { nearest = PVP._opNecro; nd = dnecro; }
+    }
+    if(!nearest) return;
+    u._atkCd = Math.max(0, (u._atkCd||0) - dt);
+    if(nd <= (u.rng||30)) {
+      // Attack
+      if(u._atkCd <= 0) {
+        nearest.hp -= u.dmg;
+        u._atkCd = 1.0 / (u.spd||1);
+        if(nearest.hp <= 0) { nearest.hp = 0; nearest.dead = true; }
+      }
+    } else {
+      // Move toward target
+      const angle = Math.atan2(nearest.y-u.y, nearest.x-u.x);
+      const spd = (MINIONS[u.type]?.moveSpd || 60) * dt;
+      let nx = u.x + Math.cos(angle)*spd;
+      let ny = u.y + Math.sin(angle)*spd;
+      // Collision with obstacles
+      let blocked = false;
+      PVP.obstacles.forEach(ob => {
+        if(nx > ob.x-10 && nx < ob.x+ob.w+10 && ny > ob.y-10 && ny < ob.y+ob.h+10) blocked = true;
+      });
+      if(!blocked) { u.x = clamp(nx,10,PVP.arenaW-10); u.y = clamp(ny,10,PVP.arenaH-10); }
+    }
+  });
+
+  // Send state to peer
+  if(PVP._tick % 3 === 0) {
+    const armyState = PVP._myArmy.map(u => ({x:u.x,y:u.y,hp:u.hp,tx:u.tx,ty:u.ty}));
+    const necroState = {x:PVP._myNecro.x, y:PVP._myNecro.y, hp:PVP._myNecro.hp};
+    const msg = {type:'pvp_state', army: armyState, necro: necroState};
+    try { (PVP.conn||PVP.hostConn)?.send(msg); } catch(_) {}
+  }
+
+  // Check round end conditions
+  if(remaining <= 0 || myAlive === 0 || opAlive === 0) {
+    if(PVP.role === 'host') {
+      // Host determines winner
+      let winner;
+      if(myAlive === 0 && opAlive === 0) winner = 'draw';
+      else if(opAlive === 0) winner = 'host';
+      else if(myAlive === 0) winner = 'guest';
+      else {
+        // Time's up — most surviving units wins
+        winner = myAlive >= opAlive ? 'host' : 'guest';
+      }
+      try { PVP.conn?.send({type:'pvp_round_end', winner, round: PVP.round}); } catch(_) {}
+      _pvpRoundEnd(winner, PVP.round);
+    }
+    // Guest waits for host's pvp_round_end message
+    return;
+  }
+
+  requestAnimationFrame(_pvpLoop);
+}
+
+// ── PvP Round End ────────────────────────────────────────────────────────────
+function _pvpRoundEnd(winner, round) {
+  PVP.started = false;
+  const iWon = (PVP.role === 'host' && winner === 'host') || (PVP.role === 'guest' && winner === 'guest');
+  const isDraw = winner === 'draw';
+  if(iWon) PVP.myScore++;
+  else if(!isDraw) PVP.opScore++;
+
+  // Check if match is over (best of 3 = first to 2)
+  const winsNeeded = Math.ceil(PVP.totalRounds / 2);
+  if(PVP.myScore >= winsNeeded || PVP.opScore >= winsNeeded) {
+    const matchWinner = PVP.myScore >= winsNeeded ? 'me' : 'opponent';
+    if(PVP.role === 'host') {
+      try {
+        PVP.conn?.send({type:'pvp_match_end', winner: matchWinner === 'me' ? 'host' : 'guest', myScore: PVP.opScore, opScore: PVP.myScore});
+      } catch(_) {}
+    }
+    _pvpMatchEnd(matchWinner === 'me' ? PVP.role : (PVP.role==='host'?'guest':'host'), PVP.myScore, PVP.opScore);
+    return;
+  }
+
+  // Show round result then start next round
+  _pvpShowRoundResult(iWon ? 'VICTORY' : isDraw ? 'DRAW' : 'DEFEAT', round);
+  if(PVP.role === 'host') {
+    setTimeout(() => { PVP.myReady=true; PVP.opReady=true; _pvpHostStartRound(); }, 4000);
+  }
+}
+
+function _pvpShowRoundResult(result, round) {
+  const {W:cW, H:cH} = gameWH(0);
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.7)';
+  ctx.fillRect(0, 0, cW, cH);
+  ctx.font = 'bold 28px "Cinzel Decorative",serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = result === 'VICTORY' ? '#86efac' : result === 'DRAW' ? '#fcd34d' : '#fca5a5';
+  ctx.fillText(result, cW/2, cH/2 - 10);
+  ctx.font = '14px "Cinzel",serif';
+  ctx.fillStyle = '#9ca3af';
+  ctx.fillText(`Round ${round} Complete`, cW/2, cH/2 + 20);
+  ctx.font = '16px "Cinzel",serif';
+  ctx.fillStyle = '#d1d5db';
+  ctx.fillText(`${PVP.myScore} — ${PVP.opScore}`, cW/2, cH/2 + 50);
+  ctx.restore();
+}
+
+// ── PvP Match End ────────────────────────────────────────────────────────────
+function _pvpMatchEnd(winner, myScore, opScore) {
+  PVP.started = false;
+  const iWon = (PVP.role === winner) || (winner === 'me');
+
+  // Update stats
+  if(iWon) {
+    GS.pvpWins = (GS.pvpWins||0) + 1;
+    const ratingGain = Math.max(8, Math.round(32 * (1 - (GS.pvpRating||1000)/2000)));
+    GS.pvpRating = (GS.pvpRating||1000) + ratingGain;
+    const gloryGain = 25 + Math.floor(Math.random()*15);
+    GS.pvpCurrency = (GS.pvpCurrency||0) + gloryGain;
+    // Check for title unlocks
+    const newTitle = pvpGetTitle(GS.pvpRating);
+    if(!GS.pvpTitles.includes(newTitle.title)) GS.pvpTitles.push(newTitle.title);
+  } else {
+    GS.pvpLosses = (GS.pvpLosses||0) + 1;
+    const ratingLoss = Math.max(5, Math.round(16 * ((GS.pvpRating||1000)/2000)));
+    GS.pvpRating = Math.max(0, (GS.pvpRating||1000) - ratingLoss);
+    const consolation = 5 + Math.floor(Math.random()*5);
+    GS.pvpCurrency = (GS.pvpCurrency||0) + consolation;
+  }
+  saveGame(false);
+
+  // Show match result screen
+  _pvpShowMatchResult(iWon, myScore, opScore);
+}
+
+function _pvpShowMatchResult(iWon, myScore, opScore) {
+  showScreen('pvpQueue');
+  const {W:cW} = gameWH(0);
+
+  // Restore HUD elements
+  const mmCluster = document.getElementById('minimapCluster'); if(mmCluster) mmCluster.style.display='';
+  const spellArea = document.getElementById('spellArea'); if(spellArea) spellArea.style.display='';
+
+  // Build result overlay in pvpQueue
+  const t = pvpGetTitle(GS.pvpRating||1000);
+  const rEl = document.getElementById('pvpRatingDisplay');
+  if(rEl) {
+    let html = `<div style="font-family:'Cinzel Decorative',serif;font-size:22px;color:${iWon?'#86efac':'#fca5a5'};margin-bottom:8px">${iWon?'⚔ VICTORY ⚔':'💀 DEFEAT 💀'}</div>`;
+    html += `<div style="font-size:18px;color:#d1d5db;margin-bottom:6px">${myScore} — ${opScore}</div>`;
+    html += `<div style="font-size:11px;color:#6b7280">vs ${PVP?.opponentData?.name||'Opponent'}</div>`;
+    html += `<div style="margin-top:10px;padding:8px;background:rgba(0,0,0,.3);border-radius:8px;font-size:11px">`;
+    html += `<div style="color:${t.color}">${t.title} · Rating: <b>${GS.pvpRating}</b></div>`;
+    html += `<div style="color:${iWon?'#86efac':'#fca5a5'}">${iWon?'▲':'▼'} ${iWon?'Won':'Lost'} rating</div>`;
+    html += `<div style="color:#fcd34d">+${iWon ? (25+Math.floor(Math.random()*15)) : (5+Math.floor(Math.random()*5))} ⚜ Glory earned</div>`;
+    html += `</div>`;
+    rEl.innerHTML = html;
+  }
+
+  // Cleanup PvP
+  setTimeout(() => _pvpDestroy(), 500);
+}
+
+// ── PvP Cleanup ──────────────────────────────────────────────────────────────
+function _pvpDestroy() {
+  if(PVP?.peer) { try { PVP.peer.destroy(); } catch(_) {} }
+  PVP = null;
+}
+
+// ── loadGame: restore PvP state ──────────────────────────────────────────────
+const _origLoadGamePvp = loadGame;
+loadGame = function() {
+  _origLoadGamePvp();
+  // Ensure PvP fields exist
+  if(GS.pvpWins===undefined) GS.pvpWins = 0;
+  if(GS.pvpLosses===undefined) GS.pvpLosses = 0;
+  if(GS.pvpCurrency===undefined) GS.pvpCurrency = 0;
+  if(GS.pvpRating===undefined) GS.pvpRating = 1000;
+  if(!GS.pvpTitles) GS.pvpTitles = [];
+  if(!GS.pvpCosmetics) GS.pvpCosmetics = {};
+};
 
 
 // ═══════════════════════════════════════════════════════════════
