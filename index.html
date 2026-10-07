@@ -438,6 +438,21 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
 .rs-meta span{color:var(--bone)}.rs-desc{font-size:11px;color:var(--dim);font-style:italic}
 .rs-enemies{font-size:10px;color:var(--dim);font-family:'Cinzel',serif;margin-top:3px}
 .rs-lock{font-family:'Cinzel',serif;font-size:10px;color:#f97316;margin-top:2px}
+/* ── NG+ Modifier Panel ── */
+.ng-panel{width:100%;max-width:480px;margin-top:8px;margin-bottom:8px;border:1px solid rgba(168,85,247,.4);border-radius:14px;background:rgba(30,10,50,.7);padding:14px 14px 10px;display:none}
+.ng-panel.visible{display:block}
+.ng-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ng-header-title{font-family:'Cinzel Decorative',serif;font-size:clamp(12px,3vw,15px);color:#c084fc;text-shadow:0 0 12px rgba(168,85,247,.6)}
+.ng-diff{font-family:'Cinzel',serif;font-size:11px;color:#f59e0b;min-width:80px;text-align:right}
+.ng-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.ng-mod{border:1px solid var(--brd);border-radius:10px;padding:9px 10px;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s;background:rgba(20,10,30,.5);-webkit-tap-highlight-color:transparent}
+.ng-mod:hover{border-color:rgba(168,85,247,.5)}
+.ng-mod.active{border-color:var(--glow);box-shadow:0 0 14px rgba(168,85,247,.35);background:rgba(60,20,80,.4)}
+.ng-mod-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.ng-mod-ico{font-size:16px}
+.ng-mod-name{font-family:'Cinzel',serif;font-size:11px;font-weight:700}
+.ng-mod-mult{font-family:'Cinzel',serif;font-size:9px;color:#f59e0b;margin-left:auto}
+.ng-mod-desc{font-size:9px;color:var(--dim);line-height:1.3}
 /* Floor HUD */
 #floorHUD{display:none}/* merged into mmAreaLabel */
 /* ── OVERLAY ── */
@@ -1078,6 +1093,14 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
     <div class="rs-enemies">Enemies: Death Knights · Lich Acolytes · Shadow Demons · Wraiths</div>
     <div class="rs-lock" id="sanctum_lock" style="display:none">🔒 Requires Level 6</div>
   </div>
+  <!-- NG+ Modifier Panel -->
+  <div class="ng-panel" id="ngPanel">
+    <div class="ng-header">
+      <div class="ng-header-title">🆕 New Game+ Modifiers</div>
+      <div class="ng-diff" id="ngDiffLabel">×1.0</div>
+    </div>
+    <div class="ng-grid" id="ngGrid"></div>
+  </div>
   <button class="back-btn" style="margin-top:10px;font-size:13px;padding:10px 22px" onclick="closeRaidSelect()">← Back</button>
 </div>
 <div id="floorHUD"></div>
@@ -1189,6 +1212,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   <!-- ── BOTTOM-LEFT: minimap cluster ── -->
   <div id="minimapCluster">
     <div id="mmAreaLabel">🪦 Cemetery · F1</div>
+    <div id="ngHUD" style="display:none;font-family:'Cinzel',serif;font-size:8px;color:#c084fc;background:rgba(0,0,0,.75);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:2px 6px;text-align:center;margin-top:2px;line-height:1.3"></div>
     <canvas id="minimapCanvas" width="120" height="120"></canvas>
   </div>
   <!-- ── BOTTOM-CENTER: HP bar + spell buttons ── -->
@@ -2347,6 +2371,126 @@ function rollEvoMatDrop(difficulty, isBoss){
     return p.id;
   }}
   return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  NEW GAME+ MODIFIER SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+const NG_PLUS_MODIFIERS={
+  ironman:{
+    id:'ironman',name:'Ironman',ico:'💀',mult:2.0,
+    desc:'No healing, no potions. Death ends the run instantly.',
+    color:'#ef4444',
+    rules:{noHealing:true,noConsumables:true,instantDeath:true}
+  },
+  speedrun:{
+    id:'speedrun',name:'Speedrun',ico:'⏱️',mult:1.5,
+    desc:'5-minute timer per floor. Beat it or fail.',
+    color:'#f59e0b',
+    rules:{floorTimer:300} // seconds
+  },
+  pacifist:{
+    id:'pacifist',name:'Pacifist',ico:'☮️',mult:2.0,
+    desc:'Necromancer cannot attack. Army only.',
+    color:'#22c55e',
+    rules:{noNecroAttack:true}
+  },
+  glasscannon:{
+    id:'glasscannon',name:'Glass Cannon',ico:'💥',mult:2.5,
+    desc:'10× damage dealt, 10× damage taken.',
+    color:'#f97316',
+    rules:{dmgDealtMult:10,dmgTakenMult:10}
+  },
+  soloist:{
+    id:'soloist',name:'Soloist',ico:'🧙',mult:3.0,
+    desc:'No heroes, no army. Necromancer vs. the world.',
+    color:'#a855f7',
+    rules:{noHeroes:true,noArmy:true}
+  },
+  chaos:{
+    id:'chaos',name:'Chaos',ico:'🎲',mult:1.5,
+    desc:'Random enemy types each floor. Expect the unexpected.',
+    color:'#ec4899',
+    rules:{randomEnemies:true}
+  },
+  permadeath:{
+    id:'permadeath',name:'Permadeath',ico:'⚰️',mult:2.0,
+    desc:'Minions that die are permanently lost from your army.',
+    color:'#dc2626',
+    rules:{minionPermadeath:true}
+  },
+  escalation:{
+    id:'escalation',name:'Escalation',ico:'📈',mult:1.5,
+    desc:'Each floor enemies gain +25% stats. Final floors are brutal.',
+    color:'#06b6d4',
+    rules:{floorStatScale:0.25} // +25% per floor
+  }
+};
+
+// NG+ titles awarded on completion
+const NG_PLUS_TITLES={
+  ironman:'Undying',speedrun:'Blitz Master',pacifist:'The Merciful',
+  glasscannon:'Glass Lord',soloist:'Lone Wolf',chaos:'Chaos Weaver',
+  permadeath:'Soul Reaver',escalation:'The Relentless'
+};
+
+// Check if NG+ is available (prestige >= 10)
+function ngCanSelect(){return (GS.prestige||0)>=10;}
+
+// Check if a modifier is active in the current raid
+function ngModActive(id){return RS&&RS._ngMods&&RS._ngMods.has(id);}
+
+// Get combined difficulty multiplier from active modifiers
+function getNgDiffMult(mods){
+  if(!mods||!mods.size)return 1;
+  let m=1;
+  for(const id of mods){
+    const def=NG_PLUS_MODIFIERS[id];
+    if(def)m*=def.mult;
+  }
+  return m;
+}
+
+// Get modifier rule value
+function ngRule(rule){
+  if(!RS||!RS._ngMods)return null;
+  for(const id of RS._ngMods){
+    const def=NG_PLUS_MODIFIERS[id];
+    if(def&&def.rules&&def.rules[rule]!==undefined)return def.rules[rule];
+  }
+  return null;
+}
+
+// Get numeric modifier rule (returns sum of all matching)
+function ngRuleNum(rule,fallback){
+  if(!RS||!RS._ngMods)return fallback||0;
+  let v=0;let found=false;
+  for(const id of RS._ngMods){
+    const def=NG_PLUS_MODIFIERS[id];
+    if(def&&def.rules&&typeof def.rules[rule]==='number'){v+=def.rules[rule];found=true;}
+  }
+  return found?v:(fallback||0);
+}
+
+// Track NG+ completion
+function ngTrackCompletion(raidKey,mods){
+  if(!mods||!mods.size)return;
+  if(!GS.ngPlusStats)GS.ngPlusStats={completions:{},challengeScore:0,titles:[]};
+  const s=GS.ngPlusStats;
+  const mult=getNgDiffMult(mods);
+  s.challengeScore=(s.challengeScore||0)+Math.round(mult*100);
+  for(const id of mods){
+    if(!s.completions[id])s.completions[id]=0;
+    s.completions[id]++;
+    // Award title on first completion
+    if(s.completions[id]===1&&NG_PLUS_TITLES[id]){
+      if(!s.titles)s.titles=[];
+      if(!s.titles.includes(NG_PLUS_TITLES[id])){
+        s.titles.push(NG_PLUS_TITLES[id]);
+        showToast(`🏆 Title earned: "${NG_PLUS_TITLES[id]}"!`);
+      }
+    }
+  }
 }
 
 // ── SPELL DEFINITIONS ──
@@ -12471,7 +12615,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -12545,6 +12689,8 @@ function loadGame(){
     GS.ascendedUnlocks=d.ascendedUnlocks||{};
     // Load evolution materials
     GS.evoMaterials=d.evoMaterials||{};
+    // Load NG+ completion stats
+    GS.ngPlusStats=d.ngPlusStats||null;
     // Rebuild ascended unlocks from prestige level for old saves
     if(GS.prestige>=11&&!Object.keys(GS.ascendedUnlocks).length){
       for(const u of ASCENDED_UNLOCKS){if(GS.prestige>=u.tier)GS.ascendedUnlocks[u.key]=true;}
@@ -13726,6 +13872,44 @@ function startRaid(){
   openMapSelector();
 }
 
+// ── NG+ modifier selection state ──
+let _ngSelectedMods=new Set();
+
+function _buildNgPanel(){
+  const grid=document.getElementById('ngGrid');
+  if(!grid)return;
+  grid.innerHTML='';
+  for(const [id,mod] of Object.entries(NG_PLUS_MODIFIERS)){
+    const el=document.createElement('div');
+    el.className='ng-mod'+((_ngSelectedMods.has(id))?' active':'');
+    el.dataset.ngId=id;
+    el.onclick=()=>_toggleNgMod(id);
+    el.innerHTML=`<div class="ng-mod-top"><span class="ng-mod-ico">${mod.ico}</span><span class="ng-mod-name" style="color:${mod.color}">${mod.name}</span><span class="ng-mod-mult">×${mod.mult}</span></div><div class="ng-mod-desc">${mod.desc}</div>`;
+    grid.appendChild(el);
+  }
+  _updateNgDiffLabel();
+}
+
+function _toggleNgMod(id){
+  if(_ngSelectedMods.has(id))_ngSelectedMods.delete(id);
+  else _ngSelectedMods.add(id);
+  const grid=document.getElementById('ngGrid');
+  if(grid){
+    for(const el of grid.children){
+      if(el.dataset.ngId===id)el.classList.toggle('active',_ngSelectedMods.has(id));
+    }
+  }
+  _updateNgDiffLabel();
+}
+
+function _updateNgDiffLabel(){
+  const lbl=document.getElementById('ngDiffLabel');
+  if(!lbl)return;
+  const m=getNgDiffMult(_ngSelectedMods);
+  lbl.textContent=_ngSelectedMods.size?`×${m.toFixed(1)} difficulty`:'×1.0';
+  lbl.style.color=m>=4?'#ef4444':m>=2?'#f97316':'#f59e0b';
+}
+
 function openRaidSelect(){
   // Update lock states
   const forest_lock=document.getElementById('forest_lock');
@@ -13736,6 +13920,12 @@ function openRaidSelect(){
   else{forest_lock.style.display='none';rs_forest.classList.remove('locked');}
   if(GS.necroLv<6){sanctum_lock.style.display='';rs_sanctum.classList.add('locked');}
   else{sanctum_lock.style.display='none';rs_sanctum.classList.remove('locked');}
+  // NG+ panel
+  const ngP=document.getElementById('ngPanel');
+  if(ngP){
+    if(ngCanSelect()){ngP.classList.add('visible');_buildNgPanel();}
+    else{ngP.classList.remove('visible');_ngSelectedMods.clear();}
+  }
   document.getElementById('raidSelect').classList.add('active');
 }
 
@@ -13747,9 +13937,10 @@ function selectRaid(key){
   const cfg=RAID_CONFIGS[key];
   if(GS.necroLv<cfg.minLv){showToast(`Requires Level ${cfg.minLv}!`);return;}
   activeRaid=key;
+  const _mods=_ngSelectedMods.size?new Set(_ngSelectedMods):null;
   closeRaidSelect();
   showScreen('raid');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>initRaid(key,1)));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>initRaid(key,1,_mods?{ngMods:_mods}:undefined)));
 }
 
 function toggleAuto(){
@@ -13991,6 +14182,8 @@ function initRaid(raidKey,floorNum,opts){
   // Apply opts overrides from region raids
   const _enemyScale=(opts&&opts.enemyScale)||1;
   const _floorTotal=(opts&&opts.floorTotal)||cfg.floors;
+  // NG+ modifiers: carry from opts on floor 1, preserve from RS on subsequent floors
+  const _ngMods=(floorNum===1&&opts&&opts.ngMods)?opts.ngMods:(floorNum>1&&RS&&RS._ngMods?RS._ngMods:null);
   const {grid,rooms,startX,startY,stairX,stairY}=genFloor(floorNum);
   const floorMult=(cfg.floorScale[floorNum-1]||1)*_enemyScale;
 
@@ -14036,6 +14229,11 @@ function initRaid(raidKey,floorNum,opts){
     });
   }
 
+  // NG+ Soloist: clear minions
+  if(_ngMods&&_ngMods.has('soloist')&&_ngMods.has('soloist')){
+    if(ngRule('noArmy'))minions.length=0;
+  }
+
   // Spawn enemies in rooms far from start (skip room 0)
   const enemies=[];
   // Difficulty scaling: enemy count + stats scale with player level
@@ -14046,18 +14244,22 @@ function initRaid(raidKey,floorNum,opts){
   const enemyCount=Math.round((6+floorNum*2)*_lvEnemyMult*_coopEnemyMult);
   const _eDmgScale=Math.sqrt(_enemyScale)*(1+(_lvBase-1)*0.07); // +7% dmg per level (was 5%)
   const _eLvHpMult=1+(_lvBase-1)*0.08; // +8% HP per player level (was 6%)
+  // NG+ Escalation: each floor enemies gain +floorStatScale stats
+  const _ngEscScale=_ngMods?ngRuleNum('floorStatScale',0):0;
+  const _ngFloorBoost=_ngEscScale>0?(1+_ngEscScale*(floorNum-1)):1;
+  // NG+ Chaos: random enemies from ALL enemy pools across all raids
+  const _allEnemyTypes=_ngMods&&_ngMods.has('chaos')?Object.values(RAID_CONFIGS).flatMap(c=>c.enemyPool).filter((v,i,a)=>a.indexOf(v)===i):null;
   for(let i=0;i<enemyCount;i++){
     const room=rooms[ri(1,rooms.length-1)]; // skip start room
-    const typeIdx=ri(0,cfg.enemyPool.length-1);
-    const type=cfg.enemyPool[typeIdx];
+    const type=_allEnemyTypes?_allEnemyTypes[ri(0,_allEnemyTypes.length-1)]:cfg.enemyPool[ri(0,cfg.enemyPool.length-1)];
     const d=EDEF[type];if(!d)continue;
     const ex=room.cx*TILE_SIZE+TILE_SIZE/2+rnd(-TILE_SIZE,TILE_SIZE);
     const ey=room.cy*TILE_SIZE+TILE_SIZE/2+rnd(-TILE_SIZE,TILE_SIZE);
     // Snap to nearest walkable tile center
     const sp2=safeSpawnPos(ex,ey,4,grid);
     const snappedX=sp2.x, snappedY=sp2.y;
-    enemies.push({type,x:snappedX,y:snappedY,hp:Math.round(d.hp*floorMult*_eLvHpMult),maxHP:Math.round(d.hp*floorMult*_eLvHpMult),
-      dmgMult:_eDmgScale,
+    enemies.push({type,x:snappedX,y:snappedY,hp:Math.round(d.hp*floorMult*_eLvHpMult*_ngFloorBoost),maxHP:Math.round(d.hp*floorMult*_eLvHpMult*_ngFloorBoost),
+      dmgMult:_eDmgScale*_ngFloorBoost,
       patX:room.cx*TILE_SIZE+TILE_SIZE/2,patY:room.cy*TILE_SIZE+TILE_SIZE/2,
       lat:0,dead:false,deadAt:0,corpse:false,slowUntil:0});
   }
@@ -14072,9 +14274,9 @@ function initRaid(raidKey,floorNum,opts){
       enemies.push({
         type:mbType,
         x:mbRoom.cx*TILE_SIZE+TILE_SIZE/2,y:mbRoom.cy*TILE_SIZE+TILE_SIZE/2,
-        hp:Math.round(mbDef.hp*floorMult*_eLvHpMult*2.5),
-        maxHP:Math.round(mbDef.hp*floorMult*_eLvHpMult*2.5),
-        dmgMult:_eDmgScale,
+        hp:Math.round(mbDef.hp*floorMult*_eLvHpMult*2.5*_ngFloorBoost),
+        maxHP:Math.round(mbDef.hp*floorMult*_eLvHpMult*2.5*_ngFloorBoost),
+        dmgMult:_eDmgScale*_ngFloorBoost,
         patX:mbRoom.cx*TILE_SIZE+TILE_SIZE/2,patY:mbRoom.cy*TILE_SIZE+TILE_SIZE/2,
         lat:0,dead:false,deadAt:0,corpse:false,slowUntil:0,
         isMB:true
@@ -14128,6 +14330,7 @@ function initRaid(raidKey,floorNum,opts){
     autoTarget:null,autoSpellKey:null,
     descending:false,
     _raidStartTs:Date.now(),
+    _ngMods:_ngMods,
     atkMult:raidBuffs.atkMult||1,
     defMult:raidBuffs.defMult||1,
     shield:raidBuffs.shield||0,
@@ -14143,7 +14346,7 @@ function initRaid(raidKey,floorNum,opts){
     _invisTimer:raidBuffs.invisibility||0,
     _invisStart:0,
     famLastBat:0,famLastSkull:0,famLastHound:0,famHoundUsed:false,
-    _activeHeroes:(floorNum>1&&RS&&RS._activeHeroes?RS._activeHeroes.map((h,hi)=>{const a=hi/Math.max(1,RS._activeHeroes.length)*Math.PI*2;const sp=safeSpawnPos(startX+Math.cos(a)*40,startY+Math.sin(a)*40,4,grid);return{...h,x:sp.x,y:sp.y,tx:sp.x,ty:sp.y,_dialogueTimer:Date.now()+8000};}):[]),_heroMode:_heroMode||'defend',
+    _activeHeroes:(_ngMods&&_ngMods.has('soloist'))?[]:(floorNum>1&&RS&&RS._activeHeroes?RS._activeHeroes.map((h,hi)=>{const a=hi/Math.max(1,RS._activeHeroes.length)*Math.PI*2;const sp=safeSpawnPos(startX+Math.cos(a)*40,startY+Math.sin(a)*40,4,grid);return{...h,x:sp.x,y:sp.y,tx:sp.x,ty:sp.y,_dialogueTimer:Date.now()+8000};}):[]),_heroMode:_heroMode||'defend',
   };
 
   // Apply tavern HP buff (increase max HP for this raid)
@@ -14186,6 +14389,15 @@ function initRaid(raidKey,floorNum,opts){
     const risePanel=document.getElementById('risePanel');if(risePanel)risePanel.style.display='none';
   }
   if(RS&&RS.floorNum===1){GS.heroes.deadThisRaid=new Set();}
+  // NG+ HUD setup
+  const _ngHud=document.getElementById('ngHUD');
+  if(_ngHud){
+    if(RS._ngMods&&RS._ngMods.size>0){
+      const _icos=[...RS._ngMods].map(id=>NG_PLUS_MODIFIERS[id]?.ico||'').join('');
+      _ngHud.innerHTML=`🆕 ${_icos} ×${getNgDiffMult(RS._ngMods).toFixed(1)}`;
+      _ngHud.style.display='';
+    } else {_ngHud.style.display='none';}
+  }
   cancelAnimationFrame(animId);
   startAmbience('dungeon');startMusic('combat');
   animId=requestAnimationFrame(loop);
@@ -14795,6 +15007,8 @@ function refreshRaidInventory(){
 }
 function useRaidItem(id){
   if(!RS||!GS.inv.consumables[id])return;
+  // NG+ Ironman: no consumables allowed
+  if(ngRule('noConsumables')){showToast('💀 Ironman: No consumables allowed!');return;}
   let item=null;
   for(const cat of Object.values(SHOP_ITEMS)){const f=cat.find(i=>i.id===id);if(f){item=f;break;}}
   if(!item)return;
@@ -15069,6 +15283,8 @@ function handleNPCTap(npc){
 // Always fires auto-attack regardless of AI mode (even when autoMode=false)
 function tickNecroAutoAttack(t){
   if(!RS||RS.done||RS.necro.dead)return;
+  // NG+ Pacifist: necromancer cannot attack
+  if(ngRule('noNecroAttack'))return;
   const n=RS.necro;
   const allEnemies=RS._liveE||[];
   if(!allEnemies.length)return;
@@ -16085,10 +16301,20 @@ function loop(ts){
     resolveCollisions();
     tickParts(dt);
     checkVictory(t);
-    // Lv8 passive: HP regen in combat
-    if(GS.hasPassive(8)&&!RS.necro.dead){
+    // Lv8 passive: HP regen in combat (blocked by NG+ Ironman)
+    if(GS.hasPassive(8)&&!RS.necro.dead&&!ngRule('noHealing')){
       RS.necro.regenAcc=(RS.necro.regenAcc||0)+dt;
       if(RS.necro.regenAcc>=1){RS.necro.regenAcc=0;RS.necro.hp=Math.min(RS.necro.maxHP,RS.necro.hp+2);}
+    }
+    // NG+ Speedrun: floor timer
+    if(RS._ngMods&&RS._ngMods.has('speedrun')&&!RS.done&&!RS.necro.dead){
+      const _tmr=ngRule('floorTimer')||300;
+      const _elapsed=(Date.now()-RS._raidStartTs)/1000;
+      RS._ngTimerLeft=Math.max(0,_tmr-_elapsed);
+      if(RS._ngTimerLeft<=0){RS.necro.dead=true;flash('⏱️ TIME\'S UP! Speedrun failed!',22,'#f59e0b');setTimeout(()=>endRaid('defeat'),1200);}
+      // Update HUD with timer
+      const _ngH=document.getElementById('ngHUD');
+      if(_ngH){const m=Math.floor(RS._ngTimerLeft/60),s=Math.floor(RS._ngTimerLeft%60);_ngH.innerHTML=`⏱️ ${m}:${s<10?'0':''}${s}`;_ngH.style.color=RS._ngTimerLeft<30?'#ef4444':RS._ngTimerLeft<60?'#f59e0b':'#c084fc';}
     }
   }
   camFollow();draw(t,dt);updateHUD(t);
@@ -16311,7 +16537,8 @@ function tickMinions(t,dt){
     const _staffM=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.staff);
     const _staffMinionDmg=_staffM?.stats?.minionDmg||0;
     const _trophyAtk=getCastleBonus('trophyAtkPerBoss')*getTrophyBossCount();
-    const dmg=Math.round((md.dmg+dmgBonus)*getAtkMult()*(1+(_sbM.minionDmg||0)+_staffMinionDmg+getCastleBonus('minionAtk')+_trophyAtk)*_dbM);
+    const _ngDmgDealt=ngRuleNum('dmgDealtMult',0);
+    const dmg=Math.round((md.dmg+dmgBonus)*getAtkMult()*(1+(_sbM.minionDmg||0)+_staffMinionDmg+getCastleBonus('minionAtk')+_trophyAtk)*_dbM*(_ngDmgDealt>0?_ngDmgDealt:1));
 
     // Formation slot (spiral around necromancer)
     const liveCount=Math.max((RS._liveMinions||RS.minions.filter(m=>!m.dead)).length,1);
@@ -16744,6 +16971,9 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
     // Damage reduction from armor
     const dr=getDmgReduce();
     let realDmg=Math.round(dmg*(1-dr));
+    // NG+ Glass Cannon: multiply damage taken
+    const _ngDmgTaken=ngRuleNum('dmgTakenMult',0);
+    if(_ngDmgTaken>0)realDmg=Math.round(realDmg*_ngDmgTaken);
     // Melting rage: 15% DR while raging
     if(_meltingActive&&isMeltingRaging(RS.lastTs/1000)){realDmg=Math.round(realDmg*0.85);}
     // DEF buff (Rangers Cloak etc)
@@ -16762,6 +16992,10 @@ function attackTarget(tgt,dmg,t,attacker,srcEnemy){
     // Pet shares 30% splash damage
     if(RS.activePet&&realDmg>0){const splash=Math.max(1,Math.round(realDmg*.3));RS.activePet.hp=Math.max(0,RS.activePet.hp-splash);if(RS.activePet.hp<=0){consumePet();}}
     if(RS.necro.hp<=0&&!RS.necro.dead){
+      // NG+ Ironman: instant death, no saves
+      if(ngRule('instantDeath')){
+        RS.necro.dead=true;SND.necroDeath();flash('💀 IRONMAN — NO SECOND CHANCES!',22,'#ef4444');setTimeout(()=>endRaid('defeat'),1800);return;
+      }
       // Shadow Hound intercept
       if(RS.activePet?.type==='shadow_hound'&&!RS.famHoundUsed){
         RS.famHoundUsed=true;
@@ -18164,6 +18398,8 @@ function _executeAOE(key,wx,wy){
 function castSpell(key,t){
   if(SV&&!RS){survCastSpell(key,t);return;}
   if(!RS||RS.done||RS.necro.dead)return;
+  // NG+ Pacifist: block all necro attack spells (allow non-damage spells like raise/heal)
+  if(ngRule('noNecroAttack')&&key!=='raise'&&key!=='soulHarvest'){showToast('☮️ Pacifist: Necromancer cannot attack!');return;}
   const sp=SPELLS[key];
   if(!sp)return; // unknown spell key
   // If we have a focus target and it's beyond spell range, approach first
@@ -20149,6 +20385,25 @@ function showSummary(){
   const icons={victory:'🏆',defeat:'💀',retreat:'⚔️'};
   const vTitle=RS.isFinalFloor?`${cfg.ico} ${cfg.name} Cleared!`:'Dungeon Cleared!';
   const titles={victory:vTitle,defeat:'The Necromancer Falls!',retreat:'Retreat!'};
+  // NG+ completion tracking and reward multiplier
+  if(RS.result==='victory'&&RS._ngMods&&RS._ngMods.size>0){
+    ngTrackCompletion(RS.raidKey,RS._ngMods);
+    // Bonus loot/XP based on difficulty multiplier
+    const _ngMult=getNgDiffMult(RS._ngMods);
+    const _ngBonusBones=Math.round(RS.bonesGained*(_ngMult-1));
+    if(_ngBonusBones>0){GS.bones+=_ngBonusBones;RS._ngBonusBones=_ngBonusBones;}
+    const _ngBonusXP=Math.round((_xpAward||0)*(_ngMult-1));
+    if(_ngBonusXP>0){GS.addXP(_ngBonusXP);RS._ngBonusXP=_ngBonusXP;}
+  }
+  // NG+ Permadeath: permanently remove dead minions from roster
+  if(RS._ngMods&&RS._ngMods.has('permadeath')){
+    const _deadMks=RS.minions.filter(m=>m.dead&&m.ref);
+    _deadMks.forEach(m=>{
+      const idx=GS.skeletons.indexOf(m.ref);
+      if(idx!==-1){GS.skeletons.splice(idx,1);GS.prune();}
+    });
+    if(_deadMks.length>0)RS._permadeathLost=_deadMks.length;
+  }
   // Mark region conquered on victory
   if(RS.result==='victory'&&RS.isFinalFloor){
     if(_pendingRegionRaid){
@@ -20181,7 +20436,15 @@ function showSummary(){
     document.getElementById('ovS1').innerHTML=`🦴 Bones: +<strong style="color:var(--gold)">${RS.bonesGained}</strong>${_catBonusStr} (Total: ${GS.bones})`;
     document.getElementById('ovS2').innerHTML=`💰 Loot: <strong style="color:var(--gold)">${fmtWallet(RS.wGained)}</strong>`;
   }
-  document.getElementById('ovS3').innerHTML=`💀 Survivors: ${alive} · ☠️ Lost: ${lost} · Floor: ${RS.floorNum}/${RS.floorTotal}`;
+  // NG+ summary line
+  let _ngSumStr='';
+  if(RS._ngMods&&RS._ngMods.size>0){
+    const _ngNames=[...RS._ngMods].map(id=>NG_PLUS_MODIFIERS[id]?.ico+NG_PLUS_MODIFIERS[id]?.name).join(' · ');
+    _ngSumStr=`<div style="color:#c084fc;font-size:11px;margin-bottom:4px">🆕 NG+ ${_ngNames} (×${getNgDiffMult(RS._ngMods).toFixed(1)})</div>`;
+    if(RS._ngBonusBones)_ngSumStr+=`<div style="color:#a78bfa;font-size:10px">+${RS._ngBonusBones} bonus bones · +${RS._ngBonusXP||0} bonus XP</div>`;
+    if(RS._permadeathLost)_ngSumStr+=`<div style="color:#ef4444;font-size:10px">⚰️ ${RS._permadeathLost} minion(s) permanently lost!</div>`;
+  }
+  document.getElementById('ovS3').innerHTML=_ngSumStr+`💀 Survivors: ${alive} · ☠️ Lost: ${lost} · Floor: ${RS.floorNum}/${RS.floorTotal}`;
   var _xpDisplay=_isDefeat?0:(_xpAward||RS.xpGained);
   document.getElementById('ovS4').innerHTML=_isDefeat?`<span style="color:#ef4444">☠ No XP awarded — the necromancer has fallen</span>`:`⭐ XP: +${_xpDisplay}${RS.xpMult&&RS.xpMult>1?' <span style="color:#94a3b8">(📜 ×'+RS.xpMult.toFixed(1)+')</span>':''}${lvdUp?` · <strong style="color:#86efac">LEVEL UP! Lv.${GS.necroLv}</strong>`:''}`;
   // Show loot drops in summary
