@@ -439,6 +439,43 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
 .rs-enemies{font-size:10px;color:var(--dim);font-family:'Cinzel',serif;margin-top:3px}
 .rs-lock{font-family:'Cinzel',serif;font-size:10px;color:#f97316;margin-top:2px}
 /* ── NG+ Modifier Panel ── */
+/* ── Tutorial & Onboarding ── */
+.tut-overlay{display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center}
+.tut-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(4px)}
+.tut-card{position:relative;z-index:1;width:90%;max-width:380px;background:radial-gradient(ellipse at 50% 0%,#1a0a2e 0%,#060112 90%);border:1.5px solid rgba(168,85,247,.5);border-radius:18px;padding:28px 22px 20px;text-align:center;box-shadow:0 0 60px rgba(124,58,237,.3),inset 0 1px 0 rgba(255,255,255,.05);animation:tutFadeIn .3s ease-out}
+@keyframes tutFadeIn{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.tut-card-ico{font-size:42px;margin-bottom:10px;filter:drop-shadow(0 0 12px rgba(168,85,247,.5))}
+.tut-card-title{font-family:'Cinzel Decorative',serif;font-size:clamp(14px,4vw,18px);color:#e9d5ff;margin-bottom:8px;text-shadow:0 0 16px rgba(168,85,247,.5)}
+.tut-card-text{font-family:'IM Fell English',serif;font-size:clamp(11px,3vw,13px);color:var(--dim);line-height:1.6;margin-bottom:14px}
+.tut-card-progress{display:flex;gap:5px;justify-content:center;margin-bottom:14px}
+.tut-dot{width:7px;height:7px;border-radius:50%;background:rgba(168,85,247,.2);transition:background .2s}
+.tut-dot.active{background:#c084fc;box-shadow:0 0 6px rgba(168,85,247,.5)}
+.tut-card-btns{display:flex;gap:8px;justify-content:center}
+.tut-btn{font-family:'Cinzel',serif;font-size:11px;padding:8px 16px;border-radius:10px;cursor:pointer;border:1px solid;transition:all .15s;-webkit-appearance:none}
+.tut-next{background:rgba(168,85,247,.25);border-color:rgba(168,85,247,.6);color:#e9d5ff}
+.tut-next:hover{background:rgba(168,85,247,.4)}
+.tut-skip,.tut-back{background:rgba(100,100,100,.1);border-color:rgba(100,100,100,.3);color:var(--dim)}
+.tut-skip:hover,.tut-back:hover{background:rgba(100,100,100,.2)}
+.tut-step-label{font-family:'Cinzel',serif;font-size:8px;color:rgba(168,85,247,.4);margin-top:10px;letter-spacing:1px}
+/* Feature Highlight Toast */
+.feat-highlight{display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9990;animation:featSlide .4s ease-out}
+@keyframes featSlide{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.feat-hl-card{display:flex;align-items:center;gap:10px;background:rgba(10,5,20,.92);border:1px solid rgba(168,85,247,.4);border-radius:12px;padding:10px 14px;box-shadow:0 0 30px rgba(124,58,237,.25);max-width:360px}
+.feat-hl-ico{font-size:24px;flex-shrink:0}
+.feat-hl-body{flex:1}
+.feat-hl-title{font-family:'Cinzel',serif;font-size:11px;color:#c084fc;margin-bottom:2px}
+.feat-hl-text{font-size:9px;color:var(--dim);line-height:1.4}
+.feat-hl-close{background:none;border:none;color:var(--dim);font-size:14px;cursor:pointer;padding:4px;-webkit-appearance:none}
+/* How to Play Panel */
+.htp-panel{display:none;position:fixed;inset:0;z-index:300;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(3px)}
+.htp-inner{width:94%;max-width:480px;max-height:85vh;overflow-y:auto;background:radial-gradient(ellipse at 50% 0%,#0e0820 0%,#030106 90%);border:1px solid var(--brd);border-radius:14px;box-shadow:0 0 40px rgba(124,58,237,.25)}
+.htp-body{padding:10px 12px 18px;display:flex;flex-direction:column;gap:8px}
+.htp-section{background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.15);border-radius:10px;padding:10px 12px}
+.htp-sec-hdr{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.htp-sec-ico{font-size:16px}
+.htp-sec-title{font-family:'Cinzel',serif;font-size:11px;color:#c084fc;font-weight:700}
+.htp-sec-text{font-family:'IM Fell English',serif;font-size:10px;color:var(--dim);line-height:1.5}
+
 .ng-panel{width:100%;max-width:480px;margin-top:8px;margin-bottom:8px;border:1px solid rgba(168,85,247,.4);border-radius:14px;background:rgba(30,10,50,.7);padding:14px 14px 10px;display:none}
 .ng-panel.visible{display:block}
 .ng-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -862,6 +899,16 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
         </div>
         <div class="set-ctrl">
           <button id="cloudLoginBtn" style="font-family:'Cinzel',serif;font-size:9px;padding:5px 10px;border-radius:6px;border:1px solid rgba(168,85,247,.5);background:rgba(168,85,247,.15);color:var(--bone);cursor:pointer;-webkit-appearance:none;transition:all 0.3s">☁️ Login</button>
+        </div>
+      </div>
+      <div class="set-row" style="padding:8px 10px;border-top:1px solid rgba(168,85,247,.2)">
+        <div class="set-ico" style="font-size:16px;width:22px">📖</div>
+        <div class="set-body">
+          <div class="set-label" style="font-size:10px">How to Play</div>
+          <div class="set-desc" style="font-size:8px">Game guide &amp; tutorial replay</div>
+        </div>
+        <div class="set-ctrl">
+          <button class="danger-btn" style="background:rgba(168,85,247,.15);border-color:rgba(168,85,247,.5);color:#c4b5fd;font-size:9px;padding:5px 10px" onclick="openHowToPlay()">Open</button>
         </div>
       </div>
       <div class="set-version" style="font-size:9px;margin-top:10px">Necromancer v2.0 · Built with ❤️ &amp; 🦴</div>
@@ -2491,6 +2538,178 @@ function ngTrackCompletion(raidKey,mods){
       }
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════
+//  TUTORIAL & ONBOARDING SYSTEM
+// ═══════════════════════════════════════════════════════
+
+const TUTORIAL_STEPS=[
+  {id:'welcome',      title:'Welcome, Necromancer',  text:'You have been chosen to command the undead. Let me guide you through your dark domain.',ico:'☠️',panel:null,action:null,highlight:null},
+  {id:'hub_overview',  title:'Your Command Center',   text:'This is your Hub — your army roster, quick actions, and campaign log are all here.',ico:'🏠',panel:'hub',action:null,highlight:'hub'},
+  {id:'castle_intro',  title:'Enter the Castle',      text:'Tap the Castle button to explore your stronghold. Each room offers unique powers.',ico:'🏰',panel:'hub',action:'openCastle_fromHub',highlight:'.action-row4 .btn'},
+  {id:'army_intro',    title:'Summon Your Army',      text:'Visit the Army panel to summon undead minions. They fight beside you in raids.',ico:'💀',panel:'castle',action:null,highlight:null},
+  {id:'raid_intro',    title:'Your First Raid',       text:'Raids are the core of combat. Select a dungeon, deploy your army, and defeat enemies to earn bones and XP.',ico:'⚔️',panel:null,action:null,highlight:null},
+  {id:'spells_intro',  title:'Spellbook',             text:'Your Necromancer has powerful spells. Open the Spellbook to equip offensive and utility spells for combat.',ico:'📖',panel:null,action:null,highlight:null},
+  {id:'village_intro', title:'The Village',            text:'The village provides resources — assign workers to gather wood, herbs, and gold passively.',ico:'🏘️',panel:null,action:null,highlight:null},
+  {id:'quests_intro',  title:'Quests & Bounties',     text:'Accept quests for bonus rewards. The Bounty Board in the Tavern refreshes daily with challenges.',ico:'📜',panel:null,action:null,highlight:null},
+  {id:'tips',          title:'Pro Tips',               text:'Use Auto-AI mode (🤖) in raids if you prefer idle play. Equip pets for passive bonuses. Prestige at max level for permanent power!',ico:'💡',panel:null,action:null,highlight:null},
+  {id:'complete',      title:'Tutorial Complete!',     text:'You\'re ready to raise your army. Go forth and conquer! You can revisit this guide anytime from Settings → How to Play.',ico:'🎓',panel:null,action:null,highlight:null}
+];
+
+const HOW_TO_PLAY_SECTIONS=[
+  {title:'Combat & Raids',ico:'⚔️',text:'Select a raid dungeon from the Castle. Deploy your Necromancer and minion army on a grid. Enemies spawn in waves — defeat them all to clear each floor. Your Necromancer auto-attacks and can cast equipped spells. Minions fight automatically. Earn bones, gold, and XP on victory.'},
+  {title:'Necromancer',ico:'☠️',text:'Your Necromancer levels up by earning XP from raids. Higher levels unlock new spells, increase HP, and expand your army capacity. Equip a staff, armor, and accessory for stat bonuses. Customize your appearance in the Hero Panel.'},
+  {title:'Army & Minions',ico:'💀',text:'Summon minions from the Summon Circle using bones. Each minion type (Skeleton, Zombie, Ghost, etc.) has unique stats. Assign minions to your Raid Party from the Army panel. Evolved minions gain passive abilities and boosted stats.'},
+  {title:'Spells',ico:'📖',text:'Equip up to 4 spells in your Spellbook. Spells have cooldowns, range, and damage. Some target single enemies, others hit an area. Raise fallen enemies as minions with Animate Dead. Unlock more spells as you level up.'},
+  {title:'Castle',ico:'🏰',text:'Your Castle has rooms that provide permanent bonuses. Upgrade rooms with gold to increase their effects: Treasury (gold generation), Library (XP bonus), Barracks (army capacity), Workshop (crafting). Unlock new rooms as you progress.'},
+  {title:'Village',ico:'🏘️',text:'Assign idle skeletons to village tasks: Woodcutting, Herbalism, Mining. Resources generate passively over time. Visit the Tavern for temporary raid buffs and daily bounties. The Blacksmith crafts equipment from materials.'},
+  {title:'Quests',ico:'📜',text:'Accept quests from the Quest Board. Complete objectives (kill enemies, clear raids, gather resources) for bonus rewards. Daily bounties from the Tavern refresh every 24 hours and offer quick challenges.'},
+  {title:'Heroes',ico:'🦸',text:'Unlock special heroes with unique abilities: Althea the Cleric (healing), Rikker the Paladin (holy damage), and more. Heroes fight alongside your Necromancer and have their own skill sets. Equip hero cosmetics for transformation.'},
+  {title:'Pets & Familiars',ico:'🐾',text:'Pets provide passive bonuses during raids: extra damage, faster cooldowns, bonus loot. Purchase pets from the Shop. Level up pets for stronger effects. Equip one pet at a time.'},
+  {title:'Prestige',ico:'⭐',text:'At max Necromancer level (20), you can Prestige to reset your progress for permanent stat bonuses (+10% damage, +5% HP, +5% gold per prestige level). Keep your heroes, pets, and prestige bonuses. Prestige 10+ unlocks Ascended abilities and New Game+ modifiers.'},
+  {title:'New Game+ Modifiers',ico:'🆕',text:'After Prestige 10, toggle challenge modifiers before raids: Ironman (no healing), Speedrun (timed), Pacifist (minions only), Glass Cannon (2× damage dealt/taken), and more. Stack modifiers for higher difficulty multipliers and bonus rewards.'},
+  {title:'Co-Op & PvP',ico:'👥',text:'Share a room code to invite a friend for co-op raids. Both players share the battlefield. PvP Arena lets you duel other players. Normalize mode equalizes stats for fair fights.'},
+  {title:'Tips & Tricks',ico:'💡',text:'• Auto-AI mode (🤖) lets your Necromancer fight automatically — great for idle play.\n• Save regularly — the game auto-saves after raids if enabled.\n• Evolved minions are much stronger — prioritize evolution materials.\n• Castle upgrades compound — invest early.\n• Prestige bonuses are permanent and multiplicative.'}
+];
+
+// Tutorial state lives in GS.tutorial
+function _ensureTutorial(){
+  if(!GS.tutorial)GS.tutorial={step:0,completed:false,skipped:false,seen:{}};
+  return GS.tutorial;
+}
+
+function _tutStep(){return _ensureTutorial().step;}
+
+function isTutorialActive(){const t=_ensureTutorial();return !t.completed&&!t.skipped&&t.step<TUTORIAL_STEPS.length;}
+
+function startTutorial(){
+  GS.tutorial={step:0,completed:false,skipped:false,seen:GS.tutorial?.seen||{}};
+  _showTutorialOverlay();
+}
+
+function skipTutorial(){
+  const t=_ensureTutorial();
+  t.skipped=true;
+  _closeTutorialOverlay();
+  saveGame();
+  showToast('Tutorial skipped — find it in Settings → How to Play');
+}
+
+function _advanceTutorial(){
+  const t=_ensureTutorial();
+  t.step++;
+  if(t.step>=TUTORIAL_STEPS.length){
+    t.completed=true;
+    _closeTutorialOverlay();
+    saveGame();
+    showToast('🎓 Tutorial complete!');
+    return;
+  }
+  _showTutorialOverlay();
+}
+
+function _showTutorialOverlay(){
+  const t=_ensureTutorial();
+  if(t.step>=TUTORIAL_STEPS.length)return;
+  const step=TUTORIAL_STEPS[t.step];
+  let ov=document.getElementById('tutorialOverlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='tutorialOverlay';
+    ov.className='tut-overlay';
+    document.body.appendChild(ov);
+  }
+  const isFirst=t.step===0;
+  const isLast=t.step===TUTORIAL_STEPS.length-1;
+  ov.innerHTML=`
+    <div class="tut-backdrop"></div>
+    <div class="tut-card">
+      <div class="tut-card-ico">${step.ico}</div>
+      <div class="tut-card-title">${step.title}</div>
+      <div class="tut-card-text">${step.text}</div>
+      <div class="tut-card-progress">
+        ${TUTORIAL_STEPS.map((_,i)=>`<div class="tut-dot${i<=t.step?' active':''}"></div>`).join('')}
+      </div>
+      <div class="tut-card-btns">
+        ${isFirst?`<button class="tut-btn tut-skip" onclick="skipTutorial()">Skip Tutorial</button>`:`<button class="tut-btn tut-back" onclick="_tutGoBack()">← Back</button>`}
+        <button class="tut-btn tut-next" onclick="_advanceTutorial()">${isLast?'Finish ✓':'Next →'}</button>
+      </div>
+      <div class="tut-step-label">Step ${t.step+1} of ${TUTORIAL_STEPS.length}</div>
+    </div>`;
+  ov.style.display='flex';
+}
+
+function _tutGoBack(){
+  const t=_ensureTutorial();
+  if(t.step>0){t.step--;_showTutorialOverlay();}
+}
+
+function _closeTutorialOverlay(){
+  const ov=document.getElementById('tutorialOverlay');
+  if(ov)ov.style.display='none';
+}
+
+// ── First-time feature highlights ──
+function _markSeen(featureId){
+  const t=_ensureTutorial();
+  if(!t.seen)t.seen={};
+  t.seen[featureId]=true;
+}
+
+function _hasSeen(featureId){
+  const t=_ensureTutorial();
+  return !!(t.seen&&t.seen[featureId]);
+}
+
+function showFeatureHighlight(featureId,title,text,ico){
+  if(_hasSeen(featureId))return;
+  _markSeen(featureId);
+  let hl=document.getElementById('featureHighlight');
+  if(!hl){
+    hl=document.createElement('div');
+    hl.id='featureHighlight';
+    hl.className='feat-highlight';
+    document.body.appendChild(hl);
+  }
+  hl.innerHTML=`<div class="feat-hl-card"><div class="feat-hl-ico">${ico||'✨'}</div><div class="feat-hl-body"><div class="feat-hl-title">${title}</div><div class="feat-hl-text">${text}</div></div><button class="feat-hl-close" onclick="this.parentElement.parentElement.style.display='none'">✕</button></div>`;
+  hl.style.display='flex';
+  setTimeout(()=>{if(hl.style.display==='flex')hl.style.display='none';},8000);
+}
+
+// ── How to Play panel ──
+function openHowToPlay(){
+  closeSettings();
+  let panel=document.getElementById('howToPlayPanel');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.id='howToPlayPanel';
+    panel.className='htp-panel';
+    document.body.appendChild(panel);
+  }
+  let html=`<div class="htp-inner">
+    <div class="settings-hdr" style="border-radius:14px 14px 0 0;padding:10px 14px">
+      <button class="back-btn" onclick="closeHowToPlay()" style="margin-right:8px">← Back</button>
+      <div class="settings-title" style="font-size:13px">📖 How to Play</div>
+      <button onclick="startTutorial();closeHowToPlay()" style="margin-left:auto;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.5);border-radius:8px;color:#c084fc;font-family:'Cinzel',serif;font-size:9px;padding:4px 9px;cursor:pointer;-webkit-appearance:none">🔄 Replay Tutorial</button>
+    </div>
+    <div class="htp-body">`;
+  for(const sec of HOW_TO_PLAY_SECTIONS){
+    html+=`<div class="htp-section">
+      <div class="htp-sec-hdr"><span class="htp-sec-ico">${sec.ico}</span><span class="htp-sec-title">${sec.title}</span></div>
+      <div class="htp-sec-text">${sec.text.replace(/\n/g,'<br>')}</div>
+    </div>`;
+  }
+  html+=`</div></div>`;
+  panel.innerHTML=html;
+  panel.style.display='flex';
+  SND.menuOpen();
+}
+
+function closeHowToPlay(){
+  const p=document.getElementById('howToPlayPanel');
+  if(p)p.style.display='none';
+  SND.menuClose();
 }
 
 // ── SPELL DEFINITIONS ──
@@ -12615,7 +12834,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,tutorial:GS.tutorial||null,savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -12691,6 +12910,8 @@ function loadGame(){
     GS.evoMaterials=d.evoMaterials||{};
     // Load NG+ completion stats
     GS.ngPlusStats=d.ngPlusStats||null;
+    // Load tutorial state
+    GS.tutorial=d.tutorial||null;
     // Rebuild ascended unlocks from prestige level for old saves
     if(GS.prestige>=11&&!Object.keys(GS.ascendedUnlocks).length){
       for(const u of ASCENDED_UNLOCKS){if(GS.prestige>=u.tier)GS.ascendedUnlocks[u.key]=true;}
@@ -13207,7 +13428,7 @@ function initGame(){
   loadSettings();
   setInterval(villageTick,5000); // resource tick every 5s
   if(loadGame()){renderHub();setTimeout(()=>checkAchievements(true),1000);}
-  else{renderHub();}
+  else{renderHub();setTimeout(()=>startTutorial(),800);}
   // Start ambient on first user interaction (AudioContext policy)
   const _audioKick=()=>{startAmbience('castle');startMusic('menu');document.removeEventListener('click',_audioKick);document.removeEventListener('touchstart',_audioKick);};
   document.addEventListener('click',_audioKick,{once:true});document.addEventListener('touchstart',_audioKick,{once:true});
@@ -13252,9 +13473,9 @@ function initGame(){
   // Check daily login reward — show popup if claimable
   setTimeout(()=>{if(canClaimDailyReward())openDailyRewardsPanel();},1500);
 }
-function openSB(){renderSB();showScreen('spellbook');}
+function openSB(){renderSB();showScreen('spellbook');showFeatureHighlight('spellbook','Spellbook','Equip spells for combat. Drag to reorder. Summon minions from the Summon tab.','📖');}
 function _closeSB_orig(){renderHub();showScreen('hub');}
-function openArmy(){renderArmy();showScreen('army');}
+function openArmy(){renderArmy();showScreen('army');showFeatureHighlight('army','Your Army','Manage your undead forces. Tap a minion to add/remove from your Raid Party. Evolve minions for powerful upgrades.','💀');}
 function _closeArmy_orig(){renderHub();showScreen('hub');}
 function switchTab(t){
   sbTab=t;
@@ -21965,6 +22186,7 @@ function openVillage(){ // (raid/catacomb nav added inline in village header)
   villageTick();
   renderVillage();
   showScreen('village');
+  showFeatureHighlight('village','The Village','Assign skeletons to gather wood, herbs & gold. Visit the Tavern for buffs and bounties.','🏘️');
   _vilWalkState=null;
   const _vcr=document.getElementById('vilCanvas');if(_vcr)_vcr._sized=false; // force resize
   startVilCanvas();
@@ -24417,6 +24639,7 @@ function openCastle() {
   renderHub();
   showScreen('castle');
   startCastleRoom();
+  showFeatureHighlight('castle','Castle Stronghold','Upgrade rooms for permanent bonuses. Tap NPCs to access your Army, Spellbook, Shop & more.','🏰');
 }
 function openCastle_fromHub() {
   renderHub();
