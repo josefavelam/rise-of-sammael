@@ -955,6 +955,18 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
     </div>
   </div>
 </div>
+<!-- Achievement Panel Overlay -->
+<div id="achievementPanel" onclick="if(event.target===this)closeAchievementPanel()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.88);backdrop-filter:blur(6px);align-items:center;justify-content:center">
+  <div style="background:rgba(8,6,20,.97);border:1.5px solid rgba(252,211,77,.4);border-radius:16px;padding:20px;width:min(94vw,420px);max-height:80vh;overflow-y:auto;box-shadow:0 0 60px rgba(252,211,77,.12)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-family:'Cinzel Decorative',serif;font-size:16px;color:#fcd34d">🏆 Achievements</div>
+      <button onclick="closeAchievementPanel()" style="-webkit-appearance:none;font-family:'Cinzel',serif;font-size:11px;padding:4px 11px;border-radius:8px;cursor:pointer;border:1px solid rgba(252,211,77,.4);background:rgba(252,211,77,.1);color:#fcd34d">✕</button>
+    </div>
+    <div id="achProgressBar" style="margin-bottom:14px"></div>
+    <div id="achContent"></div>
+  </div>
+</div>
+
 <!-- Castle quick-menu overlay -->
 <div id="castleMenu" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;backdrop-filter:blur(4px)">
   <div style="font-family:'Cinzel Decorative',serif;font-size:18px;color:#c084fc;margin-bottom:10px">☠ Dark Fortress</div>
@@ -964,6 +976,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   
   <button onclick="closeCastle_menu();openMapSelector()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(96,165,250,.4);border-radius:10px;background:rgba(96,165,250,.1);color:#93c5fd;cursor:pointer;-webkit-appearance:none">🗺 World Map & Raids</button>
   <button onclick="closeCastle_menu();startSurvival()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(239,68,68,.5);border-radius:10px;background:rgba(239,68,68,.12);color:#fca5a5;cursor:pointer;-webkit-appearance:none;animation:glowPulse 2s infinite">🩸 Hellbridge Survival</button>
+  <button onclick="closeCastle_menu();openAchievementPanel()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(252,211,77,.4);border-radius:10px;background:rgba(252,211,77,.08);color:#fcd34d;cursor:pointer;-webkit-appearance:none">🏆 Achievements</button>
   <button onclick="closeCastle_menu();openSettings()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(100,100,100,.3);border-radius:10px;background:rgba(100,100,100,.05);color:var(--dim);cursor:pointer;-webkit-appearance:none">⚙️ Settings</button>
 </div>
 
@@ -2124,6 +2137,11 @@ const GS={
     if(!this.canCraft(t))return false;
     this.bones-=this.effectiveCost(t);
     this.addToRoster(t, 1.0);
+    // Track achievement counters
+    this._achTotalCrafted=(this._achTotalCrafted||0)+1;
+    if(!this._achTypesRaised)this._achTypesRaised=new Set();
+    this._achTypesRaised.add(t);
+    if(typeof checkAchievements==='function')checkAchievements();
     return true;
   },
   // Remove a specific skeleton from roster and refund 50% cost
@@ -2198,7 +2216,9 @@ const GS={
       this.necroLv++;
       this.necroMaxHP=Math.round((100+this.necroLv*12+(this.hasPassive(8)?50:0))*this.prestHPMult());
       this.necroXP-=cap;
-      SND.level();return true;
+      SND.level();
+      if(typeof checkAchievements==='function')setTimeout(()=>checkAchievements(),500);
+      return true;
     }
     if(this.necroLv>=20){this.necroXP=cap;} // cap xp at max
     return false;
@@ -3154,6 +3174,149 @@ GS.herbs=0;
 GS.villageAssign={};   // minionIndex → nodeId | null
 GS.vilLastTick=0;      // timestamp of last resource tick (ms)
 
+// ═══════════════════════════════════════════════════════
+//  ACHIEVEMENT SYSTEM
+// ═══════════════════════════════════════════════════════
+GS.achievements={};  // {achId: {unlocked:true, unlockedAt:timestamp}} — persisted
+
+const ACHIEVEMENT_CATEGORIES={
+  combat:     {name:'Combat',     ico:'⚔️', color:'#ef4444'},
+  army:       {name:'Army',       ico:'💀', color:'#a78bfa'},
+  progression:{name:'Progression',ico:'⭐', color:'#fcd34d'},
+  exploration:{name:'Exploration',ico:'🗺',  color:'#60a5fa'},
+  castle:     {name:'Castle',     ico:'🏰', color:'#c084fc'},
+  social:     {name:'Social',     ico:'🤝', color:'#34d399'},
+  collection: {name:'Collection', ico:'🎒', color:'#f59e0b'},
+};
+
+const ACHIEVEMENTS=[
+  // ── COMBAT ──
+  {id:'first_blood',     cat:'combat', name:'First Blood',        desc:'Win your first raid',                     ico:'🩸', check:()=>Object.keys(GS.conquered).length>0},
+  {id:'floor_master',    cat:'combat', name:'Floor Master',       desc:'Clear a 5-floor dungeon',                 ico:'🏛', check:()=>{const c=GS.conquered;for(const r in c){for(const d in c[r])if(c[r][d])return true;}return false;}},
+  {id:'region_conq_5',   cat:'combat', name:'Conqueror',          desc:'Conquer 5 regions',                       ico:'🏴', check:()=>Object.keys(GS.conquered).filter(r=>r!=='coop').length>=5},
+  {id:'region_conq_15',  cat:'combat', name:'Warlord',            desc:'Conquer 15 regions',                      ico:'⚔️', check:()=>Object.keys(GS.conquered).filter(r=>r!=='coop').length>=15},
+  {id:'region_conq_all', cat:'combat', name:'World Dominator',    desc:'Conquer 30 regions across all realms',    ico:'🌍', check:()=>Object.keys(GS.conquered).filter(r=>r!=='coop').length>=30},
+  {id:'hard_clear',      cat:'combat', name:'Hardened',           desc:'Complete a Hard difficulty raid',          ico:'💪', check:()=>{const c=GS.conquered;for(const r in c)if(c[r].hard)return true;return false;}},
+  {id:'no_losses',       cat:'combat', name:'Untouched',          desc:'Win a raid with no minion casualties',    ico:'🛡', check:()=>GS._achNoLossRaid||false},
+  {id:'catacomb_1',      cat:'combat', name:'Crypt Diver',        desc:'Complete 1 catacomb run',                 ico:'🕯', check:()=>GS.catacombRuns>=1},
+  {id:'catacomb_10',     cat:'combat', name:'Catacomb Lord',      desc:'Complete 10 catacomb runs',               ico:'☠️', check:()=>GS.catacombRuns>=10},
+  {id:'catacomb_50',     cat:'combat', name:'Lord of the Deep',   desc:'Complete 50 catacomb runs',               ico:'👑', check:()=>GS.catacombRuns>=50},
+
+  // ── ARMY ──
+  {id:'army_5',          cat:'army', name:'Bone Commander',       desc:'Have 5 minions in your army',             ico:'💀', check:()=>GS.skeletons.filter(s=>s.hp>0).length>=5},
+  {id:'army_15',         cat:'army', name:'Undead General',       desc:'Have 15 minions in your army',            ico:'⚔️', check:()=>GS.skeletons.filter(s=>s.hp>0).length>=15},
+  {id:'army_30',         cat:'army', name:'Legion Commander',     desc:'Have 30 minions in your army',            ico:'🏴', check:()=>GS.skeletons.filter(s=>s.hp>0).length>=30},
+  {id:'raise_boss',      cat:'army', name:'Boss Raiser',          desc:'Raise your first boss minion',            ico:'👹', check:()=>(GS.raisedBosses||[]).length>=1},
+  {id:'raise_boss_5',    cat:'army', name:'Boss Collector',       desc:'Raise 5 different boss minions',          ico:'🐉', check:()=>(GS.raisedBosses||[]).length>=5},
+  {id:'craft_50',        cat:'army', name:'Bone Crafter',         desc:'Craft 50 total minions',                  ico:'🦴', check:()=>(GS._achTotalCrafted||0)>=50},
+  {id:'craft_200',       cat:'army', name:'Assembly Line',        desc:'Craft 200 total minions',                 ico:'⚙️', check:()=>(GS._achTotalCrafted||0)>=200},
+  {id:'all_types',       cat:'army', name:'Collector of Bones',   desc:'Craft one of every minion type',          ico:'📋', check:()=>(GS._achTypesRaised||new Set()).size>=Object.keys(MINIONS).length},
+
+  // ── PROGRESSION ──
+  {id:'lv5',             cat:'progression', name:'Apprentice',    desc:'Reach Necromancer Level 5',               ico:'📖', check:()=>GS.necroLv>=5},
+  {id:'lv10',            cat:'progression', name:'Journeyman',    desc:'Reach Necromancer Level 10',              ico:'📜', check:()=>GS.necroLv>=10},
+  {id:'lv15',            cat:'progression', name:'Adept',         desc:'Reach Necromancer Level 15',              ico:'🔮', check:()=>GS.necroLv>=15},
+  {id:'lv20',            cat:'progression', name:'Grand Necromancer',desc:'Reach Necromancer Level 20 (max)',      ico:'💀', check:()=>GS.necroLv>=20},
+  {id:'prestige_1',      cat:'progression', name:'New Game+',     desc:'Prestige for the first time',             ico:'⭐', check:()=>GS.prestige>=1},
+  {id:'prestige_3',      cat:'progression', name:'Veteran',       desc:'Reach Prestige 3',                        ico:'🌟', check:()=>GS.prestige>=3},
+  {id:'prestige_5',      cat:'progression', name:'Legend',         desc:'Reach Prestige 5',                        ico:'✨', check:()=>GS.prestige>=5},
+  {id:'prestige_10',     cat:'progression', name:'Immortal',      desc:'Reach Prestige 10 (max)',                 ico:'👑', check:()=>GS.prestige>=10},
+  {id:'bones_1k',        cat:'progression', name:'Bone Hoarder',  desc:'Accumulate 1,000 bones',                  ico:'🦴', check:()=>GS.bones>=1000},
+  {id:'bones_10k',       cat:'progression', name:'Ossuary',       desc:'Accumulate 10,000 bones',                 ico:'💎', check:()=>GS.bones>=10000},
+
+  // ── EXPLORATION ──
+  {id:'tau_enter',       cat:'exploration', name:'Tau\'ri Explorer',desc:'Visit the Tau\'ri realm',               ico:'🌍', check:()=>{const c=GS.conquered;for(const r in c)if(r.startsWith('tau'))return true;return false;}},
+  {id:'me_enter',        cat:'exploration', name:'Middle Earth',    desc:'Conquer a Middle Earth region',          ico:'🗡', check:()=>{const c=GS.conquered;for(const r in c)if(r.startsWith('me_')||r==='shire'||r==='bree'||r==='rivendell'||r==='moria'||r==='rohan'||r==='gondor'||r==='mordor'||r==='isengard')return true;return false;}},
+  {id:'sw_enter',        cat:'exploration', name:'Skyriver Traveler',desc:'Enter the Skyriver galaxy',            ico:'⭐', check:()=>{const c=GS.conquered;for(const r in c)if(r.startsWith('sw_'))return true;return false;}},
+  {id:'all_easy',        cat:'exploration', name:'Tourist',         desc:'Clear all Easy raids in any realm',      ico:'🗺', check:()=>{let ct=0;const c=GS.conquered;for(const r in c)if(r!=='coop'&&c[r].easy)ct++;return ct>=10;}},
+  {id:'quest_1',         cat:'exploration', name:'Quest Seeker',    desc:'Complete your first quest',              ico:'📜', check:()=>{const q=GS.quests||{};for(const k in q)if(q[k].completed)return true;return false;}},
+  {id:'quest_all',       cat:'exploration', name:'Questmaster',     desc:'Complete all available quests',          ico:'🏆', check:()=>{const q=GS.quests||{};const keys=['pumpkin_quest','gandalf_quest','ranger_quest','scholar_quest','dwarf_quest'];return keys.every(k=>q[k]&&q[k].completed);}},
+
+  // ── CASTLE ──
+  {id:'castle_first',    cat:'castle', name:'Home Improvement',    desc:'Upgrade any castle room to Tier 1',      ico:'🔨', check:()=>Object.values(GS.castleUpgrades).some(v=>v>=1)},
+  {id:'castle_t2',       cat:'castle', name:'Architect',            desc:'Upgrade any room to Tier 2',             ico:'🏗', check:()=>Object.values(GS.castleUpgrades).some(v=>v>=2)},
+  {id:'castle_t3',       cat:'castle', name:'Grand Architect',      desc:'Upgrade any room to Tier 3',             ico:'🏰', check:()=>Object.values(GS.castleUpgrades).some(v=>v>=3)},
+  {id:'castle_all_t1',   cat:'castle', name:'Full Foundation',      desc:'Upgrade all 8 rooms to at least Tier 1', ico:'🧱', check:()=>Object.keys(CASTLE_UPGRADE_DEFS).every(r=>(GS.castleUpgrades[r]||0)>=1)},
+  {id:'castle_all_t3',   cat:'castle', name:'Dark Fortress',        desc:'Max all 8 castle rooms to Tier 3',       ico:'👑', check:()=>Object.keys(CASTLE_UPGRADE_DEFS).every(r=>(GS.castleUpgrades[r]||0)>=3)},
+  {id:'village_assign',  cat:'castle', name:'Taskmaster',            desc:'Assign 5 minions to village jobs',       ico:'🏘', check:()=>Object.keys(GS.villageAssign||{}).length>=5},
+  {id:'wood_100',        cat:'castle', name:'Lumberjack',            desc:'Collect 100 wood',                       ico:'🪵', check:()=>(GS.wood||0)>=100},
+  {id:'herbs_100',       cat:'castle', name:'Herbalist',             desc:'Collect 100 herbs',                      ico:'🌿', check:()=>(GS.herbs||0)>=100},
+
+  // ── SOCIAL ──
+  {id:'coop_first',      cat:'social', name:'Together We Rise',     desc:'Complete your first co-op raid',         ico:'🤝', check:()=>!!GS.conquered?.coop&&Object.keys(GS.conquered.coop).length>=1},
+  {id:'coop_10',         cat:'social', name:'Battle Brothers',       desc:'Complete 10 co-op raids',               ico:'⚔️', check:()=>!!GS.conquered?.coop&&Object.keys(GS.conquered.coop).length>=10},
+  {id:'hero_unlock',     cat:'social', name:'Hero Summoner',         desc:'Unlock your first hero',                ico:'🦸', check:()=>(GS.heroes?.unlocked?.size||0)>=1},
+  {id:'hero_all',        cat:'social', name:'Legendary Allies',      desc:'Unlock all heroes',                     ico:'👥', check:()=>(GS.heroes?.unlocked?.size||0)>=2},
+
+  // ── COLLECTION ──
+  {id:'pet_1',           cat:'collection', name:'Pet Owner',         desc:'Acquire your first pet',                ico:'🐾', check:()=>(GS.inv?.familiars?.size||0)>=1},
+  {id:'pet_5',           cat:'collection', name:'Menagerie Keeper',  desc:'Collect 5 different pets',              ico:'🦎', check:()=>(GS.inv?.familiars?.size||0)>=5},
+  {id:'equip_staff',     cat:'collection', name:'Armed & Dangerous', desc:'Equip a non-default staff',             ico:'🪄', check:()=>GS.inv?.equipped?.staff&&GS.inv.equipped.staff!=='staff_bone'},
+  {id:'equip_armor',     cat:'collection', name:'Armored Up',        desc:'Equip any armor',                       ico:'🛡', check:()=>!!GS.inv?.equipped?.armor},
+  {id:'equip_accessory', cat:'collection', name:'Accessorized',      desc:'Equip any accessory',                   ico:'💍', check:()=>!!GS.inv?.equipped?.accessory},
+  {id:'loot_10',         cat:'collection', name:'Treasure Hunter',   desc:'Collect 10 unique loot items',          ico:'📦', check:()=>(GS.inv?.lootOwned?.size||0)>=10},
+  {id:'loot_25',         cat:'collection', name:'Hoard Master',      desc:'Collect 25 unique loot items',          ico:'💰', check:()=>(GS.inv?.lootOwned?.size||0)>=25},
+  {id:'spell_8',         cat:'collection', name:'Spellweaver',       desc:'Have 8+ spells equipped',               ico:'🔮', check:()=>(GS.equippedSpells?.size||0)>=8},
+];
+
+// Tracking counters (not in save — derived or counted live)
+if(!GS._achTotalCrafted)GS._achTotalCrafted=0;
+if(!GS._achTypesRaised)GS._achTypesRaised=new Set();
+if(!GS._achNoLossRaid)GS._achNoLossRaid=false;
+
+function checkAchievements(silent){
+  let newUnlocks=[];
+  ACHIEVEMENTS.forEach(a=>{
+    if(GS.achievements[a.id])return; // already unlocked
+    try{
+      if(a.check()){
+        GS.achievements[a.id]={unlocked:true,unlockedAt:Date.now()};
+        newUnlocks.push(a);
+      }
+    }catch(e){}
+  });
+  if(!silent&&newUnlocks.length>0){
+    newUnlocks.forEach((a,i)=>{
+      setTimeout(()=>showAchievementToast(a),i*1200);
+    });
+    saveGame(false);
+  }
+  return newUnlocks;
+}
+
+function showAchievementToast(ach){
+  const cat=ACHIEVEMENT_CATEGORIES[ach.cat];
+  // Create a special achievement toast with glow
+  const t=document.getElementById('toast');
+  t.innerHTML=`<span style="color:${cat.color}">${ach.ico}</span> <strong style="color:#fcd34d">Achievement Unlocked!</strong> <span style="color:#e2e8f0">${ach.name}</span>`;
+  t.style.border='1px solid rgba(252,211,77,.5)';
+  t.style.boxShadow='0 0 20px rgba(252,211,77,.3)';
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>{
+    t.classList.remove('show');
+    t.style.border='';t.style.boxShadow='';t.innerHTML='';
+  },3500);
+  if(typeof SND!=='undefined'&&SND.level)SND.level(); // reuse level-up sound
+}
+
+function getAchievementProgress(){
+  const total=ACHIEVEMENTS.length;
+  const unlocked=ACHIEVEMENTS.filter(a=>GS.achievements[a.id]).length;
+  return {total,unlocked,pct:Math.round(unlocked/total*100)};
+}
+
+function getAchievementsByCategory(){
+  const cats={};
+  for(const key in ACHIEVEMENT_CATEGORIES){
+    cats[key]={...ACHIEVEMENT_CATEGORIES[key],achievements:[]};
+  }
+  ACHIEVEMENTS.forEach(a=>{
+    cats[a.cat].achievements.push({...a,unlocked:!!GS.achievements[a.id]});
+  });
+  return cats;
+}
+
 // ── CASTLE UPGRADE SYSTEM ──
 GS.castleUpgrades={};  // {roomId: level(1-3)}  — 0/missing = base (no upgrade)
 GS.castleBuilding=null; // {roomId, tier, finishAt} — active construction or null
@@ -3304,6 +3467,7 @@ function tickCastleBuilding(){
     const tierDef=def?.tiers[b.tier-1];
     showToast(`🏰 ${def?.name||b.roomId} upgraded to ${tierDef?.name||'Tier '+b.tier}!`);
     saveGame(false);
+    if(typeof checkAchievements==='function')checkAchievements();
   }
 }
 
@@ -9452,7 +9616,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -9511,6 +9675,11 @@ function loadGame(){
     // Load castle upgrade state
     GS.castleUpgrades=d.castleUpgrades||{};
     GS.castleBuilding=d.castleBuilding||null;
+    // Load achievement progress
+    GS.achievements=d.achievements||{};
+    GS._achTotalCrafted=d.achTotalCrafted||0;
+    GS._achTypesRaised=new Set(d.achTypesRaised||[]);
+    GS._achNoLossRaid=d.achNoLossRaid||false;
     // Load quest progress (or initialize for fresh/old saves)
     if(d.quests){
       GS.quests=d.quests;
@@ -9632,7 +9801,7 @@ function showScreen(id){if(id!=='village')stopVilCanvas();if(id!=='castle')stopC
 function initGame(){
   loadSettings();
   setInterval(villageTick,5000); // resource tick every 5s
-  if(loadGame()){renderHub();}
+  if(loadGame()){renderHub();setTimeout(()=>checkAchievements(true),1000);}
   else{renderHub();}
   // Restore Rikker active state from save
   if(GS.cosmetics&&GS.cosmetics.staff==='rikker_sword'&&GS.cosmetics.robe==='rikker_armor'&&GS.cosmetics.hat==='rikker_helm'){
@@ -16348,7 +16517,7 @@ function endRaid(result){
    'petMgmtPanel','npcDialogueOverlay','heroPanelModal','heroPanelBdrop',
    'devGiftModal','deskLogModal','cofferModal','boneVaultModal',
    'herbStorageModal','woodStorageModal','hubPanelOverlay',
-   'castleSBOverlay','castleArmyOverlay','trophyPanelOverlay',
+   'castleSBOverlay','castleArmyOverlay','trophyPanelOverlay','achievementPanel',
    'wmPopup','wmRaidPanel','wmCountryPanel','tauRaidPanel','tauCountryPanel',
    'swRaidPanel','swCountryPanel','assignPanel','risePanelOverlay'
   ].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
@@ -16382,6 +16551,13 @@ function endRaid(result){
   decrementTavernBuff();
   const _fh2=document.getElementById('floorHUD');if(_fh2)_fh2.style.display='none';
   const _mmal2=document.getElementById('mmAreaLabel');if(_mmal2)_mmal2.textContent='';
+  // Track no-loss achievement
+  if(result==='victory'){
+    const lost=RS.minions.filter(m=>m.dead).length;
+    if(lost===0&&RS.minions.length>0)GS._achNoLossRaid=true;
+    // Increment catacomb counter
+    if(RS.isCatacombRaid)GS.catacombRuns=(GS.catacombRuns||0);
+  }
   showSummary();
 }
 
@@ -16488,6 +16664,8 @@ function finishRaid(){
   // Clear target HUD when leaving raid
   const kbHUD=document.getElementById('kbTargetHUD');if(kbHUD)kbHUD.style.display='none';
   if(_wasDefeat)CR=null; // necro died — wake in bed
+  // Check achievements after raid
+  if(typeof checkAchievements==='function')checkAchievements();
   openCastle();
 }
 
@@ -26020,10 +26198,64 @@ function doPrestige(){
   // Keep wallet and equipment, wipe consumables
   GS.inv.consumables={};
   // Keep: equipped, familiars, purchased
+  // Keep achievement progress across prestige
   saveGame(false);
   renderHub();
   showScreen('hub');
   showToast(`⭐ Prestige ${GS.prestige}! You are now ${PRESTIGE_NAMES[Math.min(GS.prestige,9)]}. Bonuses applied permanently.`);
+  if(typeof checkAchievements==='function')checkAchievements();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ACHIEVEMENT PANEL UI
+// ═══════════════════════════════════════════════════════
+function openAchievementPanel(){
+  // Run a check first to catch any newly-met conditions
+  checkAchievements(true);
+  const panel=document.getElementById('achievementPanel');
+  if(!panel)return;
+  const prog=getAchievementProgress();
+  const progBar=document.getElementById('achProgressBar');
+  progBar.innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-family:'Cinzel',serif;font-size:11px;color:#94a3b8;margin-bottom:4px">
+      <span>${prog.unlocked}/${prog.total} unlocked</span><span>${prog.pct}%</span>
+    </div>
+    <div style="height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden">
+      <div style="height:100%;width:${prog.pct}%;background:linear-gradient(90deg,#fcd34d,#f59e0b);border-radius:4px;transition:width .3s"></div>
+    </div>`;
+  const cats=getAchievementsByCategory();
+  let html='';
+  for(const key in cats){
+    const cat=cats[key];
+    const unlocked=cat.achievements.filter(a=>a.unlocked).length;
+    const total=cat.achievements.length;
+    html+=`<div style="margin-bottom:14px">
+      <div style="font-family:'Cinzel',serif;font-size:12px;color:${cat.color};margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        <span>${cat.ico}</span><span>${cat.name}</span>
+        <span style="font-size:10px;color:#64748b;margin-left:auto">${unlocked}/${total}</span>
+      </div>`;
+    cat.achievements.forEach(a=>{
+      const u=a.unlocked;
+      const opacity=u?'1':'.45';
+      const border=u?`rgba(252,211,77,.3)`:'rgba(100,100,100,.2)';
+      const bg=u?'rgba(252,211,77,.06)':'rgba(0,0,0,.3)';
+      const lock=u?'':'🔒 ';
+      html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid ${border};border-radius:10px;margin-bottom:4px;background:${bg};opacity:${opacity}">
+        <span style="font-size:18px;filter:${u?'none':'grayscale(1)'}">${a.ico}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Cinzel',serif;font-size:11px;color:${u?'#fcd34d':'#64748b'}">${lock}${a.name}</div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:1px">${a.desc}</div>
+        </div>
+        ${u?'<span style="color:#22c55e;font-size:14px">✓</span>':''}
+      </div>`;
+    });
+    html+='</div>';
+  }
+  document.getElementById('achContent').innerHTML=html;
+  panel.style.display='flex';
+}
+function closeAchievementPanel(){
+  const p=document.getElementById('achievementPanel');if(p)p.style.display='none';
 }
 
 // ── FLASH ──
