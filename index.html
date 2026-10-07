@@ -3254,17 +3254,11 @@ const TacticalOverlay=(function(){
     ctx.save();
     ctx.font='bold 6px "Press Start 2P",monospace';
     ctx.textAlign='center';ctx.textBaseline='bottom';
-    const tw=ctx.measureText(label).width+8;
-    // Background pill
-    ctx.fillStyle='rgba(8,1,21,0.85)';
-    const rx=wx-tw/2, ry=wy-12;
-    ctx.beginPath();
-    ctx.roundRect(rx,ry,tw,13,3);
-    ctx.fill();
-    ctx.strokeStyle='rgba(168,85,247,0.4)';ctx.lineWidth=0.5;ctx.stroke();
-    // Text
+    const tw=ctx.measureText(label).width+12;
+    const rx=wx-tw/2, ry=wy-15;
+    RetroUI.drawWindowFrame(ctx,rx,ry,tw,16,{borderW:2});
     ctx.fillStyle='#c4b5fd';
-    ctx.fillText(label,wx,wy-1);
+    ctx.fillText(label,wx,wy-2);
     ctx.restore();
   }
 
@@ -19946,7 +19940,7 @@ function draw(t,dt){
         ctx.globalAlpha=0.6;ctx.strokeStyle='#ef4444';ctx.lineWidth=1;ctx.setLineDash([4,4]);
         ctx.beginPath();ctx.moveTo(RS.necro.x,RS.necro.y);ctx.lineTo(px3,py3);ctx.stroke();
         ctx.setLineDash([]);
-        ctx.globalAlpha=1;ctx.fillStyle='#ef4444';ctx.font='bold 9px Press Start 2P,monospace';ctx.textAlign='center';
+        ctx.globalAlpha=1;ctx.fillStyle='#ef4444';ctx.font='bold 7px "Press Start 2P",monospace';ctx.textAlign='center';
         ctx.fillText('OUT OF RANGE — TAP TO MOVE+CAST',px3,py3-sp2.rng-8);
       }
       ctx.restore();
@@ -20767,7 +20761,7 @@ function drawMinimap(){
   // Border
   mm.strokeStyle=cfg.accentCol+'88';mm.lineWidth=1.5;mm.strokeRect(0,0,120,120);
   // Floor indicator
-  mm.font='8px Press Start 2P,monospace';mm.fillStyle='rgba(232,220,200,.5)';
+  mm.font='6px "Press Start 2P",monospace';mm.fillStyle='rgba(232,220,200,.5)';
   mm.fillText(`F${RS.floorNum}/${RS.floorTotal}`,3,117);
 }
 
@@ -29973,7 +29967,7 @@ function drawSurvivalMinimap(){
     mm.beginPath();mm.arc(SV.necro.x*scX,SV.necro.y*scY,4,0,Math.PI*2);mm.fill();mm.shadowBlur=0;
   }
   // Wave label
-  mm.font='8px Press Start 2P,monospace';mm.fillStyle='rgba(232,200,200,.6)';
+  mm.font='6px "Press Start 2P",monospace';mm.fillStyle='rgba(232,200,200,.6)';
   mm.fillText(`Wave ${SV.wave}`,3,H2-3);
   // Border
   mm.strokeStyle='rgba(239,68,68,.5)';mm.lineWidth=1.5;mm.strokeRect(0,0,W2,H2);
