@@ -1960,7 +1960,11 @@ function purchasablePetGainXP(n){
 // Damage scaling for purchasable pets: 1.03^(petLv-1), ~15-20% DPS at max
 function petDmgScale(petId){
   const lv=getPetLevel(petId);
-  return Math.pow(1.03,Math.max(0,lv-1));
+  let scale=Math.pow(1.03,Math.max(0,lv-1));
+  // Staff of Osiris: familiarDmgMult from equipped staff
+  const _staff=typeof SHOP_ITEMS!=='undefined'&&GS?.inv?.equipped?.staff?SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.staff):null;
+  if(_staff?.stats?.familiarDmgMult)scale*=_staff.stats.familiarDmgMult;
+  return scale;
 }
 
 // ── PASSIVES unlocked per level ──
@@ -2514,7 +2518,62 @@ const TAURI_LOOT_EQUIPMENT=[
   {id:'acc_melammu',    name:'Melammu Crown',         ico:'👑',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'epic',
    desc:'The divine radiance of kingship. All resources magnified.',stats:{boneBonus:0.35,goldBonus:0.20,xpBonus:0.18,lootLuck:0.08,label:'+35% Bones / +20% GP / +18% XP'},setId:'anunnaki'},
 ];
-LOOT_EQUIPMENT.push(...TAURI_LOOT_EQUIPMENT);
+
+// ── Bonelord's Regalia (6pc — minion focus, cemetery/shire drops) ────────────
+const BONELORD_LOOT_EQUIPMENT=[
+  {id:'staff_bonelord',       name:'Bonelord\'s Femur',      ico:'🦴',price:{gp:0},type:'staff',unique:true,shopHidden:true,tier:'uncommon',
+   desc:'A massive femur crackling with necromantic energy. Minions rally to its call.',stats:{dmgMult:1.12,cdMult:0.92,label:'+12% DMG / -8% CD'},setId:'bonelord'},
+  {id:'armor_bonelord',       name:'Bonelord\'s Ribcage',    ico:'🩻',price:{gp:0},type:'armor',unique:true,shopHidden:true,tier:'uncommon',
+   desc:'Fused ribs from an ancient bonelord. Surprisingly resilient.',stats:{maxHP:25,dmgReduce:0.06,label:'+25 HP / 6% DR'},setId:'bonelord'},
+  {id:'acc_bonelord_ring',    name:'Bonelord\'s Signet',     ico:'💀',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'uncommon',
+   desc:'A ring carved from a skull. Minions serve with greater vigor.',stats:{boneBonus:0.15,label:'+15% Bones'},setId:'bonelord'},
+  {id:'acc_bonelord_crown',   name:'Bonelord\'s Diadem',     ico:'👑',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'rare',
+   desc:'A crown of interlocking finger bones. Commands legions of undead.',stats:{boneBonus:0.22,xpBonus:0.08,label:'+22% Bones / +8% XP'},setId:'bonelord'},
+  {id:'armor_bonelord_greaves',name:'Bonelord\'s Greaves',   ico:'🦿',price:{gp:0},type:'armor',unique:true,shopHidden:true,tier:'rare',
+   desc:'Shin guards fused from stacked vertebrae. Each step rattles with authority.',stats:{maxHP:38,dmgReduce:0.10,label:'+38 HP / 10% DR'},setId:'bonelord'},
+  {id:'staff_bonelord_scepter',name:'Bonelord\'s Scepter',   ico:'🏴',price:{gp:0},type:'staff',unique:true,shopHidden:true,tier:'rare',
+   desc:'The supreme staff of bone mastery. Fallen warriors answer its summons.',stats:{dmgMult:1.22,cdMult:0.85,label:'+22% DMG / -15% CD'},setId:'bonelord'},
+];
+
+// ── Veilwalker's Shroud (4pc — spell focus, forest/sanctum drops) ───────────
+const VEILWALKER_LOOT_EQUIPMENT=[
+  {id:'staff_veilwalker',     name:'Veilwalker\'s Crook',    ico:'🌀',price:{gp:0},type:'staff',unique:true,shopHidden:true,tier:'rare',
+   desc:'A staff that bends light around its wielder. Spells slip between planes.',stats:{dmgMult:1.28,cdMult:0.80,label:'+28% DMG / -20% CD'},setId:'veilwalker'},
+  {id:'armor_veilwalker',     name:'Veilwalker\'s Wrap',     ico:'🫥',price:{gp:0},type:'armor',unique:true,shopHidden:true,tier:'rare',
+   desc:'Cloth woven from shadow-silk. Partially phases out of reality.',stats:{maxHP:35,dmgReduce:0.11,label:'+35 HP / 11% DR'},setId:'veilwalker'},
+  {id:'acc_veilwalker',       name:'Veilwalker\'s Lens',     ico:'🔍',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'rare',
+   desc:'A monocle that peers into the Veil. Reveals hidden weaknesses.',stats:{boneBonus:0.20,xpBonus:0.12,label:'+20% Bones / +12% XP'},setId:'veilwalker'},
+  {id:'armor_veilwalker_cowl',name:'Veilwalker\'s Cowl',     ico:'🎭',price:{gp:0},type:'armor',unique:true,shopHidden:true,tier:'epic',
+   desc:'Hood that dissolves the boundary between caster and spell. Total immersion.',stats:{maxHP:55,dmgReduce:0.16,label:'+55 HP / 16% DR'},setId:'veilwalker'},
+];
+
+// ── Hellforged Arsenal (5pc — damage/crit focus, cross-region drops) ────────
+const HELLFORGED_LOOT_EQUIPMENT=[
+  {id:'staff_hellforged',     name:'Hellforged Poker',       ico:'🔥',price:{gp:0},type:'staff',unique:true,shopHidden:true,tier:'uncommon',
+   desc:'Iron heated in hellfire. Still glowing.',stats:{dmgMult:1.14,cdMult:0.93,label:'+14% DMG / -7% CD'},setId:'hellforged'},
+  {id:'armor_hellforged',     name:'Hellforged Plate',       ico:'🛡️',price:{gp:0},type:'armor',unique:true,shopHidden:true,tier:'uncommon',
+   desc:'Slag-forged armor from the Hellbridge foundry. Radiates heat.',stats:{maxHP:28,dmgReduce:0.07,label:'+28 HP / 7% DR'},setId:'hellforged'},
+  {id:'acc_hellforged',       name:'Hellforged Cinder',      ico:'💠',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'uncommon',
+   desc:'A never-cooling ember. Burns with infernal persistence.',stats:{boneBonus:0.14,goldBonus:0.08,label:'+14% Bones / +8% Gold'},setId:'hellforged'},
+  {id:'armor_hellforged_boots',name:'Hellforged Treads',     ico:'👢',price:{gp:0},type:'armor',unique:true,shopHidden:true,tier:'rare',
+   desc:'Boots that leave smoldering footprints. Swift and devastating.',stats:{maxHP:40,dmgReduce:0.12,label:'+40 HP / 12% DR'},setId:'hellforged'},
+  {id:'staff_hellforged_brand',name:'Hellforged Brand',      ico:'⚔️',price:{gp:0},type:'staff',unique:true,shopHidden:true,tier:'epic',
+   desc:'A weapon that has passed through every circle of Hell. Devastating criticals.',stats:{dmgMult:1.35,cdMult:0.76,label:'+35% DMG / -24% CD'},setId:'hellforged'},
+];
+
+// ── Legendary Standalone Items (specific boss/content drops) ────────────────
+const LEGENDARY_LOOT_EQUIPMENT=[
+  {id:'acc_sauron_ring',      name:'Sauron\'s Ring',         ico:'💍',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'legendary',
+   desc:'One ring to rule them all. Immense dark power at a terrible cost.',stats:{dmgMult:1.50,maxHPMult:-0.10,boneBonus:0.35,label:'+50% DMG / -10% max HP / +35% Bones'}},
+  {id:'staff_osiris',         name:'Staff of Osiris',        ico:'🌿',price:{gp:0},type:'staff',unique:true,shopHidden:true,tier:'legendary',
+   desc:'Staff of the lord of the dead. Familiars fight with divine fury.',stats:{dmgMult:1.30,cdMult:0.78,familiarDmgMult:2.0,label:'+30% DMG / -22% CD / 2× familiar DMG'}},
+  {id:'acc_kyber',            name:'Kyber Crystal',          ico:'🔷',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'legendary',
+   desc:'A crystal from the Skyriver galaxy. Spells chain to an extra target.',stats:{boneBonus:0.28,xpBonus:0.15,spellChain:1,label:'+28% Bones / +15% XP / +1 spell chain'}},
+  {id:'acc_grimoire',         name:'Grimoire of Eternity',   ico:'📖',price:{gp:0},type:'accessory',unique:true,shopHidden:true,tier:'legendary',
+   desc:'A tome that rewrites itself with each prestige. Accelerates all learning.',stats:{boneBonus:0.20,xpBonus:0.25,goldBonus:0.15,label:'+20% Bones / +25% XP / +15% Gold'}},
+];
+
+LOOT_EQUIPMENT.push(...TAURI_LOOT_EQUIPMENT,...BONELORD_LOOT_EQUIPMENT,...VEILWALKER_LOOT_EQUIPMENT,...HELLFORGED_LOOT_EQUIPMENT,...LEGENDARY_LOOT_EQUIPMENT);
 
 // Merge loot equipment into SHOP_ITEMS so equip/stat systems work seamlessly
 SHOP_ITEMS.equipment.push(...LOOT_EQUIPMENT);
@@ -2536,6 +2595,31 @@ const ITEM_SETS={
       2:{label:'2pc: +12% spell damage, +8% XP',dmgBonus:0.12,xpBonus:0.08},
       4:{label:'4pc: +20% minion DMG, +15% bones, 8% DR',minionDmg:0.20,boneBonus:0.15,drBonus:0.08},
     }
+  },
+  bonelord:{
+    name:"Bonelord's Regalia",ico:'💀',
+    pieces:['staff_bonelord','armor_bonelord','acc_bonelord_ring','acc_bonelord_crown','armor_bonelord_greaves','staff_bonelord_scepter'],
+    bonuses:{
+      2:{label:'2pc: +15% minion HP',minionHP:0.15},
+      4:{label:'4pc: Fallen minions auto-raise after 10s, +20% summon speed',autoRaise:true,summonSpeed:0.20},
+      6:{label:'6pc: +30% minion HP, +25% minion DMG',minionHP:0.30,minionDmg:0.25},
+    }
+  },
+  veilwalker:{
+    name:"Veilwalker's Shroud",ico:'👁',
+    pieces:['staff_veilwalker','armor_veilwalker','acc_veilwalker','armor_veilwalker_cowl'],
+    bonuses:{
+      2:{label:'2pc: +15% spell damage, +10% cooldown reduction',dmgBonus:0.15,cdBonus:0.10},
+      3:{label:'3pc: +25% spell DMG, spells pierce 2 extra enemies',dmgBonus:0.25,spellPierce:2},
+    }
+  },
+  hellforged:{
+    name:"Hellforged Arsenal",ico:'🔥',
+    pieces:['staff_hellforged','armor_hellforged','acc_hellforged','armor_hellforged_boots','staff_hellforged_brand'],
+    bonuses:{
+      2:{label:'2pc: +10% all damage, +5% crit',dmgBonus:0.10,critBonus:0.05},
+      4:{label:'4pc: +20% all DMG, +10% crit, Hellbridge kills extend timer 1s',dmgBonus:0.20,critBonus:0.10,hbTimerExtend:1},
+    }
   }
 };
 
@@ -2544,40 +2628,76 @@ const LOOT_TABLES={
   enemy:{
     cemetery:{dropChance:0.04,pool:[
       {id:'staff_worm',weight:30},{id:'armor_tattered',weight:30},{id:'acc_finger',weight:30},
-      {id:'staff_grave',weight:8},{id:'armor_crypt',weight:8},{id:'acc_phylactery',weight:8}]},
+      {id:'staff_grave',weight:8},{id:'armor_crypt',weight:8},{id:'acc_phylactery',weight:8},
+      // Bonelord pieces (minion-themed, cemetery origin)
+      {id:'staff_bonelord',weight:4},{id:'armor_bonelord',weight:4},{id:'acc_bonelord_ring',weight:4},
+      // Hellforged pieces (cross-region)
+      {id:'staff_hellforged',weight:2},{id:'armor_hellforged',weight:2},{id:'acc_hellforged',weight:2}]},
     shire:{dropChance:0.05,pool:[
       {id:'staff_worm',weight:20},{id:'armor_tattered',weight:20},{id:'acc_finger',weight:20},
       {id:'staff_grave',weight:12},{id:'armor_crypt',weight:12},{id:'acc_phylactery',weight:12},
-      {id:'staff_wraith',weight:2},{id:'armor_spectre',weight:2}]},
+      {id:'staff_wraith',weight:2},{id:'armor_spectre',weight:2},
+      // Bonelord rares
+      {id:'acc_bonelord_crown',weight:2},{id:'armor_bonelord_greaves',weight:2},{id:'staff_bonelord_scepter',weight:2},
+      // Hellforged (cross-region)
+      {id:'staff_hellforged',weight:3},{id:'armor_hellforged',weight:3},{id:'acc_hellforged',weight:3}]},
     forest:{dropChance:0.06,pool:[
       {id:'staff_grave',weight:18},{id:'armor_crypt',weight:18},{id:'acc_phylactery',weight:18},
       {id:'staff_wraith',weight:6},{id:'armor_spectre',weight:6},{id:'acc_soulstone',weight:6},
-      {id:'staff_void',weight:1},{id:'armor_death',weight:1}]},
+      {id:'staff_void',weight:1},{id:'armor_death',weight:1},
+      // Veilwalker pieces (spell-themed, forest origin)
+      {id:'staff_veilwalker',weight:3},{id:'armor_veilwalker',weight:3},{id:'acc_veilwalker',weight:3},
+      // Hellforged rares (cross-region)
+      {id:'armor_hellforged_boots',weight:1},{id:'staff_hellforged_brand',weight:0.5}]},
     sanctum:{dropChance:0.07,pool:[
       {id:'staff_wraith',weight:14},{id:'armor_spectre',weight:14},{id:'acc_soulstone',weight:14},
       {id:'staff_void',weight:5},{id:'armor_death',weight:5},{id:'acc_doomheart',weight:5},
-      {id:'staff_sammael',weight:0.3},{id:'armor_sammael',weight:0.3},{id:'acc_sammael',weight:0.3}]},
+      {id:'staff_sammael',weight:0.3},{id:'armor_sammael',weight:0.3},{id:'acc_sammael',weight:0.3},
+      // Veilwalker epic
+      {id:'armor_veilwalker_cowl',weight:1.5},
+      // Hellforged rares
+      {id:'armor_hellforged_boots',weight:2},{id:'staff_hellforged_brand',weight:1}]},
   },
   boss:{
-    wight_lord:{guaranteed:['staff_grave','armor_crypt','acc_phylactery'],bonusChance:0.15,
-      bonusPool:[{id:'staff_wraith',weight:4},{id:'armor_spectre',weight:4},{id:'acc_soulstone',weight:4}]},
-    forest_hag:{guaranteed:['staff_wraith','armor_spectre','acc_soulstone'],bonusChance:0.20,
-      bonusPool:[{id:'staff_void',weight:3},{id:'armor_death',weight:3},{id:'acc_doomheart',weight:3}]},
+    wight_lord:{guaranteed:['staff_grave','armor_crypt','acc_phylactery','staff_bonelord','armor_bonelord','acc_bonelord_ring'],bonusChance:0.15,
+      bonusPool:[{id:'staff_wraith',weight:4},{id:'armor_spectre',weight:4},{id:'acc_soulstone',weight:4},
+        {id:'acc_bonelord_crown',weight:2},{id:'armor_bonelord_greaves',weight:2},{id:'staff_bonelord_scepter',weight:2}]},
+    forest_hag:{guaranteed:['staff_wraith','armor_spectre','acc_soulstone','staff_veilwalker','armor_veilwalker','acc_veilwalker'],bonusChance:0.20,
+      bonusPool:[{id:'staff_void',weight:3},{id:'armor_death',weight:3},{id:'acc_doomheart',weight:3},
+        {id:'armor_veilwalker_cowl',weight:2}]},
     lich:{guaranteed:['staff_void','armor_death','acc_doomheart'],bonusChance:0.10,
-      bonusPool:[{id:'staff_sammael',weight:1},{id:'armor_sammael',weight:1},{id:'acc_sammael',weight:1}]},
-    _easy:{guaranteed:['staff_worm','armor_tattered','acc_finger','staff_grave','armor_crypt','acc_phylactery'],bonusChance:0.12,
-      bonusPool:[{id:'staff_wraith',weight:3},{id:'armor_spectre',weight:3},{id:'acc_soulstone',weight:3}]},
-    _medium:{guaranteed:['staff_grave','armor_crypt','acc_phylactery','staff_wraith','armor_spectre','acc_soulstone'],bonusChance:0.18,
-      bonusPool:[{id:'staff_void',weight:3},{id:'armor_death',weight:3},{id:'acc_doomheart',weight:3}]},
-    _hard:{guaranteed:['staff_wraith','armor_spectre','acc_soulstone','staff_void','armor_death','acc_doomheart'],bonusChance:0.08,
-      bonusPool:[{id:'staff_sammael',weight:1},{id:'armor_sammael',weight:1},{id:'acc_sammael',weight:1}]},
+      bonusPool:[{id:'staff_sammael',weight:1},{id:'armor_sammael',weight:1},{id:'acc_sammael',weight:1},
+        {id:'acc_sauron_ring',weight:0.3}]},
+    _easy:{guaranteed:['staff_worm','armor_tattered','acc_finger','staff_grave','armor_crypt','acc_phylactery',
+      'staff_bonelord','armor_bonelord','acc_bonelord_ring','staff_hellforged','armor_hellforged','acc_hellforged'],bonusChance:0.12,
+      bonusPool:[{id:'staff_wraith',weight:3},{id:'armor_spectre',weight:3},{id:'acc_soulstone',weight:3},
+        {id:'acc_bonelord_crown',weight:1},{id:'armor_hellforged_boots',weight:1}]},
+    _medium:{guaranteed:['staff_grave','armor_crypt','acc_phylactery','staff_wraith','armor_spectre','acc_soulstone',
+      'staff_veilwalker','armor_veilwalker','acc_veilwalker','armor_hellforged_boots'],bonusChance:0.18,
+      bonusPool:[{id:'staff_void',weight:3},{id:'armor_death',weight:3},{id:'acc_doomheart',weight:3},
+        {id:'armor_veilwalker_cowl',weight:2},{id:'staff_hellforged_brand',weight:2}]},
+    _hard:{guaranteed:['staff_wraith','armor_spectre','acc_soulstone','staff_void','armor_death','acc_doomheart',
+      'armor_veilwalker_cowl','staff_hellforged_brand'],bonusChance:0.08,
+      bonusPool:[{id:'staff_sammael',weight:1},{id:'armor_sammael',weight:1},{id:'acc_sammael',weight:1},
+        {id:'acc_sauron_ring',weight:0.3},{id:'acc_kyber',weight:0.2}]},
     // Tau'ri boss loot tiers — Sumerian-themed drops
     _tau_easy:{guaranteed:['staff_worm','armor_tattered','acc_finger','staff_grave','armor_crypt','acc_phylactery'],bonusChance:0.15,
       bonusPool:[{id:'staff_enki',weight:3},{id:'armor_lamassu',weight:3},{id:'acc_tablet',weight:3},{id:'staff_wraith',weight:2},{id:'armor_spectre',weight:2}]},
     _tau_medium:{guaranteed:['staff_grave','armor_crypt','acc_phylactery','staff_enki','armor_lamassu','acc_tablet'],bonusChance:0.22,
       bonusPool:[{id:'staff_marduk',weight:3},{id:'armor_tiamat',weight:3},{id:'acc_melammu',weight:3},{id:'staff_void',weight:2},{id:'armor_death',weight:2}]},
     _tau_hard:{guaranteed:['staff_enki','armor_lamassu','acc_tablet','staff_marduk','armor_tiamat','acc_melammu'],bonusChance:0.12,
-      bonusPool:[{id:'staff_sammael',weight:1},{id:'armor_sammael',weight:1},{id:'acc_sammael',weight:1},{id:'staff_void',weight:2},{id:'armor_death',weight:2},{id:'acc_doomheart',weight:2}]},
+      bonusPool:[{id:'staff_sammael',weight:1},{id:'armor_sammael',weight:1},{id:'acc_sammael',weight:1},{id:'staff_void',weight:2},{id:'armor_death',weight:2},{id:'acc_doomheart',weight:2},
+        {id:'staff_osiris',weight:0.3}]},
+    // Skyriver boss loot tiers — sci-fi themed drops
+    _sw_easy:{guaranteed:['staff_worm','armor_tattered','acc_finger','staff_grave','armor_crypt','acc_phylactery',
+      'staff_hellforged','armor_hellforged','acc_hellforged'],bonusChance:0.15,
+      bonusPool:[{id:'staff_wraith',weight:3},{id:'armor_spectre',weight:3},{id:'acc_soulstone',weight:3},{id:'armor_hellforged_boots',weight:2}]},
+    _sw_medium:{guaranteed:['staff_wraith','armor_spectre','acc_soulstone','staff_veilwalker','armor_veilwalker','acc_veilwalker',
+      'armor_hellforged_boots','staff_hellforged_brand'],bonusChance:0.22,
+      bonusPool:[{id:'staff_void',weight:3},{id:'armor_death',weight:3},{id:'acc_doomheart',weight:3},{id:'armor_veilwalker_cowl',weight:2}]},
+    _sw_hard:{guaranteed:['staff_void','armor_death','acc_doomheart','armor_veilwalker_cowl','staff_hellforged_brand'],bonusChance:0.12,
+      bonusPool:[{id:'staff_sammael',weight:1},{id:'armor_sammael',weight:1},{id:'acc_sammael',weight:1},
+        {id:'acc_kyber',weight:0.5},{id:'acc_grimoire',weight:0.2}]},
   }
 };
 
@@ -2625,11 +2745,12 @@ function _bossLootTier(bossKey){
     'great_weaver','corrupted_guardian','dead_marshal','siege_lord','war_machine','treebeard_bane',
     'dark_rider','river_daemon','tower_lord','forest_revenant','gorgoroth_warden','nazgul_herald',
     'eyes_servant','ring_servant','orc_colonel'];
-  // Tau'ri raids use Sumerian loot tables
+  // Tau'ri raids use Sumerian loot tables; Skyriver raids use sci-fi tables
   const isTauri=RS&&RS.raidKey&&RS.raidKey.startsWith('tau_');
-  if(easy.includes(bossKey))return isTauri?'_tau_easy':'_easy';
-  if(medium.includes(bossKey))return isTauri?'_tau_medium':'_medium';
-  return isTauri?'_tau_hard':'_hard';
+  const isSkyriver=RS&&RS.raidKey&&RS.raidKey.startsWith('sw_');
+  if(easy.includes(bossKey))return isTauri?'_tau_easy':isSkyriver?'_sw_easy':'_easy';
+  if(medium.includes(bossKey))return isTauri?'_tau_medium':isSkyriver?'_sw_medium':'_medium';
+  return isTauri?'_tau_hard':isSkyriver?'_sw_hard':'_hard';
 }
 
 function rollBossLoot(bossKey){
@@ -2657,7 +2778,9 @@ function addLootItem(itemId){
 }
 
 function getSetBonuses(){
-  const b={dmgBonus:0,drBonus:0,raiseDiscount:0,minionDmg:0,lifesteal:0};
+  const b={dmgBonus:0,drBonus:0,raiseDiscount:0,minionDmg:0,lifesteal:0,
+    minionHP:0,autoRaise:false,summonSpeed:0,cdBonus:0,spellPierce:0,critBonus:0,hbTimerExtend:0,
+    xpBonus:0,boneBonus:0};
   for(const [,setDef] of Object.entries(ITEM_SETS)){
     const count=setDef.pieces.filter(pid=>
       GS.inv.equipped.staff===pid||GS.inv.equipped.armor===pid||GS.inv.equipped.accessory===pid).length;
@@ -2668,6 +2791,15 @@ function getSetBonuses(){
         if(bonus.raiseDiscount)b.raiseDiscount=Math.max(b.raiseDiscount,bonus.raiseDiscount);
         if(bonus.minionDmg)b.minionDmg+=bonus.minionDmg;
         if(bonus.lifesteal)b.lifesteal+=bonus.lifesteal;
+        if(bonus.minionHP)b.minionHP+=bonus.minionHP;
+        if(bonus.autoRaise)b.autoRaise=true;
+        if(bonus.summonSpeed)b.summonSpeed+=bonus.summonSpeed;
+        if(bonus.cdBonus)b.cdBonus+=bonus.cdBonus;
+        if(bonus.spellPierce)b.spellPierce+=bonus.spellPierce;
+        if(bonus.critBonus)b.critBonus+=bonus.critBonus;
+        if(bonus.hbTimerExtend)b.hbTimerExtend+=bonus.hbTimerExtend;
+        if(bonus.xpBonus)b.xpBonus+=bonus.xpBonus;
+        if(bonus.boneBonus)b.boneBonus+=bonus.boneBonus;
       }
     }
   }
@@ -10071,14 +10203,13 @@ function renderShopContent(){
     lootHeader.style.cssText='border-top:1px solid rgba(168,85,247,.3);padding-top:12px;margin-top:12px;color:var(--glow);letter-spacing:2px;font-family:"Cinzel",serif;font-size:10px;text-transform:uppercase;margin-bottom:8px';
     lootHeader.textContent='▸ Loot Drops';
     el.appendChild(lootHeader);
-    // Show set bonus info if any pieces equipped
-    const sb=getSetBonuses();
-    if(sb.dmgBonus>0||sb.drBonus>0||sb.minionDmg>0){
+    // Show set bonus info for ALL sets with at least 1 piece equipped
+    for(const [setKey,setInfo] of Object.entries(ITEM_SETS)){
+      const eqCount=setInfo.pieces.filter(pid=>GS.inv.equipped.staff===pid||GS.inv.equipped.armor===pid||GS.inv.equipped.accessory===pid).length;
+      if(eqCount<1)continue;
       const setDiv=document.createElement('div');
       setDiv.style.cssText='padding:6px 8px;margin-bottom:8px;border-radius:6px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);font-family:"Cinzel",serif;font-size:9px;color:var(--gold)';
-      const setInfo=ITEM_SETS.sammael;
-      const eqCount=setInfo.pieces.filter(pid=>GS.inv.equipped.staff===pid||GS.inv.equipped.armor===pid||GS.inv.equipped.accessory===pid).length;
-      let setTxt=`☠️ ${setInfo.name} (${eqCount}/${setInfo.pieces.length})`;
+      let setTxt=`${setInfo.ico} ${setInfo.name} (${eqCount}/${setInfo.pieces.length})`;
       for(const [thr,bonus] of Object.entries(setInfo.bonuses)){
         const active=eqCount>=parseInt(thr);
         setTxt+=`<div style="margin-top:3px;color:${active?'#22c55e':'#6b7280'};font-size:8px">${active?'✓':'○'} ${bonus.label}</div>`;
@@ -10220,7 +10351,10 @@ function applyEquipmentStats(){
   const armor=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.armor);
   if(armor?.stats?.maxHP)bonusHP+=armor.stats.maxHP;
   const _castleHP=getCastleBonus('maxHP');
-  GS.necroMaxHP=Math.round((baseHP+bonusHP)*(1+_castleHP));
+  // Sauron's Ring: maxHPMult penalty from accessory
+  const _acc=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);
+  const _hpMult=1+(_acc?.stats?.maxHPMult||0)+_castleHP;
+  GS.necroMaxHP=Math.round((baseHP+bonusHP)*_hpMult);
   GS.necroHP=Math.min(GS.necroHP,GS.necroMaxHP);
   // Cache set bonuses for quick access during combat
   GS._setBonus=getSetBonuses();
@@ -10242,7 +10376,9 @@ function getStaffMult(){
   // Set bonus damage
   const sb=GS._setBonus||getSetBonuses();
   if(sb.dmgBonus)dmg*=(1+sb.dmgBonus);
-  return{dmg,cd:staff?.stats?.cdMult||1};
+  let cd=staff?.stats?.cdMult||1;
+  if(sb.cdBonus)cd*=(1-sb.cdBonus); // Veilwalker: cooldown reduction
+  return{dmg,cd};
 }
 
 // Get damage reduction from armor
@@ -11468,7 +11604,7 @@ function tickSammaelDrain(dt,t){
         RS.parts.push({k:'flt',x:m.x,y:m.y-12,txt:'🩸',col:'#ef4444',life:0.8,ml:0.8,vy:-20});
       }
       if(m.hp<=0){
-        m.dead=true;m.hp=0;
+        m.dead=true;m.hp=0;m._deathTime=RS.lastTs/1000||0;m._autoRaised=false;
         RS.parts.push({k:'flt',x:m.x,y:m.y-20,txt:'☠ Consumed',col:'#9ca3af',life:1.2,ml:1.2,vy:-24});
         _notifySummonChange&&_notifySummonChange();
       }
@@ -11985,7 +12121,8 @@ function tickAnimatedDead(t,dt){
   if(!GS.equippedSpells.has('animateDead')&&!GS.equippedSpells.has('animate_dead'))return;
   if(GS.necroLv<(SPELLS.animateDead?.lv||5))return; // level gate
   const sp=SPELLS.animateDead||SPELLS.animate_dead;if(!sp)return;
-  const cd=sp.cd||8;
+  const _ssBonus=(GS._setBonus||getSetBonuses()).summonSpeed||0;
+  const cd=(sp.cd||8)*(1-_ssBonus); // Bonelord 4pc: +20% summon speed → 20% less CD
   if(!RS._animDeadCD)RS._animDeadCD=RS.spellCDs['animateDead']||0;
   if(t-RS._animDeadCD<cd)return;
   // Check unit + CR caps before raising
@@ -12019,10 +12156,12 @@ function tickAnimatedDead(t,dt){
   nearest.raised=true;
   const minionType=_enemyToMinionType(nearest.type);
   const mDef=MINIONS[minionType]||MINIONS.skeleton;
+  const _mhpBonus=(GS._setBonus||getSetBonuses()).minionHP||0; // Bonelord: +minion HP
+  const _adjMaxHP=Math.round(mDef.maxHP*(1+_mhpBonus));
   const raised={
-    type:minionType,ref:{type:minionType,hp:Math.floor(mDef.maxHP*.6)},
+    type:minionType,ref:{type:minionType,hp:Math.floor(_adjMaxHP*.6)},
     x:nearest.x,y:nearest.y,tx:nearest.x,ty:nearest.y,
-    hp:Math.floor(mDef.maxHP*.6),maxHP:mDef.maxHP,lat:0,dead:false,buffEnd:0,_raised:true
+    hp:Math.floor(_adjMaxHP*.6),maxHP:_adjMaxHP,lat:0,dead:false,buffEnd:0,_raised:true
   };
   raised.ref.hp=raised.hp;
   RS.minions.push(raised);
@@ -12033,6 +12172,25 @@ function tickAnimatedDead(t,dt){
   // Visual: necromantic summoning effect at corpse
   FX_necroBurst(nearest.x,nearest.y);
   for(let i=0;i<8;i++){const a=rnd(0,Math.PI*2);RS.parts.push({k:'spark',x:nearest.x,y:nearest.y,vx:Math.cos(a)*30,vy:Math.sin(a)*30,col:'#a855f7',life:.7,ml:.7});}
+}
+
+// ── Auto-Raise: Bonelord 4pc — fallen minions revive after 10s ──────────
+function tickAutoRaise(t){
+  if(!RS||RS.done)return;
+  const sb=GS._setBonus||getSetBonuses();
+  if(!sb.autoRaise)return;
+  const deadMinions=RS.minions.filter(m=>m.dead&&m._deathTime&&!m._autoRaised);
+  for(const m of deadMinions){
+    if(t-m._deathTime>=10){
+      m.dead=false;m._autoRaised=true;
+      const mDef=MINIONS[m.type]||MINIONS.skeleton;
+      const _mhpB=sb.minionHP||0;
+      m.maxHP=Math.round(mDef.maxHP*(1+_mhpB));
+      m.hp=Math.round(m.maxHP*0.5); // revive at 50% HP
+      RS.parts.push({k:'flt',x:m.x,y:m.y-20,txt:'💀 Auto-Raised!',col:'#a855f7',life:1.5,ml:1.5,vy:-28});
+      FX_necroBurst(m.x,m.y);
+    }
+  }
 }
 
 function _enemyToMinionType(eType){
@@ -13823,6 +13981,7 @@ function loop(ts){
     tickEnemies(t,dt);
     tickRaiseAnim(dt);
   tickAnimatedDead(t,dt);
+  tickAutoRaise(t);
   tickBoss(t,dt);
     tickBossShockwave(t,dt);
     tickBossDarkZones(t,dt);
@@ -14584,8 +14743,9 @@ function onEnemyKilled(en,t){
   const d=EDEF[en.type];
   let bones=Math.round(ri(d.bones[0],d.bones[1])*GS.prestBoneYield());
   if(GS.hasPassive(3))bones+=5;
-  // Accessory bone bonus
-  const bb=getBoneBonus();if(bb>0)bones=Math.round(bones*(1+bb));
+  // Accessory bone bonus + set bonus
+  const _sbK=GS._setBonus||getSetBonuses();
+  const bb=getBoneBonus()+(_sbK.boneBonus||0);if(bb>0)bones=Math.round(bones*(1+bb));
   // Raid atk buff bone bonus
   if(RS.atkMult&&RS.atkMult>1)bones=Math.round(bones*1.1);
   RS.bonesGained+=_rikkerActive?bones*2:bones;
@@ -14594,7 +14754,7 @@ function onEnemyKilled(en,t){
   if(d.sp){const _sv=Array.isArray(d.sp)?ri(d.sp[0],d.sp[1]):d.sp;addCurrency(RS.wGained,null,Math.round(_sv*_rm*(1+_gb)),null,null);}
   if(d.gp){const _gv=Array.isArray(d.gp)?ri(d.gp[0],d.gp[1]):d.gp;addCurrency(RS.wGained,null,null,Math.round(_gv*_rm*(1+_gb)),null);}
   const _xpLvMult=1+(GS.necroLv-1)*0.08; // +8% XP per player level to ease XP wall
-  const _xpEquip=getXPBonus();
+  const _xpEquip=getXPBonus()+(_sbK.xpBonus||0); // include set bonus XP
   const _tavXP=getTavernBuff('xpMult');
   RS.xpGained+=(_rikkerActive?2:1)*d.xp*_xpLvMult*(1+_xpEquip+_tavXP+getCastleBonus('xpMult'));
   devPetGainXP(d.xp);heroGainXP(d.xp);purchasablePetGainXP(d.xp);
@@ -15082,7 +15242,7 @@ function killMinion(mk){
     RS.parts.push({k:'flt',x:mk.x,y:mk.y-30,txt:'⚓ Spirit Anchor!',col:'#60a5fa',life:1.5,ml:1.5,vy:-22});
     return;
   }
-  mk.dead=true;
+  mk.dead=true;mk._deathTime=RS.lastTs/1000||0;mk._autoRaised=false;
   if(mk.ref) mk.ref.hp=0;
   // Remove from raidParty
   if(mk.ref&&mk.ref.i!=null) GS.raidParty.delete(mk.ref.i);
@@ -15854,7 +16014,10 @@ function castSpell(key,t){
   const _sammBonus=_sammAelActive?_SAMM_POISON_DMG_BONUS:0;
   const _lvDmgMult2=1+(GS.necroLv-1)*0.08;
   const _lichMult=_sammAelActive?2:1; // lich form 2× all stats
-  const dmgMult=(GS.hasPassive(9)?1.25:1)*staffM.dmg*GS.prestDmgMult()*_lvDmgMult2*_lichMult*(_meltingActive&&isMeltingRaging(t)?1.3:1);
+  // Hellforged/set crit bonus: chance to deal 1.5× damage
+  const _critB=(GS._setBonus||getSetBonuses()).critBonus||0;
+  const _isCrit=_critB>0&&Math.random()<_critB;
+  const dmgMult=(GS.hasPassive(9)?1.25:1)*staffM.dmg*GS.prestDmgMult()*_lvDmgMult2*_lichMult*(_meltingActive&&isMeltingRaging(t)?1.3:1)*(_isCrit?1.5:1);
   const lastCast=RS.spellCDs[key]||0;
   // AOE in manual mode: enter targeting mode WITHOUT consuming the CD yet
   if(sp.tgt==='aoe'&&!autoMode){
@@ -15898,6 +16061,29 @@ function castSpell(key,t){
     if(GS.hasPassive(1)&&near.hp<=0){const heal=sp.lv*2;RS.necro.hp=Math.min(RS.necro.maxHP,RS.necro.hp+heal);}
     if(key==='rayOfSickness'&&near.hp>0)near.slowUntil=(t+5);
     if(near.hp<=0){if(RS.enemies.includes(near))onEnemyKilled(near,t);else if(near===RS.boss){near.hp=0;}else near.dead=true;}
+    // ── Spell Pierce (Veilwalker 3pc): hit extra nearby enemies at 60% dmg ──
+    const _sb2=GS._setBonus||getSetBonuses();
+    const _pierceCount=_sb2.spellPierce||0;
+    // ── Spell Chain (Kyber Crystal accessory): chain to 1 extra target ──
+    const _accEq=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);
+    const _chainCount=_accEq?.stats?.spellChain||0;
+    const _extraTargets=_pierceCount+_chainCount;
+    if(_extraTargets>0){
+      const _hitIds=new Set([near._uid||near.x+'_'+near.y]);
+      const _remaining=allE.filter(e=>e.hp>0&&!_hitIds.has(e._uid||e.x+'_'+e.y));
+      _remaining.sort((a,b2)=>hyp(near.x,near.y,a.x,a.y)-hyp(near.x,near.y,b2.x,b2.y));
+      let _extraHit=0;
+      for(const ex of _remaining){
+        if(_extraHit>=_extraTargets)break;
+        if(hyp(near.x,near.y,ex.x,ex.y)>sp.rng*1.2)break;
+        const _eDmg=Math.round(dmg*(_extraHit<_pierceCount?0.6:0.5));
+        ex.hp-=_eDmg;
+        RS.parts.push({k:'proj',x:near.x,y:near.y,tx:ex.x,ty:ex.y,prog:0,spd:5,col:'#818cf8',life:.8,ml:.8});
+        RS.parts.push({k:'dmg',x:ex.x,y:ex.y-22,txt:`-${_eDmg}`,col:'#818cf8',life:.8,ml:.8,vy:-30});
+        if(ex.hp<=0){if(RS.enemies.includes(ex))onEnemyKilled(ex,t);else if(ex===RS.boss){ex.hp=0;}else ex.dead=true;}
+        _extraHit++;
+      }
+    }
   }else if(sp.tgt==='aoe'){
     // Auto mode only reaches here (manual handled above in castSpell header)
     const hits=allE.filter(e=>hyp(RS.necro.x,RS.necro.y,e.x,e.y)<=sp.rng);
@@ -25565,7 +25751,7 @@ function tickSurvivalEnemies(dt, t) {
           const dmg=Math.max(1,Math.round((def.dmg||8)*0.85));
           tgtMinion.hp-=dmg;
           SV.parts.push({k:'dmg',x:tgtMinion.x,y:tgtMinion.y-20,txt:`-${dmg}`,col:'#f97316',life:.6,ml:.6,vy:-22});
-          if(tgtMinion.hp<=0)tgtMinion.dead=true;
+          if(tgtMinion.hp<=0){tgtMinion.dead=true;tgtMinion._deathTime=SV.t||0;tgtMinion._autoRaised=false;}
         } else {
           survAttackNecro(en, def.dmg||8, t);
         }
@@ -25813,6 +25999,9 @@ function killSurvivalEnemy(en, t) {
   SV.bonesGained += bones;
   SV.xpGained += def?(def.xp||20):20;
   SV.enemiesKilled++;
+  // Hellforged 4pc: kills in Hellbridge heal necro (extends survivability)
+  const _hbExt=(GS._setBonus||getSetBonuses()).hbTimerExtend||0;
+  if(_hbExt>0&&SV.necro&&!SV.necro.dead){SV.necro.hp=Math.min(SV.necro.maxHP||SV.necro.hp,SV.necro.hp+_hbExt*5);}
   // Remove the corresponding fallen summon from spawn inventory
   if(def && def.baseKey) {
     const idx = GS.fallenSummons.findIndex(f=>fallenKeyForMinion(f.type)===en.type);
