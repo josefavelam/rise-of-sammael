@@ -24642,7 +24642,7 @@ function closeWorldMap() {
   showScreen('castle');
   CR=null; _castleSpawnAtExit=true;
   startCastleRoom();
-  if(CR){const W=gameW(),H=gameH()-42;const rb=crRoomBounds('exit',W,H);if(rb){CR.px=rb.x+rb.w*.50;CR.py=rb.y+rb.h*.45;CR.tx=CR.px;CR.ty=CR.py;}}
+  if(CR){const rb=crRoomBounds('exit');if(rb){CR.px=rb.x+rb.w*.50;CR.py=rb.y+rb.h*.45;CR.tx=CR.px;CR.ty=CR.py;}}
 }
 
 function renderWorldMap() {
@@ -28348,47 +28348,43 @@ const CASTLE_OBJECTS = [
   {id:'portalGate', room:'portal',   rx:.50, ry:.50, ico:'🌀', label:'Portal',          action:'openPortalChamber',   color:'#06b6d4', tapR:26},
 ];
 
-// Compute world position of a room center given canvas W,H
+// Compute world position of a room center — FIXED dimensions (Pokemon-town scale)
 const CR_COLS=3, CR_ROWS=4;
-function crRoomBounds(roomId, W, H) {
-  const WX=Math.max(8,Math.floor(W*.022));
-  const WY=Math.max(8,Math.floor(H*.030));
-  const roomW=(W-(CR_COLS+1)*WX)/CR_COLS;
-  const roomH=(H-(CR_ROWS+1)*WY)/CR_ROWS;
+const CR_ROOM_W=192, CR_ROOM_H=160, CR_WALL=14;
+const CR_WORLD_W=(CR_COLS+1)*CR_WALL+CR_COLS*CR_ROOM_W;  // 632
+const CR_WORLD_H=(CR_ROWS+1)*CR_WALL+CR_ROWS*CR_ROOM_H;  // 710
+const CASTLE_ZOOM=2.5;
+function crRoomBounds(roomId) {
   const rm=CASTLE_ROOMS.find(r=>r.id===roomId);if(!rm)return null;
-  const x=WX+rm.col*(roomW+WX);
-  const y=WY+rm.row*(roomH+WY);
-  return {x,y,w:roomW,h:roomH,cx:x+roomW/2,cy:y+roomH/2,WX,WY,roomW,roomH};
+  const x=CR_WALL+rm.col*(CR_ROOM_W+CR_WALL);
+  const y=CR_WALL+rm.row*(CR_ROOM_H+CR_WALL);
+  return {x,y,w:CR_ROOM_W,h:CR_ROOM_H,cx:x+CR_ROOM_W/2,cy:y+CR_ROOM_H/2,WX:CR_WALL,WY:CR_WALL,roomW:CR_ROOM_W,roomH:CR_ROOM_H};
 }
 // Live positions written by draw code for objects whose positions can't be expressed as pure rx/ry fractions
 const _crObjPosCache = {};
-function crObjWorld(obj, W, H) {
-  const b=crRoomBounds(obj.room,W,H);if(!b)return{x:W/2,y:H/2};
+function crObjWorld(obj) {
+  const b=crRoomBounds(obj.room);if(!b)return{x:CR_WORLD_W/2,y:CR_WORLD_H/2};
   if(_crObjPosCache[obj.id]) return _crObjPosCache[obj.id];
   return {x:b.x+obj.rx*b.w, y:b.y+obj.ry*b.h};
 }
-function crIsWalkable(px2,py2,W,H){
-  const WX=Math.max(8,Math.floor(W*.022));
-  const WY=Math.max(8,Math.floor(H*.030));
-  const roomW=(W-(CR_COLS+1)*WX)/CR_COLS;
-  const roomH=(H-(CR_ROWS+1)*WY)/CR_ROWS;
+function crIsWalkable(px2,py2){
   for(const rm of CASTLE_ROOMS){
-    const x=WX+rm.col*(roomW+WX), y=WY+rm.row*(roomH+WY);
-    if(px2>=x&&px2<=x+roomW&&py2>=y&&py2<=y+roomH)return true;
+    const x=CR_WALL+rm.col*(CR_ROOM_W+CR_WALL), y=CR_WALL+rm.row*(CR_ROOM_H+CR_WALL);
+    if(px2>=x&&px2<=x+CR_ROOM_W&&py2>=y&&py2<=y+CR_ROOM_H)return true;
   }
-  const DOOR_H=roomH*.40, DOOR_W=roomW*.40;
+  const DOOR_H=CR_ROOM_H*.30, DOOR_W=CR_ROOM_W*.30;
   for(let row=0;row<CR_ROWS;row++){
-    const rowCy=WY+row*(roomH+WY)+roomH/2;
+    const rowCy=CR_WALL+row*(CR_ROOM_H+CR_WALL)+CR_ROOM_H/2;
     for(let col=0;col<CR_COLS-1;col++){
-      const wallX=WX+(col+1)*(roomW+WX)-WX;
-      if(px2>=wallX&&px2<=wallX+WX&&Math.abs(py2-rowCy)<DOOR_H/2)return true;
+      const wallX=CR_WALL+(col+1)*(CR_ROOM_W+CR_WALL)-CR_WALL;
+      if(px2>=wallX&&px2<=wallX+CR_WALL&&Math.abs(py2-rowCy)<DOOR_H/2)return true;
     }
   }
   for(let col=0;col<CR_COLS;col++){
-    const colCx=WX+col*(roomW+WX)+roomW/2;
+    const colCx=CR_WALL+col*(CR_ROOM_W+CR_WALL)+CR_ROOM_W/2;
     for(let row=0;row<CR_ROWS-1;row++){
-      const wallY=WY+(row+1)*(roomH+WY)-WY;
-      if(py2>=wallY&&py2<=wallY+WY&&Math.abs(px2-colCx)<DOOR_W/2)return true;
+      const wallY=CR_WALL+(row+1)*(CR_ROOM_H+CR_WALL)-CR_WALL;
+      if(py2>=wallY&&py2<=wallY+CR_WALL&&Math.abs(px2-colCx)<DOOR_W/2)return true;
     }
   }
   return false;
@@ -28408,12 +28404,11 @@ function openCastle_fromHub() {
   // Spawn necro near the village exit door when navigating from hub
   const exitObj=CASTLE_OBJECTS.find(o=>o.id==='exit');
   if(exitObj&&CR){
-    const W=gameW(),H=gameH()-42;
-    const pos=crObjWorld(exitObj,W,H);
+    const pos=crObjWorld(exitObj);
     CR.px=pos.x;CR.py=pos.y;CR.tx=pos.x;CR.ty=pos.y;
-    if(GAME_ZOOM>1){const vw=W/GAME_ZOOM,vh=H/GAME_ZOOM;_crCamX=clamp(pos.x-vw/2,0,W-vw);_crCamY=clamp(pos.y-vh/2,0,H-vh);}
+    const vw=CR_WORLD_W/CASTLE_ZOOM,vh=CR_WORLD_H/CASTLE_ZOOM;
+    _crCamX=clamp(pos.x-vw/2,0,CR_WORLD_W-vw);_crCamY=clamp(pos.y-vh/2,0,CR_WORLD_H-vh);
   }else if(!CR){
-    // will be initialized in startCastleRoom, then we override position after
     CR=null;
     _castleSpawnAtExit=true;
   }
@@ -28432,34 +28427,25 @@ function startCastleRoom() {
   cv.width = Math.floor(W * DPR); cv.height = Math.floor(H * DPR);
   cv.style.width = W+'px'; cv.style.height = H+'px';
   // DPR scaling handled per-frame in drawCastleRoom via setTransform
-  
+
   if(!CR) {
     // Start at exit (village entrance) if coming from hub, else bedroom
     const spawnId = _castleSpawnAtExit ? 'exit' : 'bed';
     _castleSpawnAtExit = false;
     const spawnObj=CASTLE_OBJECTS.find(o=>o.id===spawnId)||CASTLE_OBJECTS.find(o=>o.id==='bed');
-    const spawnPos=spawnObj?crObjWorld(spawnObj,W,H):{x:W*0.17,y:H*0.18};
+    const spawnPos=spawnObj?crObjWorld(spawnObj):{x:CR_WORLD_W*0.17,y:CR_WORLD_H*0.18};
     CR = {
       px: spawnPos.x, py: spawnPos.y,
       tx: spawnPos.x, ty: spawnPos.y,
       facing: 1, wp: 0, nearObj: null, villager:{px:0,py:0,tx:0,ty:0,facing:1,wp:0,bow:0,bowDone:false},
       _waypoints: [], _waypointIdx: 0,
-      _W: W, _H: H,
     };
     // Snap castle camera to spawn
-    if(GAME_ZOOM>1){
-      const vw=W/GAME_ZOOM, vh=H/GAME_ZOOM;
-      _crCamX=clamp(spawnPos.x-vw/2,0,W-vw);
-      _crCamY=clamp(spawnPos.y-vh/2,0,H-vh);
-    }
-  } else {
-    // Returning from a menu — stay at last position, just rescale if needed
-    if(CR._W && CR._W !== W) {
-      CR.px = CR.px/CR._W*W; CR.tx = CR.tx/CR._W*W;
-      CR.py = CR.py/CR._H*H; CR.ty = CR.ty/CR._H*H;
-    }
-    CR._W=W; CR._H=H;
+    const vw=CR_WORLD_W/CASTLE_ZOOM, vh=CR_WORLD_H/CASTLE_ZOOM;
+    _crCamX=clamp(spawnPos.x-vw/2,0,CR_WORLD_W-vw);
+    _crCamY=clamp(spawnPos.y-vh/2,0,CR_WORLD_H-vh);
   }
+  // Returning from a menu — positions are in fixed world coords, no rescaling needed
   
   cv.onclick = crTap;
   cv.ontouchstart = crTap;
@@ -28500,22 +28486,16 @@ function updateCastleStats() {
 
 // Castle room-graph pathfinding
 // Returns room id from pixel position
-function crRoomAtPos(px2,py2,W,H){
-  const MARGIN=0.04,GUTTER=0.06;
-  const uw=1-2*MARGIN, uh=1-2*MARGIN;
-  const rw=(uw-(CR_COLS-1)*GUTTER)/CR_COLS, rh=(uh-(CR_ROWS-1)*GUTTER)/CR_ROWS;
+function crRoomAtPos(px2,py2){
   for(const rm of CASTLE_ROOMS){
-    const rx=MARGIN+rm.col*(rw+GUTTER), ry=MARGIN+rm.row*(rh+GUTTER);
-    if(px2>=rx*W&&px2<=(rx+rw)*W&&py2>=ry*H&&py2<=(ry+rh)*H)return rm.id;
+    const x=CR_WALL+rm.col*(CR_ROOM_W+CR_WALL), y=CR_WALL+rm.row*(CR_ROOM_H+CR_WALL);
+    if(px2>=x&&px2<=x+CR_ROOM_W&&py2>=y&&py2<=y+CR_ROOM_H)return rm.id;
   }
-  return null; // in corridor/wall
+  return null;
 }
 // BFS over room grid to find waypoints
-function crPathBetweenRooms(fromRoom,toRoom,W,H){
+function crPathBetweenRooms(fromRoom,toRoom){
   if(!fromRoom||!toRoom||fromRoom===toRoom)return[];
-  const MARGIN=0.04,GUTTER=0.06;
-  const uw=1-2*MARGIN,uh=1-2*MARGIN;
-  const rw=(uw-(CR_COLS-1)*GUTTER)/CR_COLS,rh=(uh-(CR_ROWS-1)*GUTTER)/CR_ROWS;
   const rm=id=>CASTLE_ROOMS.find(r=>r.id===id);
   const rc=id=>{const r=rm(id);if(!r)return null;return{col:r.col,row:r.row};};
   // BFS
@@ -28533,28 +28513,22 @@ function crPathBetweenRooms(fromRoom,toRoom,W,H){
   while(queue.length){
     const {id,path}=queue.shift();
     if(id===toRoom){
-      // Convert room path to world waypoints (door centers + room centers)
       const wps=[];
       for(let i=1;i<path.length;i++){
-        const a=rm(path[i-1]),b=rm(path[i]);
+        const ab=crRoomBounds(path[i-1]),bb=crRoomBounds(path[i]);
+        if(!ab||!bb)continue;
         // Door center between rooms a and b
-        const ax=MARGIN+a.col*(rw+GUTTER), ay=MARGIN+a.row*(rh+GUTTER);
-        const bx=MARGIN+b.col*(rw+GUTTER), by=MARGIN+b.row*(rh+GUTTER);
-        // Horizontal door (same row)
-        if(a.row===b.row){
-          const dcx=(ax+rw+bx)/2*W;
-          const dcy=(ay+rh/2)*H;
-          wps.push({x:dcx,y:dcy});
+        if(ab.y===bb.y){
+          // Horizontal door (same row)
+          const dcx=(Math.max(ab.x+ab.w,bb.x+bb.w)+Math.min(ab.x,bb.x))/2;
+          wps.push({x:dcx,y:ab.cy});
         } else {
           // Vertical door (same col)
-          const dcx=(ax+rw/2)*W;
-          const dcy=(ay+rh+by)/2*H;
-          wps.push({x:dcx,y:dcy});
+          const dcy=(Math.max(ab.y+ab.h,bb.y+bb.h)+Math.min(ab.y,bb.y))/2;
+          wps.push({x:ab.cx,y:dcy});
         }
       }
-      // Add final room center
-      const dest=rm(toRoom);
-      const db=crRoomBounds(toRoom,W,H);
+      const db=crRoomBounds(toRoom);
       if(db)wps.push({x:db.cx,y:db.cy});
       return wps;
     }
@@ -28568,44 +28542,44 @@ function crTap(e) {
   if(!CR) return;
   const cv = document.getElementById('castleCanvas');
   const rect = cv.getBoundingClientRect();
-  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  const cx2 = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const cy2 = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
   const W = parseInt(cv.style.width)||cv.width, H = parseInt(cv.style.height)||cv.height;
-  // Convert screen coords → world coords (through zoom + camera)
-  const sx = cx * (W / rect.width), sy = cy * (H / rect.height);
-  const tx = GAME_ZOOM>1 ? _crCamX + sx/GAME_ZOOM : sx;
-  const ty = GAME_ZOOM>1 ? _crCamY + sy/GAME_ZOOM : sy;
+  // Convert screen coords → world coords (through CASTLE_ZOOM + camera)
+  const sx = cx2 * (W / rect.width), sy = cy2 * (H / rect.height);
+  const tx = _crCamX + sx/CASTLE_ZOOM;
+  const ty = _crCamY + sy/CASTLE_ZOOM;
 
   // Direct tap on any castle object — use per-object tapR so hitboxes match sprites
   for(const obj of CASTLE_OBJECTS){
-    const op=crObjWorld(obj,W,H);
+    const op=crObjWorld(obj);
     const r=obj.tapR||22;
     if(Math.hypot(tx-op.x,ty-op.y)<r){crInteract(obj);return;}
   }
   // Fallback: nearby object via proximity walk
   if(CR.nearObj){
-    const op=crObjWorld(CR.nearObj,W,H);
+    const op=crObjWorld(CR.nearObj);
     const r=(CR.nearObj.tapR||22)+8;
     if(Math.hypot(tx-op.x,ty-op.y)<r){crInteract(CR.nearObj);return;}
   }
 
   // Build path via room graph
-  const fromRoom=crRoomAtPos(CR.px,CR.py,W,H)||_crNearestRoom(CR.px,CR.py,W,H);
-  const toRoom=crRoomAtPos(tx,ty,W,H)||_crNearestRoom(tx,ty,W,H);
-  const waypoints=crPathBetweenRooms(fromRoom,toRoom,W,H);
+  const fromRoom=crRoomAtPos(CR.px,CR.py)||_crNearestRoom(CR.px,CR.py);
+  const toRoom=crRoomAtPos(tx,ty)||_crNearestRoom(tx,ty);
+  const waypoints=crPathBetweenRooms(fromRoom,toRoom);
   // Append final clicked position (clamped to walkable)
-  const finalX=clamp(tx,10,W-10), finalY=clamp(ty,10,H-10);
+  const finalX=clamp(tx,10,CR_WORLD_W-10), finalY=clamp(ty,10,CR_WORLD_H-10);
   waypoints.push({x:finalX,y:finalY});
   CR._waypoints=waypoints||[];
   CR._waypointIdx=0;
   if(waypoints.length>0){CR.tx=waypoints[0].x;CR.ty=waypoints[0].y;}
-  else{CR.tx=clamp(tx,10,W-10);CR.ty=clamp(ty,10,H-10);}
+  else{CR.tx=clamp(tx,10,CR_WORLD_W-10);CR.ty=clamp(ty,10,CR_WORLD_H-10);}
 }
 
-function _crNearestRoom(px2,py2,W,H){
+function _crNearestRoom(px2,py2){
   let best=null,bestD=Infinity;
   CASTLE_ROOMS.forEach(rm=>{
-    const b=crRoomBounds(rm.id,W,H);if(!b)return;
+    const b=crRoomBounds(rm.id);if(!b)return;
     const d=Math.hypot(px2-b.cx,py2-b.cy);
     if(d<bestD){bestD=d;best=rm.id;}
   });
@@ -28616,7 +28590,6 @@ function tickCastleRoom(dt) {
   if(!CR) return;
   const cv = document.getElementById('castleCanvas');
   if(!cv) return;
-  const _crW = parseInt(cv.style.width)||cv.width, _crH = parseInt(cv.style.height)||cv.height;
 
   // dt-based speed: 150 px/s
   const spd = 150 * dt;
@@ -28637,8 +28610,8 @@ function tickCastleRoom(dt) {
     CR.wp += dt * 6;
   }
 
-  CR.px = clamp(CR.px, 14, _crW - 14);
-  CR.py = clamp(CR.py, 14, _crH - 14);
+  CR.px = clamp(CR.px, 14, CR_WORLD_W - 14);
+  CR.py = clamp(CR.py, 14, CR_WORLD_H - 14);
 
   CR.nearObj = null;
   let nearDist = 999;
@@ -28647,7 +28620,7 @@ function tickCastleRoom(dt) {
     if(obj.id==='gandalf'&&!(GS.conquered&&GS.conquered.shire&&GS.conquered.shire.easy))return;
     // Hide hobbit NPC after quest completed
     if(obj.id==='hobbit'&&GS.quests&&GS.quests.pumpkin_quest&&GS.quests.pumpkin_quest.completed)return;
-    const op=crObjWorld(obj,_crW,_crH);
+    const op=crObjWorld(obj);
     const dist=Math.hypot(CR.px-op.x,CR.py-op.y);
     const threshold=(obj.tapR||22)+32; // proximity = sprite radius + walk-up buffer
     if(dist<threshold&&dist<nearDist){nearDist=dist;CR.nearObj=obj;}
@@ -28656,40 +28629,38 @@ function tickCastleRoom(dt) {
   const prompt = document.getElementById('castlePrompt');
   if(prompt) { prompt.classList.remove('show'); }
 
-  // ── Castle camera follow (same dead-zone style as raids) ──
-  if(GAME_ZOOM>1){
-    const cvW=_crW/GAME_ZOOM, cvH=_crH/GAME_ZOOM;
-    const dzFrac=0.30;
-    const dzW2=cvW*dzFrac, dzH2=cvH*dzFrac;
-    const dzL=(cvW-dzW2)/2, dzR=dzL+dzW2;
-    const dzT=(cvH-dzH2)/2, dzB=dzT+dzH2;
-    const px2=CR.px-_crCamX, py2=CR.py-_crCamY;
-    let tx2=_crCamX, ty2=_crCamY;
-    if(px2<dzL) tx2=CR.px-dzL;
-    else if(px2>dzR) tx2=CR.px-dzR;
-    if(py2<dzT) ty2=CR.py-dzT;
-    else if(py2>dzB) ty2=CR.py-dzB;
-    tx2=clamp(tx2,0,_crW-cvW);
-    ty2=clamp(ty2,0,_crH-cvH);
-    _crCamX+=((tx2-_crCamX)*0.10);
-    _crCamY+=((ty2-_crCamY)*0.10);
-  }else{
-    _crCamX=0;_crCamY=0;
-  }
+  // ── Castle camera follow (dead-zone style) — always zoomed ──
+  const W=parseInt(cv.style.width)||cv.width, H=parseInt(cv.style.height)||cv.height;
+  const cvW=W/CASTLE_ZOOM, cvH=H/CASTLE_ZOOM;
+  const dzFrac=0.30;
+  const dzW2=cvW*dzFrac, dzH2=cvH*dzFrac;
+  const dzL=(cvW-dzW2)/2, dzR=dzL+dzW2;
+  const dzT=(cvH-dzH2)/2, dzB=dzT+dzH2;
+  const px2=CR.px-_crCamX, py2=CR.py-_crCamY;
+  let tx2=_crCamX, ty2=_crCamY;
+  if(px2<dzL) tx2=CR.px-dzL;
+  else if(px2>dzR) tx2=CR.px-dzR;
+  if(py2<dzT) ty2=CR.py-dzT;
+  else if(py2>dzB) ty2=CR.py-dzB;
+  tx2=clamp(tx2,0,CR_WORLD_W-cvW);
+  ty2=clamp(ty2,0,CR_WORLD_H-cvH);
+  _crCamX+=((tx2-_crCamX)*0.10);
+  _crCamY+=((ty2-_crCamY)*0.10);
 }
 
 // Build static background once into an offscreen canvas (walls + floors)
-function _buildCrBgCanvas(W, H, DPR) {
+function _buildCrBgCanvas(DPR) {
+  const W=CR_WORLD_W, H=CR_WORLD_H;
   const bg = document.createElement('canvas');
   bg.width = Math.floor(W * DPR); bg.height = Math.floor(H * DPR);
   const c = bg.getContext('2d');
   c.setTransform(DPR, 0, 0, DPR, 0, 0);
   c.imageSmoothingEnabled=false;
 
-  const WX = Math.max(8, Math.floor(W * .022));
-  const WY = Math.max(8, Math.floor(H * .030));
-  const roomW = (W - (CR_COLS+1) * WX) / CR_COLS;
-  const roomH = (H - (CR_ROWS+1) * WY) / CR_ROWS;
+  const WX = CR_WALL;
+  const WY = CR_WALL;
+  const roomW = CR_ROOM_W;
+  const roomH = CR_ROOM_H;
 
   const ct=TilesetEngine.getCastleTiles();
   const TS2=32;
@@ -28751,7 +28722,7 @@ function _buildCrBgCanvas(W, H, DPR) {
   {
     const exitRm = CASTLE_ROOMS.find(r=>r.id==='exit');
     if(exitRm){
-      const eb=crRoomBounds('exit',W,H);
+      const eb=crRoomBounds('exit');
       if(eb){
         drawTileWall(0, H-WY, W, WY);
         const gOx=Math.ceil(eb.x), gOw=Math.floor(eb.w);
@@ -28777,7 +28748,7 @@ function _buildCrBgCanvas(W, H, DPR) {
 
   // Room floors — tile-based cobble or grass
   CASTLE_ROOMS.forEach(rm => {
-    const b = crRoomBounds(rm.id, W, H); if (!b) return;
+    const b = crRoomBounds(rm.id); if (!b) return;
     const bx=Math.ceil(b.x), by=Math.ceil(b.y), bw=Math.floor(b.w), bh=Math.floor(b.h);
     if(GRASS_ROOMS.has(rm.id)){
       drawTileGrass(bx, by, bw, bh);
@@ -28796,7 +28767,7 @@ function _buildCrBgCanvas(W, H, DPR) {
   });
 
   // ── Doorway openings: tile-based floor through walls, stone arch frame
-  const DOOR_H = roomH * .38, DOOR_W = roomW * .38;
+  const DOOR_H = roomH * .30, DOOR_W = roomW * .30;
   // Horizontal doors (left↔right between columns)
   for (let row = 0; row < CR_ROWS; row++) {
     const rowCy = WY + row * (roomH+WY) + roomH/2;
@@ -28841,23 +28812,26 @@ function drawCastleRoom() {
   const DPR=window.devicePixelRatio||1;
   const W=parseInt(cv.style.width)||cv.width, H=parseInt(cv.style.height)||cv.height;
   c.save();c.setTransform(DPR,0,0,DPR,0,0);
-  if(GAME_ZOOM>1){c.scale(GAME_ZOOM,GAME_ZOOM);c.translate(-_crCamX,-_crCamY);}
+  // Clear the viewport first (black letterbox around world)
+  c.fillStyle='#000';c.fillRect(0,0,W,H);
+  c.scale(CASTLE_ZOOM,CASTLE_ZOOM);c.translate(-_crCamX,-_crCamY);
   const t_now=Date.now(), t=t_now/1000;
 
-  const WX=Math.max(8,Math.floor(W*.022));
-  const WY=Math.max(8,Math.floor(H*.030));
-  const roomW=(W-(CR_COLS+1)*WX)/CR_COLS;
-  const roomH=(H-(CR_ROWS+1)*WY)/CR_ROWS;
+  const WX=CR_WALL;
+  const WY=CR_WALL;
+  const roomW=CR_ROOM_W;
+  const roomH=CR_ROOM_H;
 
   // ── Blit pre-rendered static background (walls + floors) ──
-  if (!_crBgCanvas || _crBgCanvas.width !== Math.floor(W*DPR) || _crBgCanvas.height !== Math.floor(H*DPR)) {
-    _crBgCanvas = _buildCrBgCanvas(W, H, DPR);
+  if (!_crBgCanvas || _crBgCanvas._crDPR !== DPR) {
+    _crBgCanvas = _buildCrBgCanvas(DPR);
+    _crBgCanvas._crDPR = DPR;
   }
-  c.drawImage(_crBgCanvas, 0, 0, W, H);
+  c.drawImage(_crBgCanvas, 0, 0, CR_WORLD_W, CR_WORLD_H);
 
   // ── 5. ROOM LABELS + ROOM-CORNER TORCHES
   CASTLE_ROOMS.forEach(rm=>{
-    const b=crRoomBounds(rm.id,W,H);if(!b)return;
+    const b=crRoomBounds(rm.id);if(!b)return;
     const fl=Math.sin(t_now*.0047+rm.col)*.25+.75;
     const flicker=Math.sin(t_now*.013+b.cy*.01)*.15;
     const nw=Math.min(b.w*.66,84);
@@ -28872,7 +28846,7 @@ function drawCastleRoom() {
   });
 
   // ── 5b. DOORWAY COLUMNS + ARCH TORCHES (animated, drawn over static bg)
-  const _DOOR_H=roomH*.38, _DOOR_W=roomW*.38;
+  const _DOOR_H=roomH*.30, _DOOR_W=roomW*.30;
   const colW2=Math.max(5,Math.round(WX*.45)), colH2=Math.round(_DOOR_H*.82)+6;
   function _drawDoorCol(dcx,dcy,vertical){
     // Stone column base + shaft
@@ -28941,13 +28915,13 @@ function drawCastleRoom() {
 
   // ── 6. ROOM INTERIORS (each clipped to its own bounds so nothing bleeds into walls)
   CASTLE_ROOMS.forEach(rm=>{
-    const b=crRoomBounds(rm.id,W,H);if(!b)return;
+    const b=crRoomBounds(rm.id);if(!b)return;
     const fl=Math.sin(t_now*.0047+rm.col)*.25+.75;
     c.save();
     c.beginPath();
     c.rect(Math.ceil(b.x), Math.ceil(b.y), Math.floor(b.w), Math.floor(b.h));
     c.clip();
-    crDrawRoomInterior(c,rm,b,t,fl,W,H);
+    crDrawRoomInterior(c,rm,b,t,fl);
     c.restore();
   });
 
@@ -28955,7 +28929,7 @@ function drawCastleRoom() {
   CASTLE_ROOMS.forEach(rm=>{
     const lv=getCastleLevel(rm.id);
     if(lv<1)return;
-    const b=crRoomBounds(rm.id,W,H);if(!b)return;
+    const b=crRoomBounds(rm.id);if(!b)return;
     const tierCols=['#22c55e','#3b82f6','#a855f7']; // green=T1, blue=T2, purple=T3
     const col=tierCols[Math.min(lv,3)-1];
     const pulse=0.15+Math.sin(t_now*.003+rm.col*2)*.08;
@@ -28969,7 +28943,7 @@ function drawCastleRoom() {
   });
   // Active construction indicator (animated hammer on room being built)
   if(GS.castleBuilding){
-    const cb=crRoomBounds(GS.castleBuilding.roomId,W,H);
+    const cb=crRoomBounds(GS.castleBuilding.roomId);
     if(cb){
       c.save();c.globalAlpha=0.8;c.font='12px sans-serif';c.textAlign='center';
       const hammerBob=Math.sin(t_now*.01)*3;
@@ -28989,7 +28963,7 @@ function drawCastleRoom() {
 
   // ── 7. OBJECT INTERACTION GLOWS
   CASTLE_OBJECTS.forEach(obj=>{
-    const op=crObjWorld(obj,W,H);
+    const op=crObjWorld(obj);
     const isNear=CR&&CR.nearObj&&CR.nearObj.id===obj.id;
     if(isNear){
       const gr=obj.tapR||22;
@@ -29005,7 +28979,7 @@ function drawCastleRoom() {
   // ── 8. NECROMANCER
   if(CR){
     const bedObj=CASTLE_OBJECTS.find(o=>o.id==='bed');
-    const bedPos=bedObj?crObjWorld(bedObj,W,H):{x:W*.17,y:H*.18};
+    const bedPos=bedObj?crObjWorld(bedObj):{x:CR_WORLD_W*.17,y:CR_WORLD_H*.18};
     const atBed=Math.hypot(CR.px-bedPos.x,CR.py-bedPos.y)<20;
     const isResting=atBed&&(!GS.necroHP||GS.necroHP<GS.necroMaxHP);
     c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.ellipse(CR.px,CR.py+14,11,4,0,0,Math.PI*2);c.fill();
@@ -29032,7 +29006,7 @@ function drawCastleRoom() {
 
 
 // Draw rich interior for each room type
-function crDrawRoomInterior(c,rm,b,t,fl,W,H){
+function crDrawRoomInterior(c,rm,b,t,fl){
   const cx=b.cx, cy=b.cy;
   const ct=TilesetEngine.getCastleTiles();
   switch(rm.id){
@@ -29094,7 +29068,7 @@ function crDrawRoomInterior(c,rm,b,t,fl,W,H){
       c.drawImage(ct.bookshelf, rsx-8, cy, 32*shelfScale, shelf_h/2);
       // ── Research Desk (lower-left of library) — tile sprite from TilesetEngine
       const deskObj=CASTLE_OBJECTS.find(o=>o.id==='desk');
-      const deskPos=deskObj?crObjWorld(deskObj,W,H):{x:b.x+b.w*.25,y:b.y+b.h*.75};
+      const deskPos=deskObj?crObjWorld(deskObj):{x:b.x+b.w*.25,y:b.y+b.h*.75};
       const dx=deskPos.x, dy=deskPos.y;
       const deskNear=CR&&Math.hypot(CR.px-dx,CR.py-dy)<44;
       const deskW=52, deskH=30;
@@ -29196,7 +29170,7 @@ function crDrawRoomInterior(c,rm,b,t,fl,W,H){
 
       // ── Captain — drawn at top of barracks (rx:.5, ry:.12)
       const capObj=CASTLE_OBJECTS.find(o=>o.id==='captain');
-      const capPos=capObj?crObjWorld(capObj,W,H):{x:b.cx,y:b.y+b.h*.12};
+      const capPos=capObj?crObjWorld(capObj):{x:b.cx,y:b.y+b.h*.12};
       const capX=capPos.x, capY=capPos.y;
       const capNear=CR&&CR.nearObj&&CR.nearObj.id==='captain';
       const capSaluting=!!(CR&&Math.hypot(CR.px-capX,CR.py-capY)<70);
@@ -30160,7 +30134,7 @@ function crDrawRoomInterior(c,rm,b,t,fl,W,H){
       // ── Skeleton Caretaker NPC (drawn in castle room) ────────────────────────
       {
         const ctObj=CASTLE_OBJECTS.find(o=>o.id==='caretaker');
-        const ctPos=ctObj?crObjWorld(ctObj,W,H):{x:b.x+b.w*.18,y:b.cy};
+        const ctPos=ctObj?crObjWorld(ctObj):{x:b.x+b.w*.18,y:b.cy};
         const cx2=ctPos.x, cy2=ctPos.y;
         const ctNear=CR&&Math.hypot(CR.px-cx2,CR.py-cy2)<52;
         // Ambient glow
@@ -41100,7 +41074,7 @@ function closeTauriMap(){
   showScreen('castle');
   CR=null; _castleSpawnAtExit=true;
   startCastleRoom();
-  if(CR){const W=gameW(),H=gameH()-42;const rb=crRoomBounds('exit',W,H);if(rb){CR.px=rb.x+rb.w*.50;CR.py=rb.y+rb.h*.45;CR.tx=CR.px;CR.ty=CR.py;}}
+  if(CR){const rb=crRoomBounds('exit');if(rb){CR.px=rb.x+rb.w*.50;CR.py=rb.y+rb.h*.45;CR.tx=CR.px;CR.ty=CR.py;}}
 }
 function tauUpdateConqCount(){
   const cnt=TAU_REGIONS.filter(r=>{const c=GS.conquered[r.id];return c&&c.easy&&c.medium&&c.hard;}).length;
