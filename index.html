@@ -35560,7 +35560,7 @@ const COOP_ROBE_COLORS = [
 ];
 
 // ── Session state ─────────────────────────────────────────────────────────────
-let MP = null;
+var MP = null;
 
 // ── Aviary screen ──────────────────────────────────────────────────────────
 function openAviaryScreen() {
@@ -40586,7 +40586,7 @@ function closeMapSelector(){
 // ═══════════════════════════════════════════════════════════
 
 // ── 20 regions arranged on a Pangaea landmass ──
-const TAU_REGIONS=[
+var TAU_REGIONS=[
   // Eridu Alliance — Africa heartland (starting zone)
   {id:'tau_shire',       name:'Eridu',              lv:1, x:.48,y:.50, biome:'cemetery', terrain:'plains',   color:'#86efac', faction:'tau_shire'},
   {id:'tau_bree',        name:'Uruk',               lv:1, x:.42,y:.44, biome:'cemetery', terrain:'plains',   color:'#86efac', faction:'tau_shire'},
@@ -40623,7 +40623,7 @@ const TAU_FACTIONS={
 };
 const TAU_FACTION_ORDER=['tau_shire','tau_rohan','tau_elves','tau_gondor','tau_mordor'];
 
-const TAU_REGION_RAID_MAP={
+var TAU_REGION_RAID_MAP={
   'tau_shire':['tau_shire_easy','tau_shire_medium','tau_shire_hard'],
   'tau_bree':['tau_bree_easy','tau_bree_medium','tau_bree_hard'],
   'tau_weatherhills':['tau_weatherhills_easy','tau_weatherhills_medium','tau_weatherhills_hard'],
@@ -41214,7 +41214,7 @@ function _tauHandleTap(sx,sy,W,H){
 // ═══════════════════════════════════════════════════════════
 
 // ── 20 regions spread across the galaxy ──
-const SW_REGIONS=[
+var SW_REGIONS=[
   // Prequel worlds (outer rim / republic)
   {id:'tatooine',      name:'Tatooine',             lv:1, x:.18,y:.72, terrain:'desert',   color:'#f59e0b', faction:'sw_outer'},
   {id:'naboo',         name:'Naboo',                lv:1, x:.30,y:.60, terrain:'plains',   color:'#22c55e', faction:'sw_outer'},
@@ -41261,7 +41261,7 @@ function swRegionAccessible(r){
 }
 
 // ── 60 unique Star Wars bosses ──
-const SW_BOSSES={
+var SW_BOSSES={
   sw_sand_daemon:      {name:'Sand Daemon of Tatooine',   hp:122,maxHP:122,dmg:16,spd:0.75,rng:160,cd:2.2,bones:20,gp:[10,22],pp:[0,0],xp:6500, phase2HP:61, fortHP:30,color:'#f59e0b',size:1.2},
   sw_krayt_specter:    {name:'Krayt Dragon Specter',       hp:162,maxHP:162,dmg:19,spd:0.65,rng:160,cd:2.0,bones:28,gp:[18,38],pp:[0,1],xp:10500,phase2HP:81, fortHP:40,color:'#d97706',size:1.45},
   sw_tusken_warlord:   {name:'Tusken Warlord Risen',       hp:221,maxHP:221,dmg:24,spd:0.58,rng:160,cd:1.8,bones:38,gp:[28,58],pp:[0,2],xp:15500,phase2HP:110,fortHP:55,color:PALETTE.brownLt,size:1.55},
@@ -41393,7 +41393,7 @@ const _SW_RC={
 Object.assign(RAID_CONFIGS,_SW_RC);
 
 // Region → [easy, medium, hard] raid keys
-const SW_REGION_RAID_MAP={
+var SW_REGION_RAID_MAP={
   tatooine:      ['sw_tatooine_easy','sw_tatooine_medium','sw_tatooine_hard'],
   naboo:         ['sw_naboo_easy','sw_naboo_medium','sw_naboo_hard'],
   coruscant:     ['sw_coruscant_easy','sw_coruscant_medium','sw_coruscant_hard'],
@@ -42675,7 +42675,7 @@ function swFireRaid(region,diff){
 // ═══════════════════════════════════════════════════════════
 
 // ── 20 regions across 5 biomes ──
-const NW_REGIONS=[
+var NW_REGIONS=[
   // Ashen Wastes — starting zone (lv 1-3)
   {id:'nw_charfields',     name:'The Charfields',        lv:1, x:.22,y:.82, terrain:'wasteland', color:'#f97316', faction:'nw_ashen'},
   {id:'nw_emberpits',      name:'Ember Pits',            lv:1, x:.14,y:.68, terrain:'wasteland', color:'#fb923c', faction:'nw_ashen'},
@@ -42808,7 +42808,7 @@ const NW_BOSSES={
 };
 
 // ── Region Raid Map ──
-const NW_REGION_RAID_MAP={
+var NW_REGION_RAID_MAP={
   'nw_charfields':      ['nw_charfields_easy','nw_charfields_medium','nw_charfields_hard'],
   'nw_emberpits':       ['nw_emberpits_easy','nw_emberpits_medium','nw_emberpits_hard'],
   'nw_dusthaven':       ['nw_dusthaven_easy','nw_dusthaven_medium','nw_dusthaven_hard'],
@@ -43227,7 +43227,7 @@ function nwFireRaid(region,diff){
 <script>
 
 // ── CLOUD SAVE SYSTEM ────────────────────────────────────────────────────
-const CloudSave={
+var CloudSave={
   user:null,
   token:null,
   enabled:false,
