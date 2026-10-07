@@ -666,6 +666,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
       </div>
       <span id="armyCRLabel" style="font-family:'Cinzel',serif;font-size:8px;color:#60a5fa;white-space:nowrap;min-width:36px;text-align:right">0/1</span>
     </div>
+    <div id="evoMatBox" style="display:none;margin:6px 0;padding:6px;background:#0f0a2e;border:1px solid #4c1d9533;border-radius:6px"></div>
     <div id="armyList"></div>
   </div>
   <div class="sect" style="margin-top:10px;padding-bottom:20px">
@@ -2121,6 +2122,232 @@ const MIN_KEYS=Object.keys(MINIONS);
 function crNum(cr){if(cr==='0')return 0;if(cr==='⅛')return 0.125;if(cr==='¼')return 0.25;if(cr==='½')return 0.5;return parseFloat(cr)||99;}
 const CAT_LABELS={skeletal:'💀 Skeletal',flesh:'☠ Flesh',spiritual:'👻 Spiritual'};
 const CATS=['skeletal','flesh','spiritual'];
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MINION EVOLUTION SYSTEM
+//  8 minion types × 3 tiers (Base → Enhanced → Ascended)
+//  Requires: level 50+ necroLv, evolution materials, gold
+//  Each evolution: +50% stats, visual changes, passive + active ability
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Evolution materials — dropped from bosses/enemies
+const EVO_MATERIALS={
+  bone_essence:    {name:'Bone Essence',      ico:'🦴', desc:'Crystallized marrow pulsing with necrotic energy.',        cat:'skeletal'},
+  flesh_ichor:     {name:'Flesh Ichor',        ico:'🩸', desc:'Viscous fluid harvested from reanimated flesh.',           cat:'flesh'},
+  soul_fragment:   {name:'Soul Fragment',      ico:'💎', desc:'A shard of trapped spectral energy.',                      cat:'spiritual'},
+  dark_crystal:    {name:'Dark Crystal',       ico:'🔮', desc:'Condensed shadow matter from the void between worlds.',    cat:'any'},
+  ancient_rune:    {name:'Ancient Rune',       ico:'📜', desc:'Forgotten inscription that amplifies undead potential.',    cat:'any'},
+  necrotic_core:   {name:'Necrotic Core',      ico:'💀', desc:'The beating heart of a powerful undead. Extremely rare.',   cat:'any'},
+  void_shard:      {name:'Void Shard',         ico:'🌑', desc:'Fragment torn from the boundary of the astral plane.',     cat:'spiritual'},
+  blood_crystal:   {name:'Blood Crystal',      ico:'♦️', desc:'Crystallized life force drained from the living.',          cat:'flesh'},
+};
+
+// Evolution definitions: 8 minion types with 3 tiers each
+// tier 0 = base (current), tier 1 = Enhanced, tier 2 = Ascended
+const MINION_EVOLUTIONS={
+  // ── SKELETAL ──
+  skeleton:{
+    tiers:[
+      {tier:0, name:'Skeleton',        statMult:1.0},
+      {tier:1, name:'Bone Knight',     statMult:1.5, goldCost:500,  lvReq:8,  mats:{bone_essence:3, ancient_rune:1},
+        passive:{id:'bone_shield',   name:'Bone Shield',    desc:'+15% damage reduction for nearby allies',     effect:'nearbyDR',     val:0.15, range:80},
+        active: {id:'bone_rally',    name:'Rally the Dead', desc:'All skeletal minions +20% ATK for 8s (30s CD)', effect:'catBuff',     val:0.20, dur:8, cd:30, cat:'skeletal'}},
+      {tier:2, name:'Death Lord',      statMult:2.25, goldCost:2000, lvReq:15, mats:{bone_essence:8, dark_crystal:3, necrotic_core:1},
+        passive:{id:'death_command', name:'Death Command',  desc:'Skeletal minions near Death Lord attack 25% faster', effect:'nearbyAtkSpd', val:0.25, range:100},
+        active: {id:'bone_storm',    name:'Bone Storm',     desc:'AOE bone shards deal 50 DMG in radius (25s CD)',     effect:'aoe',          val:50,   radius:120, cd:25}},
+    ]
+  },
+  skel_archer:{
+    tiers:[
+      {tier:0, name:'Skeleton Archer',  statMult:1.0},
+      {tier:1, name:'Bone Marksman',    statMult:1.5, goldCost:600,  lvReq:8,  mats:{bone_essence:3, ancient_rune:1},
+        passive:{id:'piercing_shot', name:'Piercing Shot',  desc:'Attacks have 20% chance to hit a second target',       effect:'pierce',      val:0.20},
+        active: {id:'arrow_volley',  name:'Arrow Volley',   desc:'Fire 5 arrows in a cone for 12 DMG each (28s CD)',     effect:'volley',      val:12, count:5, cd:28}},
+      {tier:2, name:'Deathshot',        statMult:2.25, goldCost:2500, lvReq:15, mats:{bone_essence:8, dark_crystal:3, necrotic_core:1},
+        passive:{id:'headshot',      name:'Headshot',       desc:'Critical hits deal triple damage (15% crit chance)',    effect:'crit',        val:0.15, critMult:3},
+        active: {id:'rain_of_bones', name:'Rain of Bones',  desc:'Barrage of bone arrows on area, 80 DMG (22s CD)',      effect:'aoe',         val:80, radius:100, cd:22}},
+    ]
+  },
+  bone_golem:{
+    tiers:[
+      {tier:0, name:'Bone Golem',       statMult:1.0},
+      {tier:1, name:'Osseous Juggernaut', statMult:1.5, goldCost:800, lvReq:10, mats:{bone_essence:5, dark_crystal:2},
+        passive:{id:'fortified',     name:'Fortified',      desc:'+30% max HP. Taunts nearby enemies on spawn',         effect:'bonusHP',     val:0.30},
+        active: {id:'bone_slam',     name:'Bone Slam',      desc:'Ground slam stuns enemies in range for 2s (20s CD)',   effect:'stun',        val:2, radius:80, cd:20}},
+      {tier:2, name:'Bone Colossus Prime', statMult:2.25, goldCost:3000, lvReq:16, mats:{bone_essence:10, dark_crystal:5, necrotic_core:2},
+        passive:{id:'absorb_bones',  name:'Absorb Bones',   desc:'On kill, absorb remains for +5% max HP (stacks to +50%)', effect:'onKillHP', val:0.05, cap:0.50},
+        active: {id:'bone_avalanche',name:'Bone Avalanche', desc:'Hurl bone boulders dealing 120 DMG in line (30s CD)',  effect:'line',        val:120, cd:30}},
+    ]
+  },
+  // ── FLESH ──
+  ghoul:{
+    tiers:[
+      {tier:0, name:'Ghoul',            statMult:1.0},
+      {tier:1, name:'Crypt Ghast',      statMult:1.5, goldCost:700,  lvReq:10, mats:{flesh_ichor:4, blood_crystal:1},
+        passive:{id:'feast',         name:'Feast',          desc:'Heal 10% max HP on each kill',                         effect:'onKillHeal',  val:0.10},
+        active: {id:'frenzy',        name:'Feeding Frenzy', desc:'+50% attack speed for 6s (25s CD)',                    effect:'selfAtkSpd',  val:0.50, dur:6, cd:25}},
+      {tier:2, name:'Abyssal Devourer', statMult:2.25, goldCost:2800, lvReq:16, mats:{flesh_ichor:10, blood_crystal:4, necrotic_core:1},
+        passive:{id:'devour',        name:'Devour',         desc:'Attacks steal 8% of damage dealt as HP',               effect:'lifesteal',   val:0.08},
+        active: {id:'plague_burst',  name:'Plague Burst',   desc:'Toxic explosion: 60 DMG + poison (8 ticks) (22s CD)',  effect:'dot',         val:60, ticks:8, cd:22}},
+    ]
+  },
+  revenant:{
+    tiers:[
+      {tier:0, name:'Revenant',         statMult:1.0},
+      {tier:1, name:'Dread Revenant',   statMult:1.5, goldCost:900,  lvReq:12, mats:{flesh_ichor:5, blood_crystal:2},
+        passive:{id:'vendetta',      name:'Vendetta',       desc:'Deal +30% damage to the enemy that last hit this unit', effect:'vendettaDmg', val:0.30},
+        active: {id:'death_charge',  name:'Death Charge',   desc:'Charge to target, dealing 40 DMG + knockback (18s CD)', effect:'charge',     val:40, cd:18}},
+      {tier:2, name:'Eternal Avenger',  statMult:2.25, goldCost:3200, lvReq:17, mats:{flesh_ichor:12, blood_crystal:5, necrotic_core:2},
+        passive:{id:'undying_rage',  name:'Undying Rage',   desc:'Survive lethal blow once per raid at 1 HP + 5s invuln', effect:'deathSave',  val:5},
+        active: {id:'soul_rend',     name:'Soul Rend',      desc:'Mark target: all minions deal +25% to it for 8s (24s CD)', effect:'mark',    val:0.25, dur:8, cd:24}},
+    ]
+  },
+  // ── SPIRITUAL ──
+  wraith:{
+    tiers:[
+      {tier:0, name:'Wraith',           statMult:1.0},
+      {tier:1, name:'Dread Wraith',     statMult:1.5, goldCost:1000, lvReq:12, mats:{soul_fragment:5, void_shard:2},
+        passive:{id:'phase',         name:'Phase Shift',    desc:'20% chance to dodge attacks entirely',                  effect:'dodge',       val:0.20},
+        active: {id:'soul_drain',    name:'Soul Drain',     desc:'Drain 30 HP from target, heal self (20s CD)',           effect:'drain',       val:30, cd:20}},
+      {tier:2, name:'Phantom Sovereign', statMult:2.25, goldCost:3500, lvReq:18, mats:{soul_fragment:12, void_shard:5, necrotic_core:2},
+        passive:{id:'incorporeal',   name:'Incorporeal',    desc:'Take 25% less damage from all sources',                 effect:'flatDR',      val:0.25},
+        active: {id:'wail_of_doom',  name:'Wail of Doom',   desc:'Terrify all enemies: -40% ATK for 6s (28s CD)',         effect:'debuffAll',   val:0.40, dur:6, cd:28}},
+    ]
+  },
+  specter:{
+    tiers:[
+      {tier:0, name:'Specter',          statMult:1.0},
+      {tier:1, name:'Shade Weaver',     statMult:1.5, goldCost:600,  lvReq:8,  mats:{soul_fragment:3, ancient_rune:1},
+        passive:{id:'shadow_bolt',   name:'Shadow Bolt',    desc:'Ranged attacks apply a 3s slow (-30% speed)',           effect:'slow',        val:0.30, dur:3},
+        active: {id:'dark_blast',    name:'Dark Blast',     desc:'Necrotic blast deals 35 DMG to single target (15s CD)', effect:'single',      val:35, cd:15}},
+      {tier:2, name:'Void Phantom',     statMult:2.25, goldCost:2200, lvReq:14, mats:{soul_fragment:8, void_shard:3, necrotic_core:1},
+        passive:{id:'spell_echo',    name:'Spell Echo',     desc:'25% chance to fire a second attack immediately',        effect:'doubleAtk',   val:0.25},
+        active: {id:'void_rift',     name:'Void Rift',      desc:'Open a rift: 70 DMG + pulls enemies in (26s CD)',       effect:'aoe',         val:70, radius:90, cd:26}},
+    ]
+  },
+  banshee_s:{
+    tiers:[
+      {tier:0, name:'Banshee',          statMult:1.0},
+      {tier:1, name:'Wailing Horror',   statMult:1.5, goldCost:850,  lvReq:12, mats:{soul_fragment:4, void_shard:2},
+        passive:{id:'wail_aura',     name:'Wailing Aura',   desc:'Nearby enemies deal -15% damage',                      effect:'nearbyDebuf', val:0.15, range:90},
+        active: {id:'death_scream',  name:'Death Scream',   desc:'AOE scream: 45 DMG + 2s stun (24s CD)',                effect:'aoeStun',     val:45, stunDur:2, radius:100, cd:24}},
+      {tier:2, name:'Keening Empress',  statMult:2.25, goldCost:3000, lvReq:17, mats:{soul_fragment:10, void_shard:4, necrotic_core:2},
+        passive:{id:'death_song',    name:'Death Song',     desc:'All spiritual minions +20% damage while alive',         effect:'catAura',     val:0.20, cat:'spiritual'},
+        active: {id:'requiem',       name:'Requiem',        desc:'Channel: 100 DMG to all enemies over 4s (35s CD)',      effect:'channel',     val:100, dur:4, cd:35}},
+    ]
+  },
+};
+
+// Get evolution tier for a skeleton in the roster
+function getMinionEvoTier(skelIdx){
+  const s=GS.skeletons[skelIdx];if(!s)return 0;
+  return s.evoTier||0;
+}
+
+// Get evolution def for a minion type at a given tier
+function getEvoTierDef(type,tier){
+  const evo=MINION_EVOLUTIONS[type];
+  if(!evo)return null;
+  return evo.tiers.find(t=>t.tier===tier)||null;
+}
+
+// Get evolved stats for a minion (applies statMult to base MINIONS def)
+function getEvolvedStats(type,evoTier){
+  const base=MINIONS[type];if(!base)return null;
+  const evo=MINION_EVOLUTIONS[type];
+  const tierDef=evo?evo.tiers.find(t=>t.tier===evoTier):null;
+  const mult=tierDef?tierDef.statMult:1.0;
+  return {
+    hp:Math.round(base.hp*mult),
+    maxHP:Math.round(base.maxHP*mult),
+    dmg:Math.round(base.dmg*mult),
+    spd:base.spd,  // speed doesn't change
+    rng:base.rng,
+    cd:base.cd,
+    cost:base.cost,
+    name:tierDef?tierDef.name:base.name,
+  };
+}
+
+// Check if a minion can be evolved to next tier
+function canEvolveMinion(skelIdx){
+  const s=GS.skeletons[skelIdx];if(!s||s.hp<=0)return{can:false,reason:'Dead minions cannot evolve.'};
+  const evo=MINION_EVOLUTIONS[s.type];
+  if(!evo)return{can:false,reason:'This minion type has no evolution path.'};
+  const curTier=s.evoTier||0;
+  const nextTier=evo.tiers.find(t=>t.tier===curTier+1);
+  if(!nextTier)return{can:false,reason:'Already at maximum evolution!'};
+  if(GS.necroLv<nextTier.lvReq)return{can:false,reason:`Requires Necromancer level ${nextTier.lvReq}.`};
+  // Check materials
+  if(!GS.evoMaterials)GS.evoMaterials={};
+  for(const [mat,qty] of Object.entries(nextTier.mats)){
+    if((GS.evoMaterials[mat]||0)<qty){
+      const matDef=EVO_MATERIALS[mat];
+      return{can:false,reason:`Need ${qty}× ${matDef?matDef.name:mat} (have ${GS.evoMaterials[mat]||0}).`};
+    }
+  }
+  // Check gold
+  const gpNeeded=nextTier.goldCost;
+  const totalGP=(GS.wallet.pp||0)*10+(GS.wallet.gp||0)+(GS.wallet.sp||0)/10+(GS.wallet.cp||0)/100;
+  if(totalGP<gpNeeded)return{can:false,reason:`Need ${gpNeeded} GP (have ${Math.floor(totalGP)} GP).`};
+  return{can:true,nextTier};
+}
+
+// Execute evolution
+function evolveMinion(skelIdx){
+  const check=canEvolveMinion(skelIdx);
+  if(!check.can){showToast('❌ '+check.reason);return false;}
+  const s=GS.skeletons[skelIdx];
+  const evo=MINION_EVOLUTIONS[s.type];
+  const nextTier=check.nextTier;
+  // Consume materials
+  for(const [mat,qty] of Object.entries(nextTier.mats)){
+    GS.evoMaterials[mat]-=qty;
+  }
+  // Consume gold (deduct from GP first, then PP)
+  let gpLeft=nextTier.goldCost;
+  if(GS.wallet.gp>=gpLeft){GS.wallet.gp-=gpLeft;gpLeft=0;}
+  else{gpLeft-=GS.wallet.gp;GS.wallet.gp=0;const ppNeeded=Math.ceil(gpLeft/10);GS.wallet.pp-=ppNeeded;gpLeft=0;}
+  // Apply evolution
+  const oldName=MINIONS[s.type]?.name||s.type;
+  s.evoTier=(s.evoTier||0)+1;
+  // Boost HP to new evolved max
+  const evolved=getEvolvedStats(s.type,s.evoTier);
+  s.maxHP=evolved.maxHP;
+  s.hp=evolved.maxHP; // Full heal on evolution
+  showToast(`✨ ${oldName} evolved into ${evolved.name}!`);
+  if(typeof checkAchievements==='function')checkAchievements();
+  saveGame();
+  return true;
+}
+
+// Roll evolution material drop (called on enemy/boss kill)
+function rollEvoMatDrop(difficulty, isBoss){
+  if(!GS.evoMaterials)GS.evoMaterials={};
+  // Base drop chance: 3% enemy, 40% boss easy, 60% boss medium, 80% boss hard
+  let chance=isBoss?(difficulty==='hard'?0.80:difficulty==='medium'?0.60:0.40):0.03;
+  chance*=(1+getLootLuck()*0.5); // loot luck helps but less than equipment drops
+  if(Math.random()>chance)return null;
+  // Pick material — weighted by difficulty
+  const common=['bone_essence','flesh_ichor','soul_fragment'];
+  const uncommon=['dark_crystal','ancient_rune','blood_crystal','void_shard'];
+  const rare=['necrotic_core'];
+  let pool;
+  if(isBoss&&(difficulty==='hard')){
+    pool=[...common.map(m=>({id:m,w:2})),...uncommon.map(m=>({id:m,w:3})),...rare.map(m=>({id:m,w:1}))];
+  } else if(isBoss){
+    pool=[...common.map(m=>({id:m,w:4})),...uncommon.map(m=>({id:m,w:2}))];
+  } else {
+    pool=[...common.map(m=>({id:m,w:5})),...uncommon.map(m=>({id:m,w:1}))];
+  }
+  const totalW=pool.reduce((a,p)=>a+p.w,0);
+  let r=Math.random()*totalW;
+  for(const p of pool){r-=p.w;if(r<=0){
+    GS.evoMaterials[p.id]=(GS.evoMaterials[p.id]||0)+1;
+    return p.id;
+  }}
+  return null;
+}
 
 // ── SPELL DEFINITIONS ──
 const SPELLS={
@@ -12244,7 +12471,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -12316,6 +12543,8 @@ function loadGame(){
     // Load guild membership
     GS.guildId=d.guildId||null;
     GS.ascendedUnlocks=d.ascendedUnlocks||{};
+    // Load evolution materials
+    GS.evoMaterials=d.evoMaterials||{};
     // Rebuild ascended unlocks from prestige level for old saves
     if(GS.prestige>=11&&!Object.keys(GS.ascendedUnlocks).length){
       for(const u of ASCENDED_UNLOCKS){if(GS.prestige>=u.tier)GS.ascendedUnlocks[u.key]=true;}
@@ -13065,6 +13294,23 @@ function renderArmy(){
   if(crFillEl){const pctCR=Math.min(usedCR2/maxCR2*100,100);crFillEl.style.width=pctCR+'%';crFillEl.style.background=crOver?'linear-gradient(90deg,#dc2626,#f87171)':'linear-gradient(90deg,#1d4ed8,#60a5fa)';}
   if(crLabelEl){crLabelEl.textContent=`${usedCR2}/${maxCR2}`;crLabelEl.style.color=crOver?'#f87171':'#60a5fa';};
 
+  // ── Evolution Materials Inventory ──
+  const _evoMatBox=document.getElementById('evoMatBox');
+  if(_evoMatBox){
+    const _mats=GS.evoMaterials||{};
+    const _hasMats=Object.values(_mats).some(v=>v>0);
+    if(_hasMats){
+      let _matHtml='<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#c084fc;letter-spacing:1px;margin-bottom:4px">🧬 Evolution Materials</div><div style="display:flex;flex-wrap:wrap;gap:4px">';
+      for(const [k,v] of Object.entries(_mats)){
+        if(v<=0)continue;
+        const em=EVO_MATERIALS[k];if(!em)continue;
+        _matHtml+=`<div title="${em.desc}" style="background:#1e1b4b;border:1px solid #4c1d95;border-radius:4px;padding:2px 5px;font-size:9px;color:#e9d5ff">${em.ico} ${em.name} ×${v}</div>`;
+      }
+      _matHtml+='</div>';
+      _evoMatBox.innerHTML=_matHtml;_evoMatBox.style.display='block';
+    } else {_evoMatBox.innerHTML='';_evoMatBox.style.display='none';}
+  }
+
   const list=document.getElementById('armyList');list.innerHTML='';
   if(!GS.skeletons.length){list.innerHTML='<div style="font-style:italic;color:var(--dim);font-size:13px;padding:8px 0">No minions raised.</div>';return;}
 
@@ -13106,13 +13352,21 @@ function renderArmy(){
 function _buildArmyCard(s,i,cap,nodeId){
   const m=MINIONS[s.type];const isDead=s.hp<=0;
   const div=document.createElement('div');div.className='army-card'+(isDead?' dead-slot':'');
+  // Evolution tier info
+  const _cEvoT=getMinionEvoTier(i);
+  const _cEvoDef=MINION_EVOLUTIONS[s.type];
+  const _cTierLabel=_cEvoT>=2?'Ascended':_cEvoT===1?'Enhanced':'Base';
+  const _cTierCol=_cEvoT>=2?'#fbbf24':_cEvoT===1?'#a78bfa':'#9ca3af';
 
   const cv2=document.createElement('canvas');cv2.width=36;cv2.height=50;cv2.style.flexShrink='0';
 
   const infoDiv=document.createElement('div');infoDiv.className='ac-info';
-  const hpPct=Math.max(0,Math.round(s.hp/(m.maxHP||1)*100));
-  infoDiv.innerHTML=`<div class="ac-name">${m.name}</div>
-    <div class="ac-hp">HP: <span>${isDead?'DEAD':s.hp+'/'+m.maxHP+' ('+hpPct+'%)'}</span></div>
+  const _evoStats=_cEvoT>0?getEvolvedStats(s.type,_cEvoT):null;
+  const _dispHP=_evoStats?_evoStats.maxHP:m.maxHP;
+  const hpPct=Math.max(0,Math.round(s.hp/(_dispHP||1)*100));
+  const _evoTag=_cEvoDef?` <span style="color:${_cTierCol};font-size:8px">${_cEvoT>=2?'★★':_cEvoT===1?'★':''} ${_cTierLabel}</span>`:'';
+  infoDiv.innerHTML=`<div class="ac-name">${_evoStats?.name||m.name}${_evoTag}</div>
+    <div class="ac-hp">HP: <span>${isDead?'DEAD':s.hp+'/'+_dispHP+' ('+hpPct+'%)'}</span></div>
     ${nodeId?`<div style="font-size:9px;color:#86efac">📍 ${VILLAGE_NODES[nodeId]?.name||nodeId}</div>`:''}`;
 
   const btns=document.createElement('div');btns.className='ac-btns';
@@ -13137,6 +13391,23 @@ function _buildArmyCard(s,i,cap,nodeId){
         renderArmy();
       };
       btns.appendChild(raidBtn);
+    }
+    // Evolution button
+    if(_cEvoDef&&!nodeId){
+      const _canEvo=canEvolveMinion(i);
+      if(_canEvo.can){
+        const evoBtn=document.createElement('button');evoBtn.className='ac-btn';
+        evoBtn.style.cssText='background:#4c1d95;color:#e9d5ff;border:1px solid #7c3aed;font-size:9px';
+        evoBtn.textContent='🧬 Evolve';
+        evoBtn.onclick=()=>{evolveMinion(i);renderArmy();renderHub();};
+        btns.appendChild(evoBtn);
+      } else if(_cEvoT<2&&_canEvo.reason){
+        const evoInfo=document.createElement('div');
+        evoInfo.style.cssText='font-size:7px;color:#6b7280;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        evoInfo.textContent=_canEvo.reason;
+        evoInfo.title=_canEvo.reason;
+        btns.appendChild(evoInfo);
+      }
     }
     const refund=Math.floor(m.cost*.5);
     const brk=document.createElement('button');brk.className='ac-btn ac-break';
@@ -13744,10 +14015,13 @@ function initRaid(raidKey,floorNum,opts){
     const msp=safeSpawnPos(rawX, rawY, 5, grid);
     const mx=msp.x, my=msp.y;
     const _md=MINIONS[s.type]||{};
-    let _mhp=Math.round((_md.maxHP||20)*_lScale);
+    // Evolution: use evolved stats for HP if minion has evoTier
+    const _mEvoT=(s.evoTier||0);
+    const _mEvoStats=(_mEvoT>0)?getEvolvedStats(s.type,_mEvoT):null;
+    let _mhp=Math.round(((_mEvoStats?.maxHP||_md.maxHP||20))*_lScale);
     // Bone Armor Kit: +20% HP to all minions
     if(raidBuffs.minionHPBoost)_mhp=Math.round(_mhp*(1+raidBuffs.minionHPBoost));
-    const mk={type:s.type,ref:s,x:mx,y:my,tx:mx,ty:my,hp:_mhp,maxHP:_mhp,dmgBonus:Math.round((_md.dmg||5)*_lScale)-(_md.dmg||5),lat:0,dead:false,buffEnd:0};
+    const mk={type:s.type,ref:s,x:mx,y:my,tx:mx,ty:my,hp:_mhp,maxHP:_mhp,dmgBonus:Math.round(((_mEvoStats?.dmg||_md.dmg||5)*_lScale)-(_md.dmg||5)),lat:0,dead:false,buffEnd:0};
     // Restore individual AI mode from previous floor
     if(_prevMinionModes[s.i])mk._aiMode=_prevMinionModes[s.i];
     return mk;
@@ -16020,11 +16294,16 @@ function tickMinions(t,dt){
     // Dark Binding converted minion: expire after 30s
     if(mk._converted&&mk._convertExpire&&t>mk._convertExpire){mk.dead=true;RS.parts.push({k:'flt',x:mk.x,y:mk.y-20,txt:'⛓️ Faded',col:'#6b7280',life:1,ml:1,vy:-20});return;}
     // Boss minions use their own override stats instead of MINIONS table
-    const md=mk._overrideMd||MINIONS[mk.type];
+    // Evolution: use evolved stats if minion has evoTier > 0
+    const _baseMd=mk._overrideMd||MINIONS[mk.type];
+    if(!_baseMd)return;
+    const _skelIdx=(mk.ref&&mk.ref.i!=null)?mk.ref.i:null;
+    const _evoT=(_skelIdx!=null&&GS.skeletons[_skelIdx])?getMinionEvoTier(_skelIdx):0;
+    const md=(_evoT>0&&!mk._overrideMd)?getEvolvedStats(mk.type,_evoT):_baseMd;
     if(!md)return;
     const buffed=t<mk.buffEnd;
     const _mSpdBuff=RS.minionSpeed||0; // Minion Frenzy crafted buff
-    const spd=md.spd*(buffed?1.35:1)*(1+_mSpdBuff)*90*dt;
+    const spd=(md.spd||_baseMd.spd)*(buffed?1.35:1)*(1+_mSpdBuff)*90*dt;
     const dmgBonus=(buffed?10:0)+(GS.hasPassive(7)?10:0)+(mk.dmgBonus||0);
     const _sbM=GS._setBonus||getSetBonuses();
     const _dbM=(mk._debuffUntil&&t<mk._debuffUntil)?mk._debuffMult:1;
@@ -16659,6 +16938,15 @@ function onEnemyKilled(en,t){
       SND.loot();
     }
   }
+  // ── Evolution material drop ──
+  const _evoDiff=(RS.floorNum||1)>=4?'hard':(RS.floorNum||1)>=2?'medium':'easy';
+  const _evoMatId=rollEvoMatDrop(_evoDiff,false);
+  if(_evoMatId){
+    const _emDef=EVO_MATERIALS[_evoMatId];
+    if(_emDef){
+      RS.parts.push({k:'flt',x:en.x,y:en.y-30,txt:`${_emDef.ico} ${_emDef.name}`,col:'#a78bfa',life:1.8,ml:1.8,vy:-40});
+    }
+  }
   en.corpse=!GS.hasPassive(5)||Math.random()<.2?true:Math.random()<.5;
   en.deadAt=RS.lastTs/1000;
   // Dark Binding: convert first killed enemy into a temporary minion
@@ -16713,6 +17001,16 @@ function onBossKilled(){
       _bDropY-=25;
     }
   });
+  // ── Boss evolution material drops (guaranteed higher chance) ──
+  const _bEvoDiff=(RS.floorNum||1)>=4?'hard':(RS.floorNum||1)>=2?'medium':'easy';
+  const _bEvoMat=rollEvoMatDrop(_bEvoDiff,true);
+  if(_bEvoMat){
+    const _bEmDef=EVO_MATERIALS[_bEvoMat];
+    if(_bEmDef){
+      RS.parts.push({k:'flt',x:RS.boss.x,y:RS.boss.y+_bDropY,txt:`${_bEmDef.ico} ${_bEmDef.name}!`,col:'#c084fc',life:2.5,ml:2.5,vy:-40});
+      _bDropY-=25;
+    }
+  }
   // ── Check if boss has already been raised ──
   const bossKey=RS.cfg?.bossKey||(RS.raidKey==='cemetery'?'wight_lord':RS.raidKey==='forest'?'forest_hag':'lich');
   const bossAlreadyRaised=(GS.raisedBosses||[]).some(rb=>rb.bossKey===bossKey);
@@ -18513,8 +18811,23 @@ function drawMinion(mk,t){
     ctx.fillText(mk._overrideMd?.name||'Boss',mk.x,mk.y-48*sz);
     ctx.shadowBlur=0;ctx.textAlign='left';ctx.restore();
   } else {
-    ctx.save();ctx.translate(mk.x,mk.y);drawSprite(ctx,mk.type,0,0,.85,1,t,Math.sin(mk._wp||0),undefined,undefined,mk);ctx.restore();
-    hpBar(mk.x,mk.y-24,26,3,mk.hp/mk.maxHP,'#22c55e');
+    // Evolution tier visual aura
+    const _skelI=(mk.ref&&mk.ref.i!=null)?mk.ref.i:null;
+    const _et=(_skelI!=null&&GS.skeletons[_skelI])?getMinionEvoTier(_skelI):0;
+    if(_et>0){
+      const _eCols=_et>=2?['#f59e0b','#fbbf24']:['#818cf8','#a78bfa'];
+      const _eR=_et>=2?24:20;
+      try{const eg=ctx.createRadialGradient(mk.x,mk.y,3,mk.x,mk.y,_eR);eg.addColorStop(0,_eCols[0]+'44');eg.addColorStop(1,_eCols[1]+'00');ctx.fillStyle=eg;ctx.beginPath();ctx.arc(mk.x,mk.y,_eR,0,Math.PI*2);ctx.fill();}catch(e){}
+    }
+    const _evoScale=_et>=2?1.0:_et===1?0.92:0.85;
+    ctx.save();ctx.translate(mk.x,mk.y);drawSprite(ctx,mk.type,0,0,_evoScale,1,t,Math.sin(mk._wp||0),undefined,undefined,mk);ctx.restore();
+    const _hpCol=_et>=2?'#f59e0b':_et===1?'#818cf8':'#22c55e';
+    hpBar(mk.x,mk.y-24,26,3,mk.hp/mk.maxHP,_hpCol);
+    // Tier stars above HP bar
+    if(_et>0){
+      ctx.save();ctx.font='6px sans-serif';ctx.textAlign='center';ctx.fillStyle=_et>=2?'#fbbf24':'#a78bfa';
+      ctx.fillText(_et>=2?'★★':'★',mk.x,mk.y-28);ctx.restore();
+    }
   }
 }
 
