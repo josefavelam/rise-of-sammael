@@ -1079,12 +1079,22 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
     <div id="dailyRewardsContent"></div>
   </div>
 </div>
+<div id="eventShopPanel" onclick="if(event.target===this)closeEventShop()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.88);align-items:center;justify-content:center">
+  <div style="background:#1a1a2e;border:2px solid #f97316;border-radius:12px;padding:16px;max-width:420px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 0 30px rgba(249,115,22,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-family:Cinzel,serif;font-size:16px;color:#f97316">Event Shop</span>
+      <button onclick="closeEventShop()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer">&times;</button>
+    </div>
+    <div id="eventShopContent"></div>
+  </div>
+</div>
 
 <!-- Castle quick-menu overlay -->
 <div id="castleMenu" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
   <div style="font-family:'Press Start 2P',monospace;font-size:7px;color:#c084fc;margin-bottom:10px">☠ Dark Fortress</div>
   <button onclick="closeCastle_menu()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(168,85,247,.4);border-radius:2px;background:rgba(168,85,247,.1);color:#c084fc;cursor:pointer;-webkit-appearance:none">↩ Back to Room</button>
   <button onclick="closeCastle_menu();showCharacterSheet()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(252,211,77,.4);border-radius:2px;background:rgba(252,211,77,.1);color:#fcd34d;cursor:pointer;-webkit-appearance:none">📜 Character Sheet</button>
+      <button class="castle-btn" onclick="openEventShop()" id="eventShopBtn" style="display:none">🎃 Event Shop</button>
   <button onclick="closeCastle_menu();openCatacombs()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(107,114,128,.4);border-radius:2px;background:rgba(107,114,128,.08);color:#9ca3af;cursor:pointer;-webkit-appearance:none">🕯 Catacombs</button>
   <button onclick="closeCastle_menu();openVillage()" style="width:200px;padding:11px;font-family:'Press Start 2P',monospace;font-size:6px;border:1px solid rgba(34,197,94,.4);border-radius:2px;background:rgba(34,197,94,.1);color:#86efac;cursor:pointer;-webkit-appearance:none">🏘 Village</button>
   
@@ -5449,6 +5459,7 @@ GS.vilLastTick=0;      // timestamp of last resource tick (ms)
 //  DAILY LOGIN REWARDS & STREAK SYSTEM
 // ═══════════════════════════════════════════════════════
 GS.dailyRewards={lastClaim:0, streak:0, totalDays:0, dayInCycle:0};
+GS.seasonalEvents={}; // event progress, currency, quest kills, purchases
 
 const DAILY_REWARD_CYCLE=[
   {day:1, label:'Day 1', rewards:{bones:25, gold:5},  ico:'🦴'},
@@ -5606,6 +5617,421 @@ function renderDailyRewardsPanel(){
     html+=`<div style="text-align:center;margin-top:10px;font-size:10px;color:#ef4444">⚠️ Streak expired! Claim today to start a new one.</div>`;
   }
   ct.innerHTML=html;
+}
+
+
+// ═══════════════════════════════════════════════════════
+//  SEASONAL EVENTS SYSTEM
+// ═══════════════════════════════════════════════════════
+
+// Event calendar — data-driven, add new events by adding entries here
+const SEASONAL_EVENTS={
+  harvest_of_souls:{
+    id:'harvest_of_souls',
+    name:'Harvest of Souls',
+    subtitle:'The veil between worlds grows thin...',
+    startMonth:10, startDay:15, endMonth:11, endDay:5,
+    theme:{
+      primary:'#f97316', accent:'#ea580c', glow:'rgba(249,115,22,.4)',
+      bg:'rgba(30,10,0,.95)', particle:'#fdba74'
+    },
+    currency:{id:'candy_corn', name:'Candy Corn', ico:'🍬', color:'#f97316'},
+    pet:{
+      id:'jack_o_lantern',name:'Jack-o-Lantern Familiar',ico:'🎃',
+      desc:'A cackling pumpkin that hurls fire bolts at enemies. Deals fire damage scaling with INT mod.',
+      effect:'jackolantern',stats:{dmg:8,atkSpd:2.0,range:180,type:'ranged'}
+    },
+    enemies:[
+      {id:'pumpkin_zombie',name:'Pumpkin Zombie',hp:120,dmg:18,spd:55,xp:25,ico:'🎃',drops:{candy_corn:[2,5]}},
+      {id:'candy_ghost',name:'Candy Ghost',hp:80,dmg:25,spd:90,xp:30,ico:'👻',drops:{candy_corn:[3,6]}},
+      {id:'scarecrow',name:'Scarecrow Sentinel',hp:200,dmg:30,spd:40,xp:40,ico:'🌾',drops:{candy_corn:[4,8]}},
+      {id:'witch',name:'Cauldron Witch',hp:150,dmg:35,spd:60,xp:45,ico:'🧙',drops:{candy_corn:[5,10]}},
+      {id:'headless',name:'Headless Horseman',hp:350,dmg:50,spd:100,xp:80,ico:'🐴',drops:{candy_corn:[10,20]}}
+    ],
+    boss:{
+      id:'pumpkin_king',name:'The Pumpkin King',
+      hp:5000,dmg:80,spd:70,xp:500,ico:'👑',
+      phases:[
+        {hpPct:1.0, name:'Vine Assault', desc:'Summons vine tendrils that sweep the arena'},
+        {hpPct:0.5, name:'Inferno', desc:'Sets the arena ablaze — fire patches deal damage over time'},
+        {hpPct:0.2, name:'Harvest Moon', desc:'Goes berserk, 2x attack speed, summons pumpkin minions'}
+      ],
+      drops:{candy_corn:[50,100]}
+    },
+    quests:[
+      {id:'hos_q1',name:'Trick or Treat',desc:'Defeat 20 Pumpkin Zombies roaming the land.',type:'kill',target:'pumpkin_zombie',count:20,reward:{candy_corn:30,xp:200}},
+      {id:'hos_q2',name:'Ghost Busters',desc:'Banish 15 Candy Ghosts back beyond the veil.',type:'kill',target:'candy_ghost',count:15,reward:{candy_corn:40,xp:250}},
+      {id:'hos_q3',name:'The Witch Hunt',desc:'Destroy 10 Cauldron Witches and their foul brews.',type:'kill',target:'witch',count:10,reward:{candy_corn:50,xp:300}},
+      {id:'hos_q4',name:'Horseman Cometh',desc:'Challenge the Headless Horseman in single combat.',type:'kill',target:'headless',count:3,reward:{candy_corn:75,xp:500}},
+      {id:'hos_q5',name:'Dethrone the Pumpkin King',desc:'Defeat the Pumpkin King and claim his crown.',type:'kill',target:'pumpkin_king',count:1,reward:{candy_corn:200,xp:1000}}
+    ],
+    shop:[
+      {id:'hos_jack_pet',name:'Jack-o-Lantern Familiar',ico:'🎃',price:500,type:'pet',desc:'A fire-hurling pumpkin companion. Event exclusive!'},
+      {id:'hos_pumpkin_helm',name:'Pumpkin Helm',ico:'🎃',price:200,type:'cosmetic',slot:'head',desc:'A carved pumpkin headpiece. +5% candy corn drops.'},
+      {id:'hos_witch_staff',name:'Witch\'s Broom Staff',ico:'🧹',price:350,type:'equipment',slot:'staff',desc:'+15% spell damage during Harvest of Souls.',stats:{spellDmgBonus:0.15}},
+      {id:'hos_candy_bomb',name:'Candy Corn Bomb',ico:'💣',price:50,type:'consumable',desc:'Deals 200 AoE damage to all enemies on screen. Stackable.',val:200},
+      {id:'hos_soul_elixir',name:'Soul Elixir',ico:'🧪',price:100,type:'consumable',desc:'Restores 50% of max HP instantly.',val:0.5},
+      {id:'hos_castle_skin',name:'Haunted Castle Theme',ico:'🏚',price:800,type:'cosmetic',slot:'castle',desc:'Transform your castle into a haunted manor. Permanent.'},
+      {id:'hos_title',name:'Title: Pumpkin Slayer',ico:'📜',price:150,type:'cosmetic',slot:'title',desc:'Display "Pumpkin Slayer" under your name.'}
+    ],
+    // Enemy spawn chance during event: 30% of regular enemies replaced with event enemies
+    spawnRate:0.30,
+    // Bonus XP/loot multiplier during event
+    bonusXP:1.25,
+    bonusLoot:1.15
+  },
+  frost_siege:{
+    id:'frost_siege',
+    name:'Frost Siege',
+    subtitle:'Winter descends upon the realm...',
+    startMonth:12, startDay:15, endMonth:1, endDay:5,
+    theme:{primary:'#38bdf8',accent:'#0284c7',glow:'rgba(56,189,248,.4)',bg:'rgba(0,10,30,.95)',particle:'#bae6fd'},
+    currency:{id:'snowflake',name:'Snowflakes',ico:'❄',color:'#38bdf8'},
+    enemies:[],quests:[],shop:[],boss:null,pet:null,
+    spawnRate:0.30,bonusXP:1.20,bonusLoot:1.10
+  },
+  blood_moon:{
+    id:'blood_moon',
+    name:'Blood Moon Rising',
+    subtitle:'The crimson moon awakens ancient powers...',
+    startMonth:2, startDay:7, endMonth:2, endDay:21,
+    theme:{primary:'#ef4444',accent:'#dc2626',glow:'rgba(239,68,68,.4)',bg:'rgba(30,0,0,.95)',particle:'#fca5a5'},
+    currency:{id:'blood_rose',name:'Blood Roses',ico:'🌹',color:'#ef4444'},
+    enemies:[],quests:[],shop:[],boss:null,pet:null,
+    spawnRate:0.25,bonusXP:1.20,bonusLoot:1.10
+  },
+  void_convergence:{
+    id:'void_convergence',
+    name:'Void Convergence',
+    subtitle:'Portals tear open across the realm...',
+    startMonth:6, startDay:1, endMonth:6, endDay:21,
+    theme:{primary:'#a855f7',accent:'#7c3aed',glow:'rgba(168,85,247,.4)',bg:'rgba(15,0,30,.95)',particle:'#d8b4fe'},
+    currency:{id:'void_shard',name:'Void Shards',ico:'🔮',color:'#a855f7'},
+    enemies:[],quests:[],shop:[],boss:null,pet:null,
+    spawnRate:0.25,bonusXP:1.30,bonusLoot:1.20
+  }
+};
+
+// EventManager — handles detection, state, and coordination
+const EventManager={
+  _current:null,
+  _cache:{ts:0,result:null},
+
+  // Check if any event is active right now
+  getActiveEvent(){
+    const now=Date.now();
+    if(now-this._cache.ts<60000)return this._cache.result; // cache 1min
+    const d=new Date();
+    const m=d.getMonth()+1, day=d.getDate();
+    let found=null;
+    for(const key in SEASONAL_EVENTS){
+      const ev=SEASONAL_EVENTS[key];
+      if(this._isInRange(m,day,ev.startMonth,ev.startDay,ev.endMonth,ev.endDay)){
+        found=ev; break;
+      }
+    }
+    this._cache={ts:now,result:found};
+    this._current=found;
+    return found;
+  },
+
+  _isInRange(m,d,sm,sd,em,ed){
+    // Handle year-wrap (e.g. Dec 15 - Jan 5)
+    if(sm>em){
+      return (m>sm||(m===sm&&d>=sd))||(m<em||(m===em&&d<=ed));
+    }
+    if(m<sm||m>em)return false;
+    if(m===sm&&d<sd)return false;
+    if(m===em&&d>ed)return false;
+    return true;
+  },
+
+  isActive(){return this.getActiveEvent()!==null;},
+
+  // Get event-specific enemy pool for spawning
+  getEventEnemies(){
+    const ev=this.getActiveEvent();
+    return ev?ev.enemies:[];
+  },
+
+  // Should this spawn slot be an event enemy?
+  shouldSpawnEventEnemy(){
+    const ev=this.getActiveEvent();
+    if(!ev)return false;
+    return Math.random()<ev.spawnRate;
+  },
+
+  // Get XP multiplier from event
+  getXPMultiplier(){
+    const ev=this.getActiveEvent();
+    return ev?ev.bonusXP:1.0;
+  },
+
+  // Get loot multiplier from event
+  getLootMultiplier(){
+    const ev=this.getActiveEvent();
+    return ev?ev.bonusLoot:1.0;
+  },
+
+  // Get event currency drops from a killed event enemy
+  getCurrencyDrop(enemyId){
+    const ev=this.getActiveEvent();
+    if(!ev)return 0;
+    for(const e of ev.enemies){
+      if(e.id===enemyId&&e.drops){
+        const cur=e.drops[ev.currency.id];
+        if(cur)return cur[0]+Math.floor(Math.random()*(cur[1]-cur[0]+1));
+      }
+    }
+    if(ev.boss&&ev.boss.id===enemyId&&ev.boss.drops){
+      const cur=ev.boss.drops[ev.currency.id];
+      if(cur)return cur[0]+Math.floor(Math.random()*(cur[1]-cur[0]+1));
+    }
+    return 0;
+  },
+
+  // Get event state from save data
+  getState(){
+    if(!GS.seasonalEvents)GS.seasonalEvents={};
+    return GS.seasonalEvents;
+  },
+
+  // Get currency amount for active event
+  getCurrency(){
+    const ev=this.getActiveEvent();
+    if(!ev)return 0;
+    const st=this.getState();
+    return(st[ev.id]&&st[ev.id].currency)||0;
+  },
+
+  // Add currency for active event
+  addCurrency(amount){
+    const ev=this.getActiveEvent();
+    if(!ev||amount<=0)return;
+    const st=this.getState();
+    if(!st[ev.id])st[ev.id]={currency:0,questProgress:{},purchases:[],bossKills:0};
+    st[ev.id].currency+=amount;
+  },
+
+  // Spend currency (returns true if successful)
+  spendCurrency(amount){
+    if(this.getCurrency()<amount)return false;
+    const ev=this.getActiveEvent();
+    const st=this.getState();
+    st[ev.id].currency-=amount;
+    return true;
+  },
+
+  // Track quest kill progress
+  addKill(enemyId){
+    const ev=this.getActiveEvent();
+    if(!ev)return;
+    const st=this.getState();
+    if(!st[ev.id])st[ev.id]={currency:0,questProgress:{},purchases:[],bossKills:0};
+    const qp=st[ev.id].questProgress;
+    for(const q of ev.quests){
+      if(q.type==='kill'&&q.target===enemyId){
+        if(!qp[q.id])qp[q.id]={kills:0,complete:false};
+        if(!qp[q.id].complete){
+          qp[q.id].kills++;
+          if(qp[q.id].kills>=q.count){
+            qp[q.id].complete=true;
+            // Award rewards
+            if(q.reward.candy_corn)this.addCurrency(q.reward.candy_corn);
+            if(q.reward.xp)GS.addXP(q.reward.xp);
+            // Show notification
+            _eventQuestComplete(q);
+          }
+        }
+      }
+    }
+    // Track boss kills
+    if(ev.boss&&ev.boss.id===enemyId){
+      st[ev.id].bossKills=(st[ev.id].bossKills||0)+1;
+    }
+  },
+
+  // Check if an item was purchased
+  hasPurchased(itemId){
+    const ev=this.getActiveEvent();
+    if(!ev)return false;
+    const st=this.getState();
+    return st[ev.id]&&st[ev.id].purchases&&st[ev.id].purchases.includes(itemId);
+  },
+
+  // Record a purchase
+  recordPurchase(itemId){
+    const ev=this.getActiveEvent();
+    if(!ev)return;
+    const st=this.getState();
+    if(!st[ev.id])st[ev.id]={currency:0,questProgress:{},purchases:[],bossKills:0};
+    if(!st[ev.id].purchases)st[ev.id].purchases=[];
+    st[ev.id].purchases.push(itemId);
+  },
+
+  // Get time remaining for current event
+  getTimeRemaining(){
+    const ev=this.getActiveEvent();
+    if(!ev)return null;
+    const now=new Date();
+    const year=now.getFullYear();
+    let endDate=new Date(year,ev.endMonth-1,ev.endDay,23,59,59);
+    // If end month < start month, event wraps year
+    if(ev.endMonth<ev.startMonth)endDate=new Date(year+1,ev.endMonth-1,ev.endDay,23,59,59);
+    if(endDate<now)return null;
+    const ms=endDate-now;
+    const days=Math.floor(ms/86400000);
+    const hours=Math.floor((ms%86400000)/3600000);
+    return{days,hours,total:ms};
+  }
+};
+
+// Quest completion notification
+function _eventQuestComplete(quest){
+  const ev=EventManager.getActiveEvent();
+  if(!ev)return;
+  const ov=document.getElementById('overlay')||document.body;
+  const notif=document.createElement('div');
+  notif.style.cssText='position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:9999;padding:12px 24px;border-radius:8px;font-family:"Press Start 2P",monospace;font-size:6px;text-align:center;pointer-events:none;animation:cpStatPop .4s ease-out;border:2px solid '+ev.theme.primary+';background:'+ev.theme.bg+';color:'+ev.theme.primary+';box-shadow:0 0 20px '+ev.theme.glow;
+  notif.innerHTML='<div style="font-size:8px;margin-bottom:4px">'+ev.currency.ico+' EVENT QUEST COMPLETE!</div><div style="color:#d4c8a8">'+quest.name+'</div>';
+  document.body.appendChild(notif);
+  setTimeout(()=>{notif.style.transition='opacity .5s';notif.style.opacity='0';setTimeout(()=>notif.remove(),520);},3000);
+}
+
+// ── Event Shop Panel ──
+function openEventShop(){
+  const ev=EventManager.getActiveEvent();
+  if(!ev){return;}
+  SND.menuOpen();
+  const panel=document.getElementById('eventShopPanel');
+  if(!panel)return;
+  panel.style.display='flex';
+  renderEventShop();
+}
+function closeEventShop(){
+  SND.menuClose();
+  const el=document.getElementById('eventShopPanel');
+  if(el)el.style.display='none';
+}
+function renderEventShop(){
+  const ev=EventManager.getActiveEvent();
+  if(!ev)return;
+  const cont=document.getElementById('eventShopContent');
+  if(!cont)return;
+  const currency=EventManager.getCurrency();
+  const remaining=EventManager.getTimeRemaining();
+  const timeStr=remaining?remaining.days+'d '+remaining.hours+'h':'Event ending soon!';
+  let html='<div style="text-align:center;margin-bottom:8px">';
+  html+='<div style="font-family:Cinzel,serif;font-size:18px;color:'+ev.theme.primary+';text-shadow:0 0 10px '+ev.theme.glow+'">'+ev.name+'</div>';
+  html+='<div style="font-size:11px;color:#a0a0a0;margin:4px 0">'+ev.subtitle+'</div>';
+  html+='<div style="font-size:13px;margin:6px 0">'+ev.currency.ico+' <span style="color:'+ev.currency.color+';font-weight:bold">'+currency+'</span> '+ev.currency.name+'</div>';
+  html+='<div style="font-size:10px;color:#888">⏳ '+timeStr+' remaining</div>';
+  html+='</div><hr style="border-color:'+ev.theme.primary+'33;margin:8px 0">';
+
+  // Shop items
+  for(const item of ev.shop){
+    const owned=EventManager.hasPurchased(item.id);
+    const canBuy=currency>=item.price&&!owned;
+    const btnStyle=owned?'background:#333;color:#666;cursor:default':canBuy?'background:'+ev.theme.primary+';color:#000;cursor:pointer':'background:#333;color:#666;cursor:not-allowed';
+    const btnText=owned?'OWNED':canBuy?'BUY':''+item.price+' '+ev.currency.ico;
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:8px;margin:4px 0;background:rgba(255,255,255,.05);border-radius:6px;border:1px solid '+ev.theme.primary+'22">';
+    html+='<span style="font-size:24px">'+item.ico+'</span>';
+    html+='<div style="flex:1"><div style="color:#e0d8c0;font-size:12px;font-weight:bold">'+item.name+'</div>';
+    html+='<div style="color:#888;font-size:10px;margin-top:2px">'+item.desc+'</div>';
+    html+='<div style="color:'+ev.currency.color+';font-size:11px;margin-top:2px">'+ev.currency.ico+' '+item.price+'</div></div>';
+    html+='<button onclick="buyEventItem(\''+item.id+'\')" style="'+btnStyle+';border:none;padding:6px 12px;border-radius:4px;font-size:11px;font-weight:bold">'+btnText+'</button>';
+    html+='</div>';
+  }
+
+  // Event quests
+  html+='<hr style="border-color:'+ev.theme.primary+'33;margin:8px 0">';
+  html+='<div style="font-family:Cinzel,serif;font-size:14px;color:'+ev.theme.primary+';margin-bottom:6px">Event Quests</div>';
+  const st=EventManager.getState();
+  const qp=(st[ev.id]&&st[ev.id].questProgress)||{};
+  for(const q of ev.quests){
+    const prog=qp[q.id]||{kills:0,complete:false};
+    const pct=Math.min(100,Math.floor(prog.kills/q.count*100));
+    const color=prog.complete?'#22c55e':ev.theme.primary;
+    html+='<div style="padding:6px 8px;margin:3px 0;background:rgba(255,255,255,.03);border-radius:4px;border-left:3px solid '+color+'">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#d4c8a8;font-size:11px">'+q.name+'</span>';
+    html+='<span style="color:'+color+';font-size:10px">'+(prog.complete?'✓ DONE':prog.kills+'/'+q.count)+'</span></div>';
+    html+='<div style="color:#888;font-size:9px;margin-top:2px">'+q.desc+'</div>';
+    if(!prog.complete){
+      html+='<div style="margin-top:3px;height:3px;background:#333;border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:2px"></div></div>';
+    }
+    html+='<div style="color:#a0a0a0;font-size:9px;margin-top:2px">Reward: '+ev.currency.ico+' '+(q.reward.candy_corn||q.reward[ev.currency.id]||0)+' + '+q.reward.xp+' XP</div>';
+    html+='</div>';
+  }
+  cont.innerHTML=html;
+}
+
+function buyEventItem(itemId){
+  const ev=EventManager.getActiveEvent();
+  if(!ev)return;
+  const item=ev.shop.find(i=>i.id===itemId);
+  if(!item)return;
+  if(EventManager.hasPurchased(itemId)){return;}
+  if(!EventManager.spendCurrency(item.price)){
+    SND.error();return;
+  }
+  EventManager.recordPurchase(itemId);
+  SND.levelUp();
+  // Apply item effect
+  if(item.type==='pet'&&ev.pet){
+    if(!GS.inv.familiars)GS.inv.familiars=new Set();
+    if(GS.inv.familiars instanceof Array)GS.inv.familiars=new Set(GS.inv.familiars);
+    GS.inv.familiars.add(ev.pet.id);
+  }
+  if(item.type==='cosmetic'){
+    if(!GS.cosmetics)GS.cosmetics={};
+    GS.cosmetics[item.slot]=item.id;
+  }
+  renderEventShop();
+}
+
+// ── Event Banner (shown in castle/village when event is active) ──
+function drawEventBanner(ctx,x,y,w){
+  const ev=EventManager.getActiveEvent();
+  if(!ev)return 0;
+  const remaining=EventManager.getTimeRemaining();
+  if(!remaining)return 0;
+  const h=36;
+  // Banner background
+  ctx.save();
+  ctx.fillStyle=ev.theme.bg;
+  ctx.strokeStyle=ev.theme.primary;
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.roundRect(x,y,w,h,6);
+  ctx.fill();ctx.stroke();
+  // Glow
+  ctx.shadowColor=ev.theme.glow;ctx.shadowBlur=10;
+  ctx.strokeStyle=ev.theme.accent;ctx.lineWidth=1;
+  ctx.beginPath();ctx.roundRect(x+1,y+1,w-2,h-2,5);ctx.stroke();
+  ctx.shadowBlur=0;
+  // Event name
+  ctx.fillStyle=ev.theme.primary;
+  ctx.font='bold 10px Cinzel,serif';
+  ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(ev.currency.ico+' '+ev.name+' '+ev.currency.ico,x+w/2,y+4);
+  // Time remaining
+  ctx.fillStyle='#ccc';
+  ctx.font='8px "Press Start 2P",monospace';
+  ctx.fillText(remaining.days+'d '+remaining.hours+'h left  |  '+ev.currency.ico+' '+EventManager.getCurrency(),x+w/2,y+20);
+  ctx.restore();
+  return h+4;
+}
+
+// ── Event HUD indicator (top of screen during raids) ──
+function drawEventHUD(ctx,x,y){
+  const ev=EventManager.getActiveEvent();
+  if(!ev)return;
+  ctx.save();
+  ctx.fillStyle=ev.theme.primary;
+  ctx.font='7px "Press Start 2P",monospace';
+  ctx.textAlign='right';ctx.textBaseline='top';
+  ctx.fillText(ev.currency.ico+' '+EventManager.getCurrency(),x,y);
+  ctx.restore();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -14960,7 +15386,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,tutorial:GS.tutorial||null,analyticsConsent:GS.analyticsConsent||false,abilityScores:GS.abilityScores||{STR:8,DEX:12,CON:14,INT:16,WIS:13,CHA:10},feats:GS.feats||[],asiChoices:GS.asiChoices||{},racialTraitsActive:GS.racialTraitsActive!==false,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},pvpWins:GS.pvpWins||0,pvpLosses:GS.pvpLosses||0,pvpCurrency:GS.pvpCurrency||0,pvpRating:GS.pvpRating||1000,pvpTitles:GS.pvpTitles||[],pvpCosmetics:GS.pvpCosmetics||{},hbBestWave:GS.hbBestWave||0,totalEnemiesKilled:GS.totalEnemiesKilled||0,fastestBossClears:GS.fastestBossClears||{},lbName:GS.lbName||'',guildId:GS.guildId||null,ascendedUnlocks:GS.ascendedUnlocks||{},evoMaterials:GS.evoMaterials||{},ngPlusStats:GS.ngPlusStats||null,tutorial:GS.tutorial||null,analyticsConsent:GS.analyticsConsent||false,abilityScores:GS.abilityScores||{STR:8,DEX:12,CON:14,INT:16,WIS:13,CHA:10},feats:GS.feats||[],asiChoices:GS.asiChoices||{},racialTraitsActive:GS.racialTraitsActive!==false,seasonalEvents:GS.seasonalEvents||{},savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -15043,6 +15469,7 @@ function loadGame(){
     GS.feats=d.feats||[];
     GS.asiChoices=d.asiChoices||{};
     GS.racialTraitsActive=d.racialTraitsActive!==false;
+    GS.seasonalEvents=d.seasonalEvents||{};
     // Apply racial bonuses to old saves that don't have them yet
     if(!d.abilityScores){
       GS.abilityScores.CON+=RACIAL_BONUS.CON;
@@ -19542,6 +19969,7 @@ function hitTarget(tgt,dmg,fx,fy,ranged,t,attacker){
 
 function onEnemyKilled(en,t){
   GS.totalEnemiesKilled=(GS.totalEnemiesKilled||0)+1;
+  if(EventManager.isActive()){const _evDrop=EventManager.getCurrencyDrop(en.type||'');if(_evDrop>0)EventManager.addCurrency(_evDrop);EventManager.addKill(en.type||'');}
   Analytics.enemyKills(1);
   SND.enemyDeath();
   // Thundergod: pause drain on kill by player (necro attacked recently)
@@ -26895,6 +27323,7 @@ function openCastle_fromHub() {
 }
 function closeCastle() { stopCastleRoom(); renderHub(); showScreen('hub'); }
 function openCastle_menu(){const m=document.getElementById('castleMenu');if(m)m.style.display='flex';const nb=document.getElementById('necropolisMenuBtn');if(nb)nb.style.display=isNecropolisUnlocked()?'':'none';}
+  const _evBtn=document.getElementById('eventShopBtn');if(_evBtn)_evBtn.style.display=EventManager.isActive()?'':'none';
 function closeCastle_menu(){const m=document.getElementById('castleMenu');if(m)m.style.display='none';}
 
 function startCastleRoom() {
