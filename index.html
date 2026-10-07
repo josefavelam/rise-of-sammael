@@ -28917,6 +28917,499 @@ showSummary = function() {
   _origShowSummary();
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+//  CO-OP STABILITY PASS v4 — Reconnection, Quality Indicator, Edge Cases
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── AUTO-RECONNECT: Guest attempts to rejoin on brief host disconnects ──────
+// Instead of immediately destroying the session, guest gets a 12-second window
+// to reconnect. Host already supports welcome_back for reconnecting guests.
+
+const _RECONNECT_MAX_ATTEMPTS = 6;
+const _RECONNECT_INTERVAL_MS  = 2000; // 2s between attempts → 12s total window
+let _reconnectState = null;
+
+function _startGuestReconnect() {
+  if (!MP || MP.role !== 'host') {
+    // Only guests reconnect; hosts don't need to (they own the session)
+  }
+  if (_reconnectState) return; // already reconnecting
+
+  const code = MP?.code;
+  const raidKey = MP?.raidKey;
+  const playerIdx = MP?.playerIdx;
+  const started = MP?.started;
+  const peerId = MP?.peerId;
+
+  if (!code || !started) {
+    // Not in an active raid — just disconnect normally
+    showToast('🐦 Host disconnected');
+    _mpDestroy();
+    openCastle();
+    return;
+  }
+
+  // Save guest's current progress before attempting reconnect
+  _saveGuestProgressSnapshot();
+
+  _reconnectState = {
+    code, raidKey, playerIdx, peerId,
+    attempt: 0,
+    maxAttempts: _RECONNECT_MAX_ATTEMPTS,
+    timer: null,
+  };
+
+  // Show reconnection overlay
+  _showReconnectOverlay();
+
+  // Destroy old peer cleanly (the connection is already dead)
+  if (MP?.peer) { try { MP.peer.destroy(); } catch(_) {} }
+
+  // Start first attempt
+  _attemptReconnect();
+}
+
+function _attemptReconnect() {
+  if (!_reconnectState) return;
+  _reconnectState.attempt++;
+
+  if (_reconnectState.attempt > _reconnectState.maxAttempts) {
+    // All attempts exhausted — give up
+    _hideReconnectOverlay();
+    _applyGuestProgressSnapshot(); // save what we had before disconnect
+    showToast('🐦 Could not reconnect to host');
+    _reconnectState = null;
+    _mpDestroy();
+    openCastle();
+    return;
+  }
+
+  _updateReconnectOverlay(_reconnectState.attempt, _reconnectState.maxAttempts);
+
+  const code = _reconnectState.code;
+  const peer = new Peer(undefined, { debug: 0 });
+
+  peer.on('open', myId => {
+    const conn = peer.connect('NECRO-' + code, { reliable: true });
+
+    conn.on('open', () => {
+      // Send hello with code — host will verify and send welcome_back
+      try { conn.send({ type: 'hello', code, necroName: GS.necroName || 'Ally' }); } catch(_) {}
+    });
+
+    conn.on('data', data => {
+      if (data?.type === 'welcome_back' || data?.type === 'lobby') {
+        // Reconnected successfully!
+        _hideReconnectOverlay();
+
+        MP = {
+          role: 'guest', peer, peerId: myId, code,
+          raidKey: _reconnectState.raidKey,
+          playerIdx: data.playerIdx ?? _reconnectState.playerIdx,
+          players: data.players || [], conns: [], hostConn: conn,
+          started: true, _remoteNecros: {},
+        };
+        _reconnectState = null;
+
+        if (data.type === 'welcome_back') {
+          showScreen('raid');
+          _initRaidFromHostData(data);
+          // Restore HP from snapshot if we had one
+          if (_guestProgressSnapshot && RS && RS.necro) {
+            RS.necro.hp = Math.min(RS.necro.maxHP, _guestProgressSnapshot.necroHP || RS.necro.hp);
+          }
+          _guestProgressSnapshot = null;
+          flash('✓ Reconnected to host!', 14, '#86efac');
+        } else {
+          // Back in lobby (host must have restarted)
+          showScreen('coopLobby');
+          _lobbyRender();
+          showToast('✓ Reconnected — back in lobby');
+        }
+
+        // Set up normal data handler
+        conn.on('data', d => _guestOnData(d));
+        conn.on('close', () => {
+          if (!MP?.started) { showToast('🐦 Disconnected'); closeAviary(); }
+          else _startGuestReconnect();
+        });
+        return;
+      }
+      // Not a welcome — route normally once reconnected
+      _guestOnData(data);
+    });
+
+    conn.on('error', () => {
+      // This attempt failed — try again after delay
+      try { peer.destroy(); } catch(_) {}
+      _reconnectState.timer = setTimeout(_attemptReconnect, _RECONNECT_INTERVAL_MS);
+    });
+
+    // If connection doesn't open in 3 seconds, try again
+    const openTimeout = setTimeout(() => {
+      try { peer.destroy(); } catch(_) {}
+      if (_reconnectState) {
+        _reconnectState.timer = setTimeout(_attemptReconnect, _RECONNECT_INTERVAL_MS);
+      }
+    }, 3000);
+
+    conn.on('open', () => clearTimeout(openTimeout));
+  });
+
+  peer.on('error', () => {
+    try { peer.destroy(); } catch(_) {}
+    if (_reconnectState) {
+      _reconnectState.timer = setTimeout(_attemptReconnect, _RECONNECT_INTERVAL_MS);
+    }
+  });
+}
+
+function _cancelReconnect() {
+  if (_reconnectState?.timer) clearTimeout(_reconnectState.timer);
+  _hideReconnectOverlay();
+  _applyGuestProgressSnapshot();
+  _reconnectState = null;
+  _mpDestroy();
+  openCastle();
+}
+
+// Reconnect overlay UI
+function _showReconnectOverlay() {
+  let ov = document.getElementById('mpReconnectOverlay');
+  if (ov) { ov.style.display = 'flex'; return; }
+  ov = document.createElement('div');
+  ov.id = 'mpReconnectOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.82);gap:16px;font-family:"Cinzel",serif';
+  ov.innerHTML = `
+    <div style="font-size:24px;animation:pulse 1.5s infinite">🐦</div>
+    <div style="color:#fcd34d;font-size:14px">Connection lost — reconnecting…</div>
+    <div id="mpReconnectProgress" style="color:#9ca3af;font-size:11px">Attempt 1/${_RECONNECT_MAX_ATTEMPTS}</div>
+    <div style="width:180px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-top:4px">
+      <div id="mpReconnectBar" style="width:0%;height:100%;background:#818cf8;transition:width .3s"></div>
+    </div>
+    <button onclick="_cancelReconnect()" style="margin-top:12px;padding:8px 20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#f87171;border-radius:8px;font-family:'Cinzel',serif;font-size:11px;cursor:pointer">Give Up</button>
+  `;
+  document.body.appendChild(ov);
+}
+
+function _updateReconnectOverlay(attempt, max) {
+  const prog = document.getElementById('mpReconnectProgress');
+  if (prog) prog.textContent = `Attempt ${attempt}/${max}`;
+  const bar = document.getElementById('mpReconnectBar');
+  if (bar) bar.style.width = Math.round(attempt / max * 100) + '%';
+}
+
+function _hideReconnectOverlay() {
+  const ov = document.getElementById('mpReconnectOverlay');
+  if (ov) ov.style.display = 'none';
+}
+
+// ── GUEST PROGRESS SNAPSHOT: Save state on disconnect to prevent loss ────────
+let _guestProgressSnapshot = null;
+
+function _saveGuestProgressSnapshot() {
+  if (!RS || !GS) return;
+  _guestProgressSnapshot = {
+    necroHP:     RS.necro?.hp || GS.necroHP,
+    necroMaxHP:  RS.necro?.maxHP || GS.necroMaxHP,
+    bonesGained: RS.bonesGained || 0,
+    xpGained:    RS.xpGained || 0,
+    wGained:     RS.wGained || {},
+    floorNum:    RS.floorNum || 1,
+    raidKey:     RS.raidKey || '',
+  };
+}
+
+function _applyGuestProgressSnapshot() {
+  if (!_guestProgressSnapshot) return;
+  // Apply partial loot — guest keeps what was earned up to disconnect
+  const snap = _guestProgressSnapshot;
+  const partyDiv = Math.max(1, MP?._partyCount || 2);
+  const bonesShare = Math.floor(snap.bonesGained / partyDiv);
+  const xpShare    = Math.floor(snap.xpGained / partyDiv);
+  if (bonesShare > 0) GS.bones = (GS.bones || 0) + bonesShare;
+  if (xpShare > 0)    GS.necroXP = (GS.necroXP || 0) + xpShare;
+  GS.necroHP = Math.max(1, snap.necroHP);
+  saveGame(false);
+  if (bonesShare > 0 || xpShare > 0) {
+    showToast(`Saved progress: +${bonesShare} bones, +${xpShare} XP`);
+  }
+  _guestProgressSnapshot = null;
+}
+
+// ── Patch guest disconnect handler to use auto-reconnect ────────────────────
+// The original conn.on('close') at line ~28989-28991 fires _guestOnData's
+// internal reference. We re-patch _guestOnData's close handler here.
+// Since we can't retroactively change event listeners on the original conn,
+// we patch the aviaryJoin function to use the new reconnect logic.
+const _origAviaryJoin = aviaryJoin;
+aviaryJoin = function() {
+  const code = (document.getElementById('aviaryCode')?.value || '').toUpperCase().trim();
+  if (code.length !== 6) { showToast('Enter the 6-letter code'); return; }
+  _mpSetStatus('🐦 Seeking the raven…');
+
+  const peer = new Peer(undefined, { debug: 0 });
+  peer.on('open', myId => {
+    MP = {
+      role: 'guest', peer, peerId: myId, code,
+      raidKey: 'cemetery', playerIdx: 1,
+      players: [], conns: [], hostConn: null,
+      started: false, _remoteNecros: {},
+    };
+
+    const conn = peer.connect('NECRO-' + code, { reliable: true });
+    MP.hostConn = conn;
+
+    conn.on('open', () => {
+      _mpSetStatus('✓ Connected — authenticating…');
+      try { conn.send({ type: 'hello', code, necroName: GS.necroName || 'Ally' }); } catch(_) {}
+    });
+    conn.on('data', data => _guestOnData(data));
+    conn.on('close', () => {
+      if (!MP?.started) { showToast('🐦 Disconnected'); closeAviary(); }
+      else _startGuestReconnect(); // ← auto-reconnect instead of immediate destroy
+    });
+    conn.on('error', e => { _mpSetStatus('❌ Could not connect. Check the code.'); console.error(e); });
+  });
+  peer.on('error', e => { _mpSetStatus('❌ Connection failed. Check code.'); console.error(e); });
+};
+
+// ── CONNECTION QUALITY INDICATOR ─────────────────────────────────────────────
+// Tracks round-trip latency via periodic ping/pong messages.
+// Displays signal strength bars in the raid HUD.
+
+let _mpPingState = { lastPing: 0, latency: -1, samples: [], _interval: null };
+
+function _mpStartPingLoop() {
+  if (_mpPingState._interval) clearInterval(_mpPingState._interval);
+  _mpPingState = { lastPing: 0, latency: -1, samples: [], _interval: null };
+
+  _mpPingState._interval = setInterval(() => {
+    if (!MP?.started) { _mpStopPingLoop(); return; }
+    _mpPingState.lastPing = Date.now();
+    const pingMsg = { type: '_ping', t: _mpPingState.lastPing };
+    if (MP.role === 'guest' && MP.hostConn) {
+      try { MP.hostConn.send(pingMsg); } catch(_) {}
+    } else if (MP.role === 'host') {
+      MP.conns.forEach(c => { try { c.send(pingMsg); } catch(_) {} });
+    }
+  }, 2000); // ping every 2 seconds
+}
+
+function _mpStopPingLoop() {
+  if (_mpPingState._interval) clearInterval(_mpPingState._interval);
+  _mpPingState._interval = null;
+}
+
+function _mpHandlePong(sendTime) {
+  const rtt = Date.now() - sendTime;
+  _mpPingState.samples.push(rtt);
+  if (_mpPingState.samples.length > 10) _mpPingState.samples.shift();
+  // Rolling average
+  _mpPingState.latency = Math.round(
+    _mpPingState.samples.reduce((a, b) => a + b, 0) / _mpPingState.samples.length
+  );
+}
+
+// Inject ping/pong handling into host and guest data handlers
+const _origHostOnData2 = _hostOnData;
+_hostOnData = function(data, fromPeerId) {
+  if (data?.type === '_ping') {
+    // Respond with pong
+    const conn = MP?.conns?.find(c => c.peer === fromPeerId);
+    if (conn) try { conn.send({ type: '_pong', t: data.t }); } catch(_) {}
+    return;
+  }
+  if (data?.type === '_pong') {
+    _mpHandlePong(data.t);
+    return;
+  }
+  _origHostOnData2(data, fromPeerId);
+};
+
+const _origGuestOnData2 = _guestOnData;
+_guestOnData = function(data) {
+  if (data?.type === '_ping') {
+    if (MP?.hostConn) try { MP.hostConn.send({ type: '_pong', t: data.t }); } catch(_) {}
+    return;
+  }
+  if (data?.type === '_pong') {
+    _mpHandlePong(data.t);
+    return;
+  }
+  _origGuestOnData2(data);
+};
+
+// Start ping loop when raid starts (patch _checkAllReady for host, aviaryJoin data handler for guest)
+const _origCheckAllReady = _checkAllReady;
+_checkAllReady = function() {
+  _origCheckAllReady();
+  if (MP?.started) _mpStartPingLoop();
+};
+
+// Guest: start ping when receiving 'start' message — already handled by _guestOnData
+// We patch the start handler via the loop that calls _guestSendInput
+const _origLoop2 = loop;
+loop = function(ts) {
+  _origLoop2(ts);
+  // Start ping loop on first tick after raid starts (both host and guest)
+  if (MP?.started && !_mpPingState._interval) _mpStartPingLoop();
+};
+
+// Draw connection quality indicator in raid HUD
+function _drawConnectionQuality(ctx, x, y) {
+  if (!MP?.started) return;
+  const lat = _mpPingState.latency;
+  const bars = lat < 0 ? 0 : lat < 80 ? 4 : lat < 150 ? 3 : lat < 300 ? 2 : 1;
+  const colors = ['#ef4444', '#ef4444', '#f59e0b', '#86efac', '#22c55e'];
+  const barColor = colors[bars] || '#ef4444';
+  const labelColor = lat < 0 ? '#4b5563' : barColor;
+
+  ctx.save();
+  // Draw 4 bars of increasing height
+  for (let i = 0; i < 4; i++) {
+    const bh = 4 + i * 3; // heights: 4, 7, 10, 13
+    const bx = x + i * 5;
+    const by = y + 13 - bh;
+    ctx.fillStyle = i < bars ? barColor : 'rgba(255,255,255,.12)';
+    ctx.fillRect(bx, by, 3, bh);
+  }
+  // Latency text
+  ctx.font = '9px monospace';
+  ctx.fillStyle = labelColor;
+  ctx.textAlign = 'left';
+  ctx.fillText(lat < 0 ? '...' : lat + 'ms', x + 24, y + 12);
+  ctx.restore();
+}
+
+// Inject connection quality drawing into the raid HUD
+// We hook into the existing loop to draw it after the main HUD renders
+const _origLoop3 = loop;
+loop = function(ts) {
+  _origLoop3(ts);
+  if (!MP?.started || !RS) return;
+  const canvas = document.getElementById('gameCanvas');
+  if (!canvas) return;
+  const _ctx = canvas.getContext('2d');
+  if (!_ctx) return;
+  // Draw in top-right area, below boss bar
+  _drawConnectionQuality(_ctx, canvas.width - 70, 8);
+};
+
+// ── LOOT DIVISION ROUNDING FIX ──────────────────────────────────────────────
+// Ensure consistent Math.floor for bone/XP division across host and guest.
+// The showSummary function already divides, but we patch to ensure floor is used.
+const _origShowSummary2 = showSummary;
+showSummary = function() {
+  // Normalize loot values with Math.floor before summary runs
+  if (RS && MP?.started) {
+    const partyCount = Math.max(1, MP._partyCount || MP.players?.length || 1);
+    if (partyCount > 1) {
+      RS.bonesGained = Math.floor((RS.bonesGained || 0) / partyCount) * partyCount;
+      RS.xpGained    = Math.floor((RS.xpGained || 0) / partyCount) * partyCount;
+    }
+  }
+  _origShowSummary2();
+};
+
+// ── HOST DISCONNECT MID-BOSS: Enhanced handling ─────────────────────────────
+// When host disconnects during a boss fight, guest saves the boss kill progress
+// and floor state so the player doesn't lose everything.
+// (Already handled by _saveGuestProgressSnapshot + auto-reconnect above.)
+// Additional: if reconnect fails and boss was dead, credit the victory.
+const _origApplyGuestProgress = _applyGuestProgressSnapshot;
+_applyGuestProgressSnapshot = function() {
+  if (!_guestProgressSnapshot) return;
+  const snap = _guestProgressSnapshot;
+
+  // Check if boss was dead when we disconnected — if so, count it as a win
+  if (RS?.boss?.dead && RS?.isFinalFloor && RS?.raidKey) {
+    const cfg = RAID_CONFIGS[RS.raidKey];
+    if (cfg?.regionId) {
+      const diff = RS.raidKey.replace(cfg.regionId + '_', '');
+      if (!GS.conquered[cfg.regionId]) GS.conquered[cfg.regionId] = {};
+      if (!GS.conquered[cfg.regionId][diff]) {
+        GS.conquered[cfg.regionId][diff] = true;
+        showToast('🏆 Victory preserved — raid conquered!');
+      }
+    }
+  }
+
+  _origApplyGuestProgress();
+};
+
+// ── FLOOR TRANSITION DESYNC GUARD ───────────────────────────────────────────
+// When guest receives floor_change, validate the floor number is sequential.
+// If it's not, request a full resync from host.
+const _origGuestOnData3 = _guestOnData;
+_guestOnData = function(data) {
+  if (data?.type === 'floor_change' && MP?.started && RS) {
+    const expectedFloor = (RS.floorNum || 1) + 1;
+    const receivedFloor = data.floorNum || 1;
+    // If floor jumped more than 1 ahead, it might be a desync
+    if (receivedFloor > expectedFloor + 1) {
+      console.warn('[Co-op] Floor desync detected: expected ~' + expectedFloor + ' got ' + receivedFloor);
+      // Request full state resync from host
+      if (MP.hostConn) {
+        try { MP.hostConn.send({ type: 'request_resync' }); } catch(_) {}
+      }
+    }
+  }
+  _origGuestOnData3(data);
+};
+
+// Host: handle resync request from guest
+const _origHostOnData3 = _hostOnData;
+_hostOnData = function(data, fromPeerId) {
+  if (data?.type === 'request_resync' && MP?.role === 'host' && MP.started && RS) {
+    const conn = MP.conns.find(c => c.peer === fromPeerId);
+    const player = MP.players.find(p => p.id === fromPeerId);
+    if (conn && player) {
+      MP._mapData = _serializeMap();
+      try {
+        conn.send({
+          type: 'welcome_back',
+          raidKey: MP.raidKey,
+          playerIdx: player.playerIdx,
+          mapData: MP._mapData,
+          floorNum: RS.floorNum,
+          floorTotal: RS.floorTotal,
+          isFinalFloor: RS.isFinalFloor,
+        });
+      } catch(_) {}
+    }
+    return;
+  }
+  _origHostOnData3(data, fromPeerId);
+};
+
+// ── HOST: Detect stale guest connections and clean up ────────────────────────
+// If a guest hasn't sent input for 10 seconds, consider them disconnected.
+// This prevents ghost players from staying in the party.
+const _GUEST_STALE_TIMEOUT = 10000;
+const _origHostBroadcastState = _hostBroadcastState;
+_hostBroadcastState = function() {
+  if (MP?.role === 'host' && MP.started && MP._remoteNecros) {
+    const now = Date.now();
+    Object.keys(MP._remoteNecros).forEach(idx => {
+      const rn = MP._remoteNecros[idx];
+      if (rn && rn._ts && now - rn._ts > _GUEST_STALE_TIMEOUT) {
+        // Guest went silent — mark as stale but don't remove yet
+        // (they might be reconnecting via the auto-reconnect system)
+        if (!rn._stale) {
+          rn._stale = true;
+          rn._staleAt = now;
+        }
+        // After 30 seconds of silence, remove them
+        if (rn._stale && now - rn._staleAt > 30000) {
+          delete MP._remoteNecros[idx];
+        }
+      }
+    });
+  }
+  _origHostBroadcastState();
+};
+
 // ── Enemy AI: enemies only target RS.necro / RS.minions / RS.activePet
 //    Remote necros are visual-only and are NOT in any of those arrays → ✓
 
