@@ -967,6 +967,17 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   </div>
 </div>
 
+<!-- Daily Rewards Panel Overlay -->
+<div id="dailyRewardsPanel" onclick="if(event.target===this)closeDailyRewardsPanel()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.88);backdrop-filter:blur(6px);align-items:center;justify-content:center">
+  <div style="background:rgba(8,6,20,.97);border:1.5px solid rgba(245,158,11,.4);border-radius:16px;padding:20px;width:min(94vw,420px);max-height:80vh;overflow-y:auto;box-shadow:0 0 60px rgba(245,158,11,.12)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-family:'Cinzel Decorative',serif;font-size:16px;color:#fbbf24">📅 Daily Rewards</div>
+      <button onclick="closeDailyRewardsPanel()" style="-webkit-appearance:none;font-family:'Cinzel',serif;font-size:11px;padding:4px 11px;border-radius:8px;cursor:pointer;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.1);color:#fbbf24">✕</button>
+    </div>
+    <div id="dailyRewardsContent"></div>
+  </div>
+</div>
+
 <!-- Castle quick-menu overlay -->
 <div id="castleMenu" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;backdrop-filter:blur(4px)">
   <div style="font-family:'Cinzel Decorative',serif;font-size:18px;color:#c084fc;margin-bottom:10px">☠ Dark Fortress</div>
@@ -977,6 +988,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   <button onclick="closeCastle_menu();openMapSelector()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(96,165,250,.4);border-radius:10px;background:rgba(96,165,250,.1);color:#93c5fd;cursor:pointer;-webkit-appearance:none">🗺 World Map & Raids</button>
   <button onclick="closeCastle_menu();startSurvival()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(239,68,68,.5);border-radius:10px;background:rgba(239,68,68,.12);color:#fca5a5;cursor:pointer;-webkit-appearance:none;animation:glowPulse 2s infinite">🩸 Hellbridge Survival</button>
   <button onclick="closeCastle_menu();openAchievementPanel()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(252,211,77,.4);border-radius:10px;background:rgba(252,211,77,.08);color:#fcd34d;cursor:pointer;-webkit-appearance:none">🏆 Achievements</button>
+  <button onclick="closeCastle_menu();openDailyRewardsPanel()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(245,158,11,.4);border-radius:10px;background:rgba(245,158,11,.08);color:#fbbf24;cursor:pointer;-webkit-appearance:none">📅 Daily Rewards</button>
   <button onclick="closeCastle_menu();openSettings()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(100,100,100,.3);border-radius:10px;background:rgba(100,100,100,.05);color:var(--dim);cursor:pointer;-webkit-appearance:none">⚙️ Settings</button>
 </div>
 
@@ -3173,6 +3185,169 @@ GS.catacombRuns=0;  // completed catacomb raid counter (for scaling rewards)
 GS.herbs=0;
 GS.villageAssign={};   // minionIndex → nodeId | null
 GS.vilLastTick=0;      // timestamp of last resource tick (ms)
+
+// ═══════════════════════════════════════════════════════
+//  DAILY LOGIN REWARDS & STREAK SYSTEM
+// ═══════════════════════════════════════════════════════
+GS.dailyRewards={lastClaim:0, streak:0, totalDays:0, dayInCycle:0};
+
+const DAILY_REWARD_CYCLE=[
+  {day:1, label:'Day 1', rewards:{bones:25, gold:5},  ico:'🦴'},
+  {day:2, label:'Day 2', rewards:{wood:15, herbs:10},  ico:'🪵'},
+  {day:3, label:'Day 3', rewards:{bones:40, gold:10}, ico:'💰'},
+  {day:4, label:'Day 4', rewards:{herbs:20, wood:20},  ico:'🌿'},
+  {day:5, label:'Day 5', rewards:{bones:60, gold:20}, ico:'🦴'},
+  {day:6, label:'Day 6', rewards:{wood:30, herbs:30, gold:15}, ico:'🎁'},
+  {day:7, label:'Day 7 ★', rewards:{bones:100, gold:50, wood:40, herbs:40}, ico:'⭐', rare:true}
+];
+
+const MONTHLY_MILESTONES=[
+  {days:15, label:'15-Day Milestone', rewards:{bones:200, gold:80, wood:60, herbs:60}, ico:'🏅'},
+  {days:30, label:'30-Day Milestone', rewards:{bones:500, gold:200, wood:120, herbs:120}, ico:'👑'}
+];
+
+function getDailyStreakMultiplier(){
+  const s=GS.dailyRewards.streak;
+  return Math.min(2.0, 1 + s * 0.1); // 1.1x per day, max 2x at 10 days
+}
+
+function canClaimDailyReward(){
+  if(!GS.dailyRewards.lastClaim) return true; // never claimed
+  const elapsed=Date.now()-GS.dailyRewards.lastClaim;
+  const hours=elapsed/3600000;
+  return hours>=24; // 24h minimum between claims
+}
+
+function isDailyStreakAlive(){
+  if(!GS.dailyRewards.lastClaim) return true;
+  const elapsed=Date.now()-GS.dailyRewards.lastClaim;
+  const hours=elapsed/3600000;
+  return hours<48; // streak breaks after 48h without claiming
+}
+
+function claimDailyReward(){
+  if(!canClaimDailyReward()) return;
+  // Update streak
+  if(!isDailyStreakAlive()) GS.dailyRewards.streak=0; // reset broken streak
+  GS.dailyRewards.streak++;
+  GS.dailyRewards.totalDays++;
+  GS.dailyRewards.dayInCycle=(GS.dailyRewards.dayInCycle % 7); // 0-6
+  const cycleDay=DAILY_REWARD_CYCLE[GS.dailyRewards.dayInCycle];
+  const mult=getDailyStreakMultiplier();
+  // Apply rewards with streak multiplier
+  const given={};
+  if(cycleDay.rewards.bones){const amt=Math.floor(cycleDay.rewards.bones*mult);GS.bones+=amt;given.bones=amt;}
+  if(cycleDay.rewards.gold){const amt=Math.floor(cycleDay.rewards.gold*mult);GS.wallet.gp=(GS.wallet.gp||0)+amt;given.gold=amt;}
+  if(cycleDay.rewards.wood){const amt=Math.floor(cycleDay.rewards.wood*mult);GS.wood+=amt;given.wood=amt;}
+  if(cycleDay.rewards.herbs){const amt=Math.floor(cycleDay.rewards.herbs*mult);GS.herbs+=amt;given.herbs=amt;}
+  GS.dailyRewards.dayInCycle++;
+  GS.dailyRewards.lastClaim=Date.now();
+  // Check monthly milestones
+  let milestoneHit=null;
+  for(const ms of MONTHLY_MILESTONES){
+    if(GS.dailyRewards.totalDays===ms.days){
+      milestoneHit=ms;
+      if(ms.rewards.bones)GS.bones+=ms.rewards.bones;
+      if(ms.rewards.gold)GS.wallet.gp=(GS.wallet.gp||0)+ms.rewards.gold;
+      if(ms.rewards.wood)GS.wood+=ms.rewards.wood;
+      if(ms.rewards.herbs)GS.herbs+=ms.rewards.herbs;
+    }
+  }
+  saveGame();
+  // Build reward summary
+  let msg='📅 Daily reward claimed! ';
+  const parts=[];
+  if(given.bones)parts.push(`🦴${given.bones}`);
+  if(given.gold)parts.push(`💰${given.gold}gp`);
+  if(given.wood)parts.push(`🪵${given.wood}`);
+  if(given.herbs)parts.push(`🌿${given.herbs}`);
+  msg+=parts.join(' ');
+  if(mult>1)msg+=` (${mult.toFixed(1)}x streak!)`;
+  showToast(msg);
+  if(milestoneHit){
+    setTimeout(()=>showToast(`🏅 ${milestoneHit.label} bonus unlocked!`),2800);
+  }
+  renderDailyRewardsPanel();
+  renderHub();
+}
+
+function openDailyRewardsPanel(){
+  const panel=document.getElementById('dailyRewardsPanel');
+  if(panel){panel.style.display='flex';renderDailyRewardsPanel();}
+}
+function closeDailyRewardsPanel(){
+  const panel=document.getElementById('dailyRewardsPanel');
+  if(panel)panel.style.display='none';
+}
+
+function renderDailyRewardsPanel(){
+  const ct=document.getElementById('dailyRewardsContent');
+  if(!ct)return;
+  const canClaim=canClaimDailyReward();
+  const streakAlive=isDailyStreakAlive();
+  const streak=GS.dailyRewards.streak;
+  const mult=getDailyStreakMultiplier();
+  const totalDays=GS.dailyRewards.totalDays;
+  const currentDay=GS.dailyRewards.dayInCycle; // next day to claim (0-6)
+  // Streak bar
+  let html=`<div style="text-align:center;margin-bottom:14px">
+    <div style="font-size:13px;color:#f59e0b;margin-bottom:4px">🔥 Streak: <b>${streak} day${streak!==1?'s':''}</b> &nbsp;·&nbsp; Multiplier: <b>${mult.toFixed(1)}x</b></div>
+    <div style="font-size:11px;color:#9ca3af">Total logins: ${totalDays}</div>
+  </div>`;
+  // 7-day calendar grid
+  html+=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px">`;
+  for(let i=0;i<7;i++){
+    const rd=DAILY_REWARD_CYCLE[i];
+    const isCurrent=i===currentDay&&canClaim;
+    const isClaimed=i<currentDay||(i===currentDay&&!canClaim);
+    const isFuture=i>currentDay||(i===currentDay&&!canClaim&&i>=currentDay);
+    let bg='rgba(100,100,100,.12)';let border='rgba(100,100,100,.25)';let opacity='0.5';
+    if(isClaimed){bg='rgba(34,197,94,.15)';border='rgba(34,197,94,.5)';opacity='1';}
+    if(isCurrent){bg='rgba(245,158,11,.2)';border='rgba(245,158,11,.7)';opacity='1';}
+    const rParts=[];
+    if(rd.rewards.bones)rParts.push(`🦴${rd.rewards.bones}`);
+    if(rd.rewards.gold)rParts.push(`💰${rd.rewards.gold}`);
+    if(rd.rewards.wood)rParts.push(`🪵${rd.rewards.wood}`);
+    if(rd.rewards.herbs)rParts.push(`🌿${rd.rewards.herbs}`);
+    html+=`<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 4px;text-align:center;opacity:${opacity};${rd.rare?'box-shadow:0 0 12px rgba(245,158,11,.3);':''}${isCurrent?'animation:glowPulse 2s infinite;':''}">
+      <div style="font-size:16px;margin-bottom:2px">${isClaimed?'✅':rd.ico}</div>
+      <div style="font-size:9px;color:${isCurrent?'#fbbf24':'#9ca3af'};font-family:'Cinzel',serif">${rd.label}</div>
+      <div style="font-size:8px;color:#d1d5db;margin-top:2px">${rParts.join(' ')}</div>
+    </div>`;
+  }
+  html+=`</div>`;
+  // Claim button
+  if(canClaim){
+    html+=`<button onclick="claimDailyReward()" style="-webkit-appearance:none;width:100%;padding:13px;font-family:'Cinzel',serif;font-size:13px;border:1.5px solid rgba(245,158,11,.7);border-radius:12px;background:linear-gradient(135deg,rgba(245,158,11,.25),rgba(234,88,12,.2));color:#fbbf24;cursor:pointer;letter-spacing:.06em;animation:glowPulse 1.5s infinite;font-weight:700">🎁 Claim Today's Reward</button>`;
+  } else {
+    const elapsed=Date.now()-GS.dailyRewards.lastClaim;
+    const remaining=Math.max(0,86400000-elapsed);
+    const hrs=Math.floor(remaining/3600000);
+    const mins=Math.floor((remaining%3600000)/60000);
+    html+=`<div style="text-align:center;padding:12px;border:1px solid rgba(100,100,100,.3);border-radius:12px;background:rgba(100,100,100,.08);color:#6b7280;font-family:'Cinzel',serif;font-size:11px">⏳ Next reward in ${hrs}h ${mins}m</div>`;
+  }
+  // Monthly milestones progress
+  html+=`<div style="margin-top:14px;border-top:1px solid rgba(100,100,100,.2);padding-top:12px">
+    <div style="font-size:11px;color:#a78bfa;font-family:'Cinzel',serif;margin-bottom:8px">Monthly Milestones</div>`;
+  for(const ms of MONTHLY_MILESTONES){
+    const done=totalDays>=ms.days;
+    const pct=Math.min(100,Math.round((totalDays/ms.days)*100));
+    html+=`<div style="margin-bottom:8px;opacity:${done?'0.6':'1'}">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:${done?'#22c55e':'#d1d5db'};margin-bottom:3px">
+        <span>${ms.ico} ${ms.label}</span><span>${done?'✅ Claimed':totalDays+'/'+ms.days}</span>
+      </div>
+      <div style="height:4px;background:rgba(100,100,100,.2);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${done?'#22c55e':'linear-gradient(90deg,#f59e0b,#ea580c)'};border-radius:4px;transition:width .3s"></div>
+      </div>
+    </div>`;
+  }
+  html+=`</div>`;
+  // Streak info
+  if(!streakAlive&&streak>0){
+    html+=`<div style="text-align:center;margin-top:10px;font-size:10px;color:#ef4444">⚠️ Streak expired! Claim today to start a new one.</div>`;
+  }
+  ct.innerHTML=html;
+}
 
 // ═══════════════════════════════════════════════════════
 //  ACHIEVEMENT SYSTEM
@@ -9616,7 +9791,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -9680,6 +9855,8 @@ function loadGame(){
     GS._achTotalCrafted=d.achTotalCrafted||0;
     GS._achTypesRaised=new Set(d.achTypesRaised||[]);
     GS._achNoLossRaid=d.achNoLossRaid||false;
+    // Load daily rewards state
+    GS.dailyRewards=d.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0};
     // Load quest progress (or initialize for fresh/old saves)
     if(d.quests){
       GS.quests=d.quests;
@@ -9841,6 +10018,8 @@ function initGame(){
   _updateAutoBtn(); // Update button styling after initialization
   // Start in castle
   openCastle();
+  // Check daily login reward — show popup if claimable
+  setTimeout(()=>{if(canClaimDailyReward())openDailyRewardsPanel();},1500);
 }
 function openSB(){renderSB();showScreen('spellbook');}
 function _closeSB_orig(){renderHub();showScreen('hub');}
@@ -16517,7 +16696,7 @@ function endRaid(result){
    'petMgmtPanel','npcDialogueOverlay','heroPanelModal','heroPanelBdrop',
    'devGiftModal','deskLogModal','cofferModal','boneVaultModal',
    'herbStorageModal','woodStorageModal','hubPanelOverlay',
-   'castleSBOverlay','castleArmyOverlay','trophyPanelOverlay','achievementPanel',
+   'castleSBOverlay','castleArmyOverlay','trophyPanelOverlay','achievementPanel','dailyRewardsPanel',
    'wmPopup','wmRaidPanel','wmCountryPanel','tauRaidPanel','tauCountryPanel',
    'swRaidPanel','swCountryPanel','assignPanel','risePanelOverlay'
   ].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
