@@ -2780,7 +2780,7 @@ const LOOT_TABLES={
 };
 
 // ── Loot Roll Functions ─────────────────────────────────────────────────────
-function getLootLuck(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.lootLuck||0)+getTavernBuff('lootMult')+getCastleBonus('lootMult')+(getGuildBonuses().lootBonus||0);}
+function getLootLuck(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.lootLuck||0)+getTavernBuff('lootMult')+getCastleBonus('lootMult')+(getGuildBonuses().lootBonus||0)+getCastleBonus('trophyLootPerBoss')*getTrophyBossCount();}
 function getGoldBonus(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);return (a?.stats?.goldBonus||0)+getCastleBonus('goldMult');}
 function getXPBonus(){const a=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.accessory);const ar=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.armor);return (a?.stats?.xpBonus||0)+(ar?.stats?.xpBonus||0);}
 
@@ -3847,8 +3847,8 @@ const ACHIEVEMENTS=[
   {id:'castle_first',    cat:'castle', name:'Home Improvement',    desc:'Upgrade any castle room to Tier 1',      ico:'🔨', check:()=>Object.values(GS.castleUpgrades).some(v=>v>=1)},
   {id:'castle_t2',       cat:'castle', name:'Architect',            desc:'Upgrade any room to Tier 2',             ico:'🏗', check:()=>Object.values(GS.castleUpgrades).some(v=>v>=2)},
   {id:'castle_t3',       cat:'castle', name:'Grand Architect',      desc:'Upgrade any room to Tier 3',             ico:'🏰', check:()=>Object.values(GS.castleUpgrades).some(v=>v>=3)},
-  {id:'castle_all_t1',   cat:'castle', name:'Full Foundation',      desc:'Upgrade all 8 rooms to at least Tier 1', ico:'🧱', check:()=>Object.keys(CASTLE_UPGRADE_DEFS).every(r=>(GS.castleUpgrades[r]||0)>=1)},
-  {id:'castle_all_t3',   cat:'castle', name:'Dark Fortress',        desc:'Max all 8 castle rooms to Tier 3',       ico:'👑', check:()=>Object.keys(CASTLE_UPGRADE_DEFS).every(r=>(GS.castleUpgrades[r]||0)>=3)},
+  {id:'castle_all_t1',   cat:'castle', name:'Full Foundation',      desc:'Upgrade all 11 rooms to at least Tier 1', ico:'🧱', check:()=>Object.keys(CASTLE_UPGRADE_DEFS).every(r=>(GS.castleUpgrades[r]||0)>=1)},
+  {id:'castle_all_t3',   cat:'castle', name:'Dark Fortress',        desc:'Max all 11 castle rooms to Tier 3',       ico:'👑', check:()=>Object.keys(CASTLE_UPGRADE_DEFS).every(r=>(GS.castleUpgrades[r]||0)>=3)},
   {id:'village_assign',  cat:'castle', name:'Taskmaster',            desc:'Assign 5 minions to village jobs',       ico:'🏘', check:()=>Object.keys(GS.villageAssign||{}).length>=5},
   {id:'wood_100',        cat:'castle', name:'Lumberjack',            desc:'Collect 100 wood',                       ico:'🪵', check:()=>(GS.wood||0)>=100},
   {id:'herbs_100',       cat:'castle', name:'Herbalist',             desc:'Collect 100 herbs',                      ico:'🌿', check:()=>(GS.herbs||0)>=100},
@@ -4038,6 +4038,45 @@ const CASTLE_UPGRADE_DEFS={
         bonus:{coopSpeed:0.50,coopLoot:true,coopSlots:2,coopRareGuarantee:true}},
     ]
   },
+  alchemy:{
+    name:'Alchemy Lab',ico:'⚗️',
+    tiers:[
+      {tier:1,name:'Crude Lab',desc:'Convert materials 4:1 ratio',cost:{bones:60,herbs:15,wood:10},timeMins:5,
+        bonus:{alchemyRatio:4}},
+      {tier:2,name:'Alchemist\'s Workshop',desc:'Convert 3:1, passive potion gen (1/hr)',cost:{bones:150,herbs:35,wood:25},timeMins:15,
+        bonus:{alchemyRatio:3,potionGen:1}},
+      {tier:3,name:'Grand Alembic',desc:'Convert 2:1, 2 potions/hr, +15% potion effect',cost:{bones:350,herbs:60,wood:45,currency_gp:20},timeMins:30,
+        bonus:{alchemyRatio:2,potionGen:2,potionEffect:0.15}},
+      {tier:4,name:'Philosopher\'s Sanctum',desc:'Convert 1:1, 3 potions/hr, +30% potion effect',cost:{bones:800,herbs:140,wood:100,currency_gp:55},timeMins:60,
+        bonus:{alchemyRatio:1,potionGen:3,potionEffect:0.30}},
+    ]
+  },
+  trophy:{
+    name:'Trophy Hall',ico:'🏆',
+    tiers:[
+      {tier:1,name:'Hunter\'s Gallery',desc:'+1% ATK per boss type defeated',cost:{bones:55,wood:12},timeMins:5,
+        bonus:{trophyAtkPerBoss:0.01}},
+      {tier:2,name:'Champion\'s Hall',desc:'+2% ATK, +1% DEF per boss defeated',cost:{bones:140,wood:30,herbs:15},timeMins:15,
+        bonus:{trophyAtkPerBoss:0.02,trophyDefPerBoss:0.01}},
+      {tier:3,name:'Conqueror\'s Vault',desc:'+3% ATK, +2% DEF, +1% loot per boss',cost:{bones:340,wood:60,herbs:30,currency_gp:22},timeMins:30,
+        bonus:{trophyAtkPerBoss:0.03,trophyDefPerBoss:0.02,trophyLootPerBoss:0.01}},
+      {tier:4,name:'Eternal Hall of Legends',desc:'+5% ATK, +3% DEF, +2% loot per boss',cost:{bones:750,wood:130,herbs:65,currency_gp:48},timeMins:60,
+        bonus:{trophyAtkPerBoss:0.05,trophyDefPerBoss:0.03,trophyLootPerBoss:0.02}},
+    ]
+  },
+  portal:{
+    name:'Portal Chamber',ico:'🌀',
+    tiers:[
+      {tier:1,name:'Flickering Gateway',desc:'Fast travel to conquered regions',cost:{bones:50,wood:10,herbs:8},timeMins:5,
+        bonus:{portalTravel:true}},
+      {tier:2,name:'Stable Conduit',desc:'Fast travel + 10% raid speed',cost:{bones:130,wood:28,herbs:18},timeMins:15,
+        bonus:{portalTravel:true,raidSpeed:0.10}},
+      {tier:3,name:'Nexus Gate',desc:'Fast travel + 20% raid speed, preview destination',cost:{bones:300,wood:55,herbs:35,currency_gp:18},timeMins:30,
+        bonus:{portalTravel:true,raidSpeed:0.20,portalPreview:true}},
+      {tier:4,name:'Void Nexus',desc:'Fast travel + 35% raid speed, preview + bonus first wave',cost:{bones:680,wood:120,herbs:65,currency_gp:40},timeMins:60,
+        bonus:{portalTravel:true,raidSpeed:0.35,portalPreview:true,portalBonusWave:true}},
+    ]
+  },
 };
 
 function getCastleMaxTier(roomId){const def=CASTLE_UPGRADE_DEFS[roomId];if(!def)return 0;return GS.hasAscended('ascCastleTier4')?4:3;}
@@ -4058,6 +4097,22 @@ function getCastleBonus(bonusKey){
     else if(v===true)total=1; // boolean bonus: 1 = has it
   }
   return total;
+}
+function getTrophyBossCount(){
+  const bossTypes=new Set();
+  for(const regionId of Object.keys(GS.conquered||{})){
+    if(regionId==='coop')continue;
+    const diffs=GS.conquered[regionId];
+    for(const d of Object.keys(diffs)){
+      const raidKey=regionId+'_'+d;
+      const cfg=RAID_CONFIGS[raidKey]||RAID_CONFIGS[regionId];
+      if(cfg?.bossKey)bossTypes.add(cfg.bossKey);
+    }
+  }
+  ['cemetery','forest','sanctum'].forEach(k=>{
+    if(GS.conquered[k]){const cfg=RAID_CONFIGS[k];if(cfg?.bossKey)bossTypes.add(cfg.bossKey);}
+  });
+  return bossTypes.size;
 }
 function _castleCostMet(cost){
   if(cost.bones&&GS.bones<cost.bones)return false;
@@ -12128,6 +12183,8 @@ function getDmgReduce(){
   if(sb.drBonus)dr+=sb.drBonus;
   // Hero Aura of Protection: +10% DR while alive
   if(RS?._activeHeroes){RS._activeHeroes.filter(h=>!h.dead&&h._skillFlags&&h._skillFlags._auraProt).forEach(()=>{dr+=0.1;});}
+  // Trophy Hall: DEF per unique boss defeated
+  dr+=getCastleBonus('trophyDefPerBoss')*getTrophyBossCount();
   return Math.min(dr, 0.5); // cap at 50%
 }
 
@@ -13804,7 +13861,7 @@ function initRaid(raidKey,floorNum,opts){
     // ── Crafted buff state ──
     lifesteal:raidBuffs.lifesteal||0,
     speedBuff:raidBuffs.speedBuff||0,
-    minionSpeed:raidBuffs.minionSpeed||0,
+    minionSpeed:(raidBuffs.minionSpeed||0)+getCastleBonus('raidSpeed'),
     raiseScroll:raidBuffs.raiseScroll||false,
     minionHPBoost:raidBuffs.minionHPBoost||0,
     darkBinding:raidBuffs.darkBinding||false,
@@ -15974,7 +16031,8 @@ function tickMinions(t,dt){
     // Deathgrip Staff: +15% minion damage via minionDmg stat on equipped staff
     const _staffM=SHOP_ITEMS.equipment.find(i=>i.id===GS.inv.equipped.staff);
     const _staffMinionDmg=_staffM?.stats?.minionDmg||0;
-    const dmg=Math.round((md.dmg+dmgBonus)*getAtkMult()*(1+(_sbM.minionDmg||0)+_staffMinionDmg+getCastleBonus('minionAtk'))*_dbM);
+    const _trophyAtk=getCastleBonus('trophyAtkPerBoss')*getTrophyBossCount();
+    const dmg=Math.round((md.dmg+dmgBonus)*getAtkMult()*(1+(_sbM.minionDmg||0)+_staffMinionDmg+getCastleBonus('minionAtk')+_trophyAtk)*_dbM);
 
     // Formation slot (spiral around necromancer)
     const liveCount=Math.max((RS._liveMinions||RS.minions.filter(m=>!m.dead)).length,1);
@@ -23679,6 +23737,10 @@ const CASTLE_ROOMS = [
   {id:'maproom',   col:2,row:2, label:'War Room',   color:'#60a5fa', floorColor:'#505868', wallColor:'#404860'},
   {id:'menagerie', col:0,row:1, label:'Menagerie',  color:'#a855f7', floorColor:'#2d5a1a', wallColor:'#1a4010'},
   {id:'aviary',    col:2,row:1, label:'Aviary',     color:'#818cf8', floorColor:'#505868', wallColor:'#404860'},
+  // Row 3 — new expansion rooms
+  {id:'alchemy',   col:0,row:3, label:'Alchemy Lab', color:'#10b981', floorColor:'#2a4a3a', wallColor:'#1a3a2a'},
+  {id:'trophy',    col:1,row:3, label:'Trophy Hall', color:'#f59e0b', floorColor:'#4a4030', wallColor:'#3a3020'},
+  {id:'portal',    col:2,row:3, label:'Portal Room', color:'#06b6d4', floorColor:'#2a3a4a', wallColor:'#1a2a3a'},
 ];
 const CASTLE_OBJECTS = [
   // bedroom — bed (left), mirror (right), coffer (bottom-center): well separated
@@ -23719,14 +23781,22 @@ const CASTLE_OBJECTS = [
   {id:'pedestal_me', room:'hall', rx:.25, ry:.88, ico:'🏆', label:'Middle-earth Trophy', action:'openTrophyPanel_me', color:'#c8a050', tapR:22},
   {id:'pedestal_tau',room:'hall', rx:.50, ry:.88, ico:'🏆', label:"Tau'ri Trophy",       action:'openTrophyPanel_tau',color:'#86efac', tapR:22},
   {id:'pedestal_sw', room:'hall', rx:.75, ry:.88, ico:'🏆', label:'Galaxy Trophy',       action:'openTrophyPanel_sw', color:'#60a5fa', tapR:22},
+  // alchemy lab — cauldron center, ingredient shelf right
+  {id:'cauldron',   room:'alchemy',  rx:.50, ry:.50, ico:'⚗️', label:'Cauldron',        action:'openAlchemy',         color:'#10b981', tapR:24},
+  {id:'alchShelf',  room:'alchemy',  rx:.82, ry:.35, ico:'🧪', label:'Ingredients',     action:'openAlchemyShelf',    color:'#34d399', tapR:18},
+  // trophy hall — trophy case center, boss gallery wall
+  {id:'trophyCase', room:'trophy',   rx:.50, ry:.50, ico:'🏆', label:'Boss Trophies',   action:'openTrophyHall',      color:'#f59e0b', tapR:24},
+  // portal chamber — portal center, destination selector
+  {id:'portalGate', room:'portal',   rx:.50, ry:.50, ico:'🌀', label:'Portal',          action:'openPortalChamber',   color:'#06b6d4', tapR:26},
 ];
 
 // Compute world position of a room center given canvas W,H
+const CR_COLS=3, CR_ROWS=4;
 function crRoomBounds(roomId, W, H) {
   const WX=Math.max(8,Math.floor(W*.022));
   const WY=Math.max(8,Math.floor(H*.030));
-  const roomW=(W-4*WX)/3;
-  const roomH=(H-4*WY)/3;
+  const roomW=(W-(CR_COLS+1)*WX)/CR_COLS;
+  const roomH=(H-(CR_ROWS+1)*WY)/CR_ROWS;
   const rm=CASTLE_ROOMS.find(r=>r.id===roomId);if(!rm)return null;
   const x=WX+rm.col*(roomW+WX);
   const y=WY+rm.row*(roomH+WY);
@@ -23742,23 +23812,23 @@ function crObjWorld(obj, W, H) {
 function crIsWalkable(px2,py2,W,H){
   const WX=Math.max(8,Math.floor(W*.022));
   const WY=Math.max(8,Math.floor(H*.030));
-  const roomW=(W-4*WX)/3;
-  const roomH=(H-4*WY)/3;
+  const roomW=(W-(CR_COLS+1)*WX)/CR_COLS;
+  const roomH=(H-(CR_ROWS+1)*WY)/CR_ROWS;
   for(const rm of CASTLE_ROOMS){
     const x=WX+rm.col*(roomW+WX), y=WY+rm.row*(roomH+WY);
     if(px2>=x&&px2<=x+roomW&&py2>=y&&py2<=y+roomH)return true;
   }
   const DOOR_H=roomH*.40, DOOR_W=roomW*.40;
-  for(let row=0;row<3;row++){
+  for(let row=0;row<CR_ROWS;row++){
     const rowCy=WY+row*(roomH+WY)+roomH/2;
-    for(let col=0;col<2;col++){
+    for(let col=0;col<CR_COLS-1;col++){
       const wallX=WX+(col+1)*(roomW+WX)-WX;
       if(px2>=wallX&&px2<=wallX+WX&&Math.abs(py2-rowCy)<DOOR_H/2)return true;
     }
   }
-  for(let col=0;col<3;col++){
+  for(let col=0;col<CR_COLS;col++){
     const colCx=WX+col*(roomW+WX)+roomW/2;
-    for(let row=0;row<2;row++){
+    for(let row=0;row<CR_ROWS-1;row++){
       const wallY=WY+(row+1)*(roomH+WY)-WY;
       if(py2>=wallY&&py2<=wallY+WY&&Math.abs(px2-colCx)<DOOR_W/2)return true;
     }
@@ -23872,19 +23942,19 @@ function updateCastleStats() {
 function crRoomAtPos(px2,py2,W,H){
   const MARGIN=0.04,GUTTER=0.06;
   const uw=1-2*MARGIN, uh=1-2*MARGIN;
-  const rw=(uw-2*GUTTER)/3, rh=(uh-2*GUTTER)/3;
+  const rw=(uw-(CR_COLS-1)*GUTTER)/CR_COLS, rh=(uh-(CR_ROWS-1)*GUTTER)/CR_ROWS;
   for(const rm of CASTLE_ROOMS){
     const rx=MARGIN+rm.col*(rw+GUTTER), ry=MARGIN+rm.row*(rh+GUTTER);
     if(px2>=rx*W&&px2<=(rx+rw)*W&&py2>=ry*H&&py2<=(ry+rh)*H)return rm.id;
   }
   return null; // in corridor/wall
 }
-// BFS over 3x3 room grid to find waypoints
+// BFS over room grid to find waypoints
 function crPathBetweenRooms(fromRoom,toRoom,W,H){
   if(!fromRoom||!toRoom||fromRoom===toRoom)return[];
   const MARGIN=0.04,GUTTER=0.06;
   const uw=1-2*MARGIN,uh=1-2*MARGIN;
-  const rw=(uw-2*GUTTER)/3,rh=(uh-2*GUTTER)/3;
+  const rw=(uw-(CR_COLS-1)*GUTTER)/CR_COLS,rh=(uh-(CR_ROWS-1)*GUTTER)/CR_ROWS;
   const rm=id=>CASTLE_ROOMS.find(r=>r.id===id);
   const rc=id=>{const r=rm(id);if(!r)return null;return{col:r.col,row:r.row};};
   // BFS
@@ -23894,9 +23964,9 @@ function crPathBetweenRooms(fromRoom,toRoom,W,H){
     const r=rc(id);if(!r)return[];
     const ns=[];
     if(r.col>0)ns.push(CASTLE_ROOMS.find(x=>x.col===r.col-1&&x.row===r.row)?.id);
-    if(r.col<2)ns.push(CASTLE_ROOMS.find(x=>x.col===r.col+1&&x.row===r.row)?.id);
+    if(r.col<CR_COLS-1)ns.push(CASTLE_ROOMS.find(x=>x.col===r.col+1&&x.row===r.row)?.id);
     if(r.row>0)ns.push(CASTLE_ROOMS.find(x=>x.row===r.row-1&&x.col===r.col)?.id);
-    if(r.row<2)ns.push(CASTLE_ROOMS.find(x=>x.row===r.row+1&&x.col===r.col)?.id);
+    if(r.row<CR_ROWS-1)ns.push(CASTLE_ROOMS.find(x=>x.row===r.row+1&&x.col===r.col)?.id);
     return ns.filter(Boolean);
   };
   while(queue.length){
@@ -24057,8 +24127,8 @@ function _buildCrBgCanvas(W, H, DPR) {
 
   const WX = Math.max(8, Math.floor(W * .022));
   const WY = Math.max(8, Math.floor(H * .030));
-  const roomW = (W - 4 * WX) / 3;
-  const roomH = (H - 4 * WY) / 3;
+  const roomW = (W - (CR_COLS+1) * WX) / CR_COLS;
+  const roomH = (H - (CR_ROWS+1) * WY) / CR_ROWS;
 
   const ct=TilesetEngine.getCastleTiles();
   const TS2=32;
@@ -24109,7 +24179,8 @@ function _buildCrBgCanvas(W, H, DPR) {
     bedroom:'rgba(90,40,180,0.08)', library:'rgba(40,80,200,0.08)',
     barracks:'rgba(180,40,40,0.08)', hall:'rgba(120,130,150,0.06)',
     catacombs:'rgba(60,60,70,0.12)', exit:null, maproom:'rgba(60,100,200,0.08)',
-    menagerie:null, aviary:'rgba(80,80,200,0.06)'
+    menagerie:null, aviary:'rgba(80,80,200,0.06)',
+    alchemy:'rgba(16,185,129,0.10)', trophy:'rgba(245,158,11,0.08)', portal:'rgba(6,182,212,0.10)'
   };
 
   // Outer walls — tile-based
@@ -24131,11 +24202,11 @@ function _buildCrBgCanvas(W, H, DPR) {
   drawTileWall(W-WX, WY, WX, H-2*WY);
 
   // Inner walls — tile-based
-  for (let col = 0; col < 2; col++) {
+  for (let col = 0; col < CR_COLS-1; col++) {
     const wx = WX + (col+1) * (roomW+WX) - WX;
     drawTileWall(wx, WY, WX, H-2*WY);
   }
-  for (let row = 0; row < 2; row++) {
+  for (let row = 0; row < CR_ROWS-1; row++) {
     const wy = WY + (row+1) * (roomH+WY) - WY;
     drawTileWall(WX, wy, W-2*WX, WY);
   }
@@ -24166,9 +24237,9 @@ function _buildCrBgCanvas(W, H, DPR) {
   // ── Doorway openings: tile-based floor through walls, stone arch frame
   const DOOR_H = roomH * .38, DOOR_W = roomW * .38;
   // Horizontal doors (left↔right between columns)
-  for (let row = 0; row < 3; row++) {
+  for (let row = 0; row < CR_ROWS; row++) {
     const rowCy = WY + row * (roomH+WY) + roomH/2;
-    for (let col = 0; col < 2; col++) {
+    for (let col = 0; col < CR_COLS-1; col++) {
       const rm0 = CASTLE_ROOMS.find(r => r.col===col   && r.row===row);
       const rm1 = CASTLE_ROOMS.find(r => r.col===col+1 && r.row===row);
       if (!rm0 || !rm1) continue;
@@ -24185,9 +24256,9 @@ function _buildCrBgCanvas(W, H, DPR) {
     }
   }
   // Vertical doors (top↔bottom between rows)
-  for (let col = 0; col < 3; col++) {
+  for (let col = 0; col < CR_COLS; col++) {
     const colCx = WX + col * (roomW+WX) + roomW/2;
-    for (let row = 0; row < 2; row++) {
+    for (let row = 0; row < CR_ROWS-1; row++) {
       const rm0 = CASTLE_ROOMS.find(r => r.col===col && r.row===row);
       const rm1 = CASTLE_ROOMS.find(r => r.col===col && r.row===row+1);
       if (!rm0 || !rm1) continue;
@@ -24214,8 +24285,8 @@ function drawCastleRoom() {
 
   const WX=Math.max(8,Math.floor(W*.022));
   const WY=Math.max(8,Math.floor(H*.030));
-  const roomW=(W-4*WX)/3;
-  const roomH=(H-4*WY)/3;
+  const roomW=(W-(CR_COLS+1)*WX)/CR_COLS;
+  const roomH=(H-(CR_ROWS+1)*WY)/CR_ROWS;
 
   // ── Blit pre-rendered static background (walls + floors) ──
   if (!_crBgCanvas || _crBgCanvas.width !== Math.floor(W*DPR) || _crBgCanvas.height !== Math.floor(H*DPR)) {
@@ -24273,9 +24344,9 @@ function drawCastleRoom() {
     c.beginPath();c.moveTo(tx,ty-5);c.quadraticCurveTo(tx+1.5,ty-1,tx,ty+1);c.quadraticCurveTo(tx-1.5,ty-1,tx,ty-5);c.fill();
   }
   // Horizontal doorways — columns on each side of opening, torch on top of each column
-  for(let row=0;row<3;row++){
+  for(let row=0;row<CR_ROWS;row++){
     const rowCy=WY+row*(roomH+WY)+roomH/2;
-    for(let col=0;col<2;col++){
+    for(let col=0;col<CR_COLS-1;col++){
       const rm0=CASTLE_ROOMS.find(r=>r.col===col&&r.row===row);
       const rm1=CASTLE_ROOMS.find(r=>r.col===col+1&&r.row===row);
       if(!rm0||!rm1)continue;
@@ -24291,9 +24362,9 @@ function drawCastleRoom() {
     }
   }
   // Vertical doorways
-  for(let col=0;col<3;col++){
+  for(let col=0;col<CR_COLS;col++){
     const colCx=WX+col*(roomW+WX)+roomW/2;
-    for(let row=0;row<2;row++){
+    for(let row=0;row<CR_ROWS-1;row++){
       const rm0=CASTLE_ROOMS.find(r=>r.col===col&&r.row===row);
       const rm1=CASTLE_ROOMS.find(r=>r.col===col&&r.row===row+1);
       if(!rm0||!rm1)continue;
@@ -25780,6 +25851,121 @@ function crDrawRoomInterior(c,rm,b,t,fl,W,H){
       break;
     }
 
+    case 'alchemy': {
+      // Bubbling cauldron center
+      const cauldX=cx, cauldY=cy+4;
+      // Cauldron body
+      c.fillStyle='#1a1a2a';c.beginPath();c.ellipse(cauldX,cauldY+8,22,12,0,0,Math.PI);c.fill();
+      c.fillStyle='#222236';c.beginPath();c.ellipse(cauldX,cauldY-2,22,16,0,Math.PI,0);c.fill();
+      c.strokeStyle='#333';c.lineWidth=2;c.beginPath();c.ellipse(cauldX,cauldY-2,22,16,0,0,Math.PI*2);c.stroke();
+      // Green liquid
+      const bubbleT=t*.003;
+      c.fillStyle='rgba(16,185,129,0.6)';c.beginPath();c.ellipse(cauldX,cauldY-1,18,10,0,0,Math.PI*2);c.fill();
+      // Bubbles
+      for(let bi=0;bi<4;bi++){
+        const bx=cauldX+Math.sin(bubbleT*2+bi*1.7)*12;
+        const by=cauldY-4-Math.abs(Math.sin(bubbleT*3+bi*2.1))*8;
+        const br=1.5+Math.sin(bubbleT+bi)*.5;
+        c.fillStyle=`rgba(52,211,153,${0.4+Math.sin(bubbleT+bi)*.2})`;
+        c.beginPath();c.arc(bx,by,br,0,Math.PI*2);c.fill();
+      }
+      // Steam wisps
+      for(let si=0;si<3;si++){
+        const sx=cauldX+Math.sin(bubbleT*1.5+si*2.3)*10;
+        const sy=cauldY-14-si*8-Math.sin(bubbleT+si)*4;
+        const sa=Math.max(0,0.3-si*.1);
+        c.fillStyle=`rgba(16,185,129,${sa})`;c.beginPath();c.arc(sx,sy,3+si,0,Math.PI*2);c.fill();
+      }
+      // Ingredient shelf (right side)
+      const shX=b.x+b.w*.78, shY=b.y+b.h*.25;
+      c.fillStyle='#2a1800';c.fillRect(shX-14,shY,28,40);
+      c.strokeStyle='#5a3a10';c.lineWidth=1;c.strokeRect(shX-14,shY,28,40);
+      // Shelves
+      c.fillStyle='#3a2400';c.fillRect(shX-12,shY+12,24,2);c.fillRect(shX-12,shY+26,24,2);
+      // Bottles on shelves
+      c.font='8px serif';c.textAlign='center';
+      c.fillText('🧪',shX-5,shY+11);c.fillText('⚗️',shX+5,shY+11);
+      c.fillText('🌿',shX-5,shY+25);c.fillText('🍄',shX+5,shY+25);
+      // Floor glow
+      const alchGlow=Math.sin(t*.004)*.15+.2;
+      c.fillStyle=`rgba(16,185,129,${alchGlow})`;
+      c.beginPath();c.ellipse(cauldX,cauldY+18,28,6,0,0,Math.PI*2);c.fill();
+      break;
+    }
+
+    case 'trophy': {
+      // Trophy cases along the walls
+      const trophyLv=getCastleLevel('trophy');
+      // Center pedestal with large trophy
+      c.fillStyle='#3a2a10';c.fillRect(cx-10,cy+6,20,14);
+      c.strokeStyle='#785020';c.lineWidth=1.5;c.strokeRect(cx-10,cy+6,20,14);
+      c.font='20px serif';c.textAlign='center';c.fillText('🏆',cx,cy+4);
+      // Trophy glow
+      const tGlow=Math.sin(t*.003)*.2+.3;
+      c.fillStyle=`rgba(245,158,11,${tGlow})`;c.beginPath();c.arc(cx,cy-4,16,0,Math.PI*2);c.fill();
+      // Side display cases
+      const bossCount=Object.keys(GS.conquered||{}).filter(r=>r!=='coop').length;
+      // Left case
+      const lcX=b.x+b.w*.2, lcY=cy-8;
+      c.fillStyle='#1a1a2e';c.fillRect(lcX-12,lcY-14,24,32);
+      c.strokeStyle=`rgba(245,158,11,${0.3+tGlow})`;c.lineWidth=1;c.strokeRect(lcX-12,lcY-14,24,32);
+      c.font='12px serif';c.fillText('☠',lcX,lcY+4);
+      // Right case
+      const rcX=b.x+b.w*.8;
+      c.fillStyle='#1a1a2e';c.fillRect(rcX-12,lcY-14,24,32);
+      c.strokeStyle=`rgba(245,158,11,${0.3+tGlow})`;c.strokeRect(rcX-12,lcY-14,24,32);
+      c.font='12px serif';c.fillText('⚔️',rcX,lcY+4);
+      // Boss count label
+      c.font='7px "Cinzel",serif';c.fillStyle='#f59e0b';
+      c.fillText(`${bossCount} bosses`,cx,cy+28);
+      break;
+    }
+
+    case 'portal': {
+      // Swirling portal in center
+      const portalR=Math.min(b.w,b.h)*.28;
+      const pPhase=t*.002;
+      // Outer ring glow
+      const pGlow=Math.sin(pPhase*2)*.15+.35;
+      c.fillStyle=`rgba(6,182,212,${pGlow*.5})`;c.beginPath();c.arc(cx,cy,portalR+8,0,Math.PI*2);c.fill();
+      // Portal rings (spinning)
+      for(let ri2=0;ri2<3;ri2++){
+        const rr=portalR-ri2*6;
+        const alpha=0.4-ri2*.1;
+        c.strokeStyle=`rgba(6,182,212,${alpha})`;c.lineWidth=2-ri2*.5;
+        c.beginPath();c.arc(cx,cy,rr,pPhase+ri2,pPhase+ri2+Math.PI*1.5);c.stroke();
+      }
+      // Inner vortex
+      const vortGrad=c.createRadialGradient(cx,cy,0,cx,cy,portalR*.7);
+      vortGrad.addColorStop(0,'rgba(6,182,212,0.5)');
+      vortGrad.addColorStop(0.5,'rgba(14,116,144,0.3)');
+      vortGrad.addColorStop(1,'rgba(0,0,0,0)');
+      c.fillStyle=vortGrad;c.beginPath();c.arc(cx,cy,portalR*.7,0,Math.PI*2);c.fill();
+      // Sparkle particles
+      for(let sp=0;sp<6;sp++){
+        const angle=pPhase*3+sp*(Math.PI*2/6);
+        const dist=portalR*.5+Math.sin(pPhase*4+sp)*4;
+        const sx2=cx+Math.cos(angle)*dist;
+        const sy2=cy+Math.sin(angle)*dist;
+        const sparkA=Math.sin(pPhase*5+sp*1.3)*.3+.4;
+        c.fillStyle=`rgba(103,232,249,${sparkA})`;
+        c.beginPath();c.arc(sx2,sy2,1.5,0,Math.PI*2);c.fill();
+      }
+      // Rune stones at corners
+      const runePositions=[[b.x+b.w*.15,b.y+b.h*.2],[b.x+b.w*.85,b.y+b.h*.2],[b.x+b.w*.15,b.y+b.h*.8],[b.x+b.w*.85,b.y+b.h*.8]];
+      const runes=['ᚠ','ᚢ','ᚦ','ᚨ'];
+      runePositions.forEach(([rx,ry],ri3)=>{
+        const runeGlow=Math.sin(pPhase*3+ri3*1.5)*.3+.5;
+        c.font='10px serif';c.textAlign='center';c.fillStyle=`rgba(6,182,212,${runeGlow})`;
+        c.fillText(runes[ri3],rx,ry+4);
+      });
+      // Label
+      c.font='7px "Cinzel",serif';c.textAlign='center';c.fillStyle='#06b6d4';
+      const portalLv=getCastleLevel('portal');
+      c.fillText(portalLv?'PORTAL':'SEALED',cx,b.y+b.h*.95);
+      break;
+    }
+
   }
   // Update NPC button overlays
   _updateCastleHobbitOverlay();
@@ -26309,6 +26495,214 @@ function woodWithdrawAll(){
   GS.wood=(GS.wood||0)+all; GS.bank.wood=0;
   document.getElementById('woodMsg').textContent=`Withdrew all ${all} wood.`;document.getElementById('woodMsg').style.color='#86efac';
   _refreshWoodDisplay();
+}
+
+// ─── ALCHEMY LAB ──────────────────────────────────────────────
+function openAlchemy(){
+  if(RS&&!RS.done){showToast('Cannot use alchemy during a raid!');return;}
+  const lv=getCastleLevel('alchemy');
+  if(!lv){showToast('⚗️ Build the Alchemy Lab first!');return;}
+  const tier=getCastleTier('alchemy');
+  const ratio=tier?.bonus?.alchemyRatio||4;
+  const RES=[
+    {key:'bones',name:'Bones',ico:'🦴',get:()=>GS.bones,set:v=>{GS.bones=v;}},
+    {key:'wood', name:'Wood', ico:'🪵',get:()=>GS.wood||0,set:v=>{GS.wood=v;}},
+    {key:'herbs',name:'Herbs',ico:'🌿',get:()=>GS.herbs||0,set:v=>{GS.herbs=v;}},
+  ];
+  let fromIdx=0,toIdx=1;
+  function render(){
+    const from=RES[fromIdx],to=RES[toIdx];
+    let html=`<div style="text-align:center;margin-bottom:10px">
+      <span style="font-size:10px;color:#94a3b8">Tier ${lv} · Ratio ${ratio}:1</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
+      <div style="text-align:center">
+        <div style="font-size:9px;color:#94a3b8;margin-bottom:4px">FROM</div>
+        <select id="alchFrom" style="background:#1a1a2e;color:#e2e8f0;border:1px solid #7c3aed55;border-radius:6px;padding:4px 8px;font-family:'Cinzel',serif;font-size:10px">
+          ${RES.map((r,i)=>`<option value="${i}" ${i===fromIdx?'selected':''}>${r.ico} ${r.name} (${r.get()})</option>`).join('')}
+        </select>
+      </div>
+      <span style="font-size:16px;color:#10b981">→</span>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:#94a3b8;margin-bottom:4px">TO</div>
+        <select id="alchTo" style="background:#1a1a2e;color:#e2e8f0;border:1px solid #7c3aed55;border-radius:6px;padding:4px 8px;font-family:'Cinzel',serif;font-size:10px">
+          ${RES.map((r,i)=>`<option value="${i}" ${i===toIdx?'selected':''}>${r.ico} ${r.name} (${r.get()})</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="text-align:center;margin-bottom:8px">
+      <input id="alchAmt" type="number" min="1" placeholder="Amount to convert" style="background:#0a0a1a;color:#e2e8f0;border:1px solid #10b98155;border-radius:6px;padding:6px 10px;width:140px;font-family:'Cinzel',serif;font-size:10px;text-align:center">
+    </div>
+    <div style="text-align:center;font-size:9px;color:#94a3b8;margin-bottom:6px">
+      ${ratio} ${from.ico} → 1 ${to.ico}
+    </div>
+    <div id="alchMsg" style="text-align:center;font-size:10px;min-height:16px;margin-bottom:4px"></div>`;
+    npcDialogue('⚗️','Alchemy Lab',html,'#10b981',[
+      {label:'⚗️ Convert',action:()=>{
+        const fi=parseInt(document.getElementById('alchFrom')?.value)||0;
+        const ti=parseInt(document.getElementById('alchTo')?.value)||0;
+        const amt=parseInt(document.getElementById('alchAmt')?.value)||0;
+        if(fi===ti){showToast('Cannot convert to the same resource!');return;}
+        const from=RES[fi],to=RES[ti];
+        const cost=amt*ratio;
+        if(amt<=0){showToast('Enter a positive amount.');return;}
+        if(from.get()<cost){showToast(`Need ${cost} ${from.ico} but only have ${from.get()}.`);return;}
+        from.set(from.get()-cost);
+        to.set(to.get()+amt);
+        SND.heal();
+        showToast(`⚗️ Converted ${cost} ${from.ico} → ${amt} ${to.ico}`);
+        if(SETTINGS.autoSave)saveGame(false);
+        fromIdx=fi;toIdx=ti;
+        render();
+      }},
+      {label:'Close',action:closeNpcDialogue}
+    ]);
+  }
+  render();
+}
+function openAlchemyShelf(){
+  const lv=getCastleLevel('alchemy');
+  if(!lv){showToast('⚗️ Build the Alchemy Lab first!');return;}
+  const tier=getCastleTier('alchemy');
+  const potionGen=tier?.bonus?.potionGen||0;
+  const potionEffect=tier?.bonus?.potionEffect||0;
+  let html=`<div style="text-align:center;margin-bottom:10px">
+    <span style="font-size:11px;color:#34d399">Ingredient Shelf</span>
+  </div>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:12px">
+    <div style="background:#0a0a1a;border:1px solid #10b98133;border-radius:8px;padding:8px 12px;text-align:center">
+      <div style="font-size:16px">🦴</div><div style="font-size:10px;color:#e2e8f0">${GS.bones}</div><div style="font-size:8px;color:#94a3b8">Bones</div>
+    </div>
+    <div style="background:#0a0a1a;border:1px solid #10b98133;border-radius:8px;padding:8px 12px;text-align:center">
+      <div style="font-size:16px">🪵</div><div style="font-size:10px;color:#e2e8f0">${GS.wood||0}</div><div style="font-size:8px;color:#94a3b8">Wood</div>
+    </div>
+    <div style="background:#0a0a1a;border:1px solid #10b98133;border-radius:8px;padding:8px 12px;text-align:center">
+      <div style="font-size:16px">🌿</div><div style="font-size:10px;color:#e2e8f0">${GS.herbs||0}</div><div style="font-size:8px;color:#94a3b8">Herbs</div>
+    </div>
+  </div>
+  <div style="font-size:9px;color:#94a3b8;text-align:center">
+    ${potionGen?`<div style="color:#34d399;margin-bottom:4px">🧪 Passive potion gen: ${potionGen}/hr</div>`:''}
+    ${potionEffect?`<div style="color:#34d399;margin-bottom:4px">✨ Potion effect bonus: +${Math.round(potionEffect*100)}%</div>`:''}
+    ${!potionGen&&!potionEffect?'<div style="color:#666">Upgrade alchemy lab for potion generation.</div>':''}
+  </div>`;
+  npcDialogue('🧪','Ingredients',html,'#34d399',[{label:'Close',action:closeNpcDialogue}]);
+}
+
+// ─── TROPHY HALL (Castle) ─────────────────────────────────────
+function openTrophyHall(){
+  const lv=getCastleLevel('trophy');
+  if(!lv){showToast('🏆 Build the Trophy Hall first!');return;}
+  const tier=getCastleTier('trophy');
+  const atkPer=tier?.bonus?.trophyAtkPerBoss||0;
+  const defPer=tier?.bonus?.trophyDefPerBoss||0;
+  const lootPer=tier?.bonus?.trophyLootPerBoss||0;
+  // Count unique boss types defeated
+  const bossTypes=new Set();
+  for(const regionId of Object.keys(GS.conquered||{})){
+    if(regionId==='coop')continue;
+    const diffs=GS.conquered[regionId];
+    for(const d of Object.keys(diffs)){
+      const raidKey=regionId+'_'+d;
+      const cfg=RAID_CONFIGS[raidKey]||RAID_CONFIGS[regionId];
+      if(cfg?.bossKey)bossTypes.add(cfg.bossKey);
+    }
+  }
+  // Also count base raids (cemetery, forest, sanctum)
+  ['cemetery','forest','sanctum'].forEach(k=>{
+    if(GS.conquered[k]){
+      const cfg=RAID_CONFIGS[k];
+      if(cfg?.bossKey)bossTypes.add(cfg.bossKey);
+    }
+  });
+  const bossCount=bossTypes.size;
+  const totalAtk=Math.round(bossCount*atkPer*100);
+  const totalDef=Math.round(bossCount*defPer*100);
+  const totalLoot=Math.round(bossCount*lootPer*100);
+  // Build trophy display
+  let trophyHtml='';
+  bossTypes.forEach(bk=>{
+    const boss=window.REGION_BOSSES?.[bk]||window.BOSSES?.[bk]||{name:bk};
+    trophyHtml+=`<div style="display:inline-flex;align-items:center;gap:4px;background:#1a1a2e;border:1px solid #f59e0b33;border-radius:6px;padding:3px 8px;margin:2px;font-size:9px">
+      <span style="color:#fbbf24">☠</span><span style="color:#e2e8f0">${boss.name||bk}</span>
+    </div>`;
+  });
+  let html=`<div style="text-align:center;margin-bottom:8px">
+    <span style="font-size:10px;color:#94a3b8">Tier ${lv} · ${bossCount} boss types defeated</span>
+  </div>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+    ${atkPer?`<div style="background:#0a0a1a;border:1px solid #f59e0b33;border-radius:8px;padding:6px 10px;text-align:center">
+      <div style="font-size:12px">⚔️</div><div style="font-size:11px;color:#fbbf24">+${totalAtk}%</div><div style="font-size:8px;color:#94a3b8">ATK Bonus</div>
+    </div>`:''}
+    ${defPer?`<div style="background:#0a0a1a;border:1px solid #f59e0b33;border-radius:8px;padding:6px 10px;text-align:center">
+      <div style="font-size:12px">🛡️</div><div style="font-size:11px;color:#60a5fa">+${totalDef}%</div><div style="font-size:8px;color:#94a3b8">DEF Bonus</div>
+    </div>`:''}
+    ${lootPer?`<div style="background:#0a0a1a;border:1px solid #f59e0b33;border-radius:8px;padding:6px 10px;text-align:center">
+      <div style="font-size:12px">💎</div><div style="font-size:11px;color:#a78bfa">+${totalLoot}%</div><div style="font-size:8px;color:#94a3b8">Loot Bonus</div>
+    </div>`:''}
+  </div>
+  <div style="max-height:140px;overflow-y:auto;margin-bottom:6px;text-align:center">
+    ${trophyHtml||'<div style="font-size:9px;color:#666">No boss trophies yet. Conquer raids to collect them!</div>'}
+  </div>`;
+  npcDialogue('🏆','Trophy Hall',html,'#f59e0b',[{label:'Close',action:closeNpcDialogue}]);
+}
+
+// ─── PORTAL CHAMBER ───────────────────────────────────────────
+function openPortalChamber(){
+  if(RS&&!RS.done){showToast('Cannot use portal during a raid!');return;}
+  const lv=getCastleLevel('portal');
+  if(!lv){showToast('🌀 Build the Portal Chamber first!');return;}
+  const tier=getCastleTier('portal');
+  const raidSpd=tier?.bonus?.raidSpeed||0;
+  const preview=tier?.bonus?.portalPreview||false;
+  // Build list of conquered regions
+  const conqueredRegions=[];
+  for(const regionId of Object.keys(GS.conquered||{})){
+    if(regionId==='coop')continue;
+    // Find region info from WORLD_REGIONS
+    const wr=WORLD_REGIONS?.find(r=>r.id===regionId);
+    if(!wr)continue;
+    const raidKeys=REGION_RAID_MAP[regionId]||[];
+    const diffs=GS.conquered[regionId];
+    conqueredRegions.push({regionId,name:wr.name||regionId,ico:wr.ico||'🗺️',raidKeys,diffs});
+  }
+  conqueredRegions.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  let listHtml='';
+  if(!conqueredRegions.length){
+    listHtml='<div style="text-align:center;font-size:9px;color:#666;padding:12px">No conquered regions yet. Defeat bosses to unlock destinations!</div>';
+  } else {
+    conqueredRegions.forEach(cr=>{
+      const diffIcos=[];
+      if(cr.diffs.easy)diffIcos.push('<span style="color:#22c55e">⚔</span>');
+      if(cr.diffs.medium)diffIcos.push('<span style="color:#f59e0b">⚔⚔</span>');
+      if(cr.diffs.hard)diffIcos.push('<span style="color:#ef4444">⚔⚔⚔</span>');
+      listHtml+=`<div onclick="portalTravelTo('${cr.regionId}')" style="display:flex;align-items:center;gap:8px;background:#0a0a1a;border:1px solid #06b6d433;border-radius:8px;padding:8px 10px;margin-bottom:4px;cursor:pointer;transition:border-color .2s" onmouseover="this.style.borderColor='#06b6d4'" onmouseout="this.style.borderColor='#06b6d433'">
+        <span style="font-size:16px">${cr.ico}</span>
+        <div style="flex:1">
+          <div style="font-size:10px;color:#e2e8f0">${cr.name}</div>
+          <div style="font-size:8px">${diffIcos.join(' ')}</div>
+        </div>
+        <span style="font-size:10px;color:#06b6d4">🌀</span>
+      </div>`;
+    });
+  }
+  let html=`<div style="text-align:center;margin-bottom:8px">
+    <span style="font-size:10px;color:#94a3b8">Tier ${lv}${raidSpd?` · +${Math.round(raidSpd*100)}% raid speed`:''}</span>
+  </div>
+  <div style="max-height:200px;overflow-y:auto;margin-bottom:6px">${listHtml}</div>`;
+  npcDialogue('🌀','Portal Chamber',html,'#06b6d4',[{label:'Close',action:closeNpcDialogue}]);
+}
+function portalTravelTo(regionId){
+  closeNpcDialogue();
+  // Navigate to the aviary raid picker with the region pre-selected
+  const raidKeys=REGION_RAID_MAP[regionId]||[];
+  if(!raidKeys.length){showToast('No raids found for this region.');return;}
+  // Set the difficulty selector to the first raid of that region
+  showScreen('aviary');
+  const diffEl=document.getElementById('aviaryDiff');
+  if(diffEl)diffEl.value=raidKeys[0];
+  renderAviaryRaidPicker();
+  showToast(`🌀 Teleported to ${regionId}!`);
+  SND.heal();
 }
 
 // ─── GOLD COFFER ───────────────────────────────────────────────
