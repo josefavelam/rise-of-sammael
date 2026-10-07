@@ -2463,6 +2463,8 @@ const SHOP_ITEMS={
     {id:'lore_scroll',  name:'Lore Scroll',          ico:'📜',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Knowledge from an ancient tome. Grants +30% XP for one raid.',effect:'xpBuff',val:0.3},
     {id:'dwarven_axe',  name:'Dwarven Axe',          ico:'⚔️',price:{gp:0},  type:'quest_item',qty:true, shopHidden:true, desc:'A legendary Dwarven weapon stolen by the Great Troll. Return it to the Dwarf.',effect:'none',val:0},
     {id:'dwarven_ale',  name:'Dwarven Ale',           ico:'🍺',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Hearty Dwarven brew. Heals 80 HP and grants +15% ATK for one raid.',effect:'healAndAtk',val:80},
+    {id:'sun_relic',    name:'Sun Relic',             ico:'☀️',price:{gp:0},  type:'quest_item',qty:true, shopHidden:true, desc:'A sacred relic of the Morninglord, pried from the Lich\'s cold grasp. Return it to Sister Althea.',effect:'none',val:0},
+    {id:'holy_water',   name:'Holy Water',            ico:'💧',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Blessed water from Sister Althea. Heals 60 HP and grants +20% DMG vs undead for one raid.',effect:'healAndHoly',val:60},
     // ── Crafted Potions ──
     {id:'elixir_shadows',name:'Elixir of Shadows',    ico:'👤',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'Become invisible for 10s. Enemies ignore you.',effect:'invisibility',val:10},
     {id:'necro_vigor',   name:"Necromancer's Vigor",   ico:'💪',price:{gp:0},  type:'consumable',qty:true, shopHidden:true, desc:'+50% max HP for 1 raid.',effect:'hpBuff',val:0.5},
@@ -3022,7 +3024,7 @@ GS.inv={
 //  [ ] J11. Test: can quest complete? (return item to NPC)
 //
 // ═══════════════════════════════════════════════════════════════════════════════
-GS.quests={pumpkin_quest:{started:false,completed:false,has_pumpkin:false,npcMet:false,npcLeft:false},gandalf_quest:{started:false,completed:false,has_fireworks:false},ranger_quest:{started:false,completed:false,has_map:false},scholar_quest:{started:false,completed:false,has_tome:false},dwarf_quest:{started:false,completed:false,has_axe:false}};
+GS.quests={pumpkin_quest:{started:false,completed:false,has_pumpkin:false,npcMet:false,npcLeft:false},gandalf_quest:{started:false,completed:false,has_fireworks:false},ranger_quest:{started:false,completed:false,has_map:false},scholar_quest:{started:false,completed:false,has_tome:false},dwarf_quest:{started:false,completed:false,has_axe:false},cleric_quest:{started:false,completed:false,has_relic:false}};
 // ── VILLAGE NPC SYSTEM ──────────────────────────────────────────────────────
 // Daily buff from Tavern Keeper (resets at midnight local time)
 GS.tavernBuff={id:null,expires:0}; // {id:'atk_boost',expires:timestamp}
@@ -3233,6 +3235,32 @@ const HERO_DEFS = {
       "A Necromancer and a Rogue walk into a crypt...",
       "Mage Hand is for amateurs. MY Mage Hand is invisible.",
       "I could rob you blind. But allies get a discount."
+    ]
+  },
+  cleric: {
+    id: 'cleric',
+    name: 'Sister Althea',
+    title: 'The Dawnbringer',
+    ico: '☀',
+    spriteKey: 'hero_cleric',
+    desc: "A devoted war-cleric of the Morninglord who answered the call when the dead began to rise. She wields a golden mace and channels radiant light to heal allies and smite the undead.",
+    baseHP: 360,
+    baseDMG: 32,
+    baseSpd: 1.2,
+    atkRange: 45,
+    atkCD: 1.3,
+    color: '#fbbf24',
+    skills: ['Sacred Flame', 'Healing Word', 'Spirit Guardians'],
+    skillDescs: ['Radiant fire scorches a foe for holy damage.', 'A quick prayer restores an ally\'s vitality.', 'Spectral warriors orbit the Cleric, damaging all nearby enemies.'],
+    dialogues: [
+      "The Morninglord's light shines, even here.",
+      "I heal the living and smite the dead. You... are an exception.",
+      "A Necromancer walks into a chapel... and I only ALMOST smote him.",
+      "My mace has a name. It's called 'Theological Disagreement.'",
+      "Every sunrise is proof that darkness never wins.",
+      "I've read every holy text. Nowhere does it say 'don't befriend Necromancers.'",
+      "Shield of faith, word of healing, divine smite — all in a day's work.",
+      "Your skeletons need more fiber in their diet. They keep falling apart."
     ]
   }
 };
@@ -3486,6 +3514,56 @@ const HERO_SKILL_POOLS = {
     {id:'zeph_master_thief',   name:'Master Thief',         ico:'🎭', lv:19, cd:20, type:'buff',   desc:'+40% ATK, +20% dodge, steal 15% lifesteal for 8s.',dmg:0, heal:0, range:0, aoe:0, duration:8, atkBoostPct:0.4, dodgePct:0.2, lifestealPct:0.15},
     // ── Lv 20: Capstone — Shadowed Execution ──
     {id:'zeph_execution',      name:'Shadowed Execution',   ico:'⚰', lv:20, cd:25, type:'melee',  desc:'Capstone: 90 dmg. Kills below 25% HP. Resets all CDs.',dmg:90, heal:0, range:50, aoe:0, execThreshold:0.25},
+  ],
+  // ═══════════════════════════════════════════════════════════
+  //  DnD 5e War Cleric (Morninglord Domain) — Levels 1-20
+  // ═══════════════════════════════════════════════════════════
+  cleric: [
+    // ── Lv 1: Cantrips & Domain ──
+    {id:'clr_sacred_flame',    name:'Sacred Flame',         ico:'☀', lv:1,  cd:2,  type:'ranged', desc:'Radiant fire scorches a foe for 20 dmg.',dmg:20, heal:0, range:180, aoe:0},
+    {id:'clr_healing_word',    name:'Healing Word',         ico:'💛', lv:1,  cd:8,  type:'heal',   desc:'Quick prayer heals an ally for 30 HP.',dmg:0, heal:30, range:200, aoe:0},
+    {id:'clr_shield_of_faith', name:'Shield of Faith',      ico:'🛡', lv:1,  cd:12, type:'buff',   desc:'Grants a 40 HP shield to the lowest-HP ally.',dmg:0, heal:0, range:200, aoe:0, shieldAmt:40},
+    {id:'clr_war_domain',      name:'War Domain',           ico:'⚔', lv:1,  cd:0,  type:'passive',desc:'+10% melee damage from divine martial training.',dmg:0, heal:0, range:0, aoe:0, meleeDmgPct:0.1},
+    // ── Lv 2: Channel Divinity ──
+    {id:'clr_guided_strike',   name:'Guided Strike',        ico:'🎯', lv:2,  cd:15, type:'buff',   desc:'+30% ATK for 6s via divine guidance.',dmg:0, heal:0, range:0, aoe:0, duration:6, atkBoostPct:0.3},
+    {id:'clr_turn_undead',     name:'Turn Undead',          ico:'✝', lv:2,  cd:18, type:'aoe',    desc:'Radiant burst deals 25 dmg and stuns undead in range for 2s.',dmg:25, heal:0, range:0, aoe:120, stunDur:2},
+    // ── Lv 3: 2nd-Level Spells ──
+    {id:'clr_spiritual_weapon',name:'Spiritual Weapon',     ico:'🔨', lv:3,  cd:10, type:'ranged', desc:'A spectral mace strikes for 35 dmg at range.',dmg:35, heal:0, range:200, aoe:0},
+    {id:'clr_prayer_healing',  name:'Prayer of Healing',    ico:'🙏', lv:3,  cd:20, type:'heal',   desc:'Group prayer heals all allies for 25 HP.',dmg:0, heal:25, range:0, aoe:0},
+    // ── Lv 4: ASI ──
+    {id:'clr_war_caster',      name:'War Caster',           ico:'📖', lv:4,  cd:0,  type:'passive',desc:'Concentration spells last 20% longer.',dmg:0, heal:0, range:0, aoe:0, buffDur:0.2},
+    // ── Lv 5: 3rd-Level Spells ──
+    {id:'clr_spirit_guardians',name:'Spirit Guardians',     ico:'👻', lv:5,  cd:14, type:'aoe',    desc:'Spectral warriors deal 30 dmg to all enemies within 100 range.',dmg:30, heal:0, range:0, aoe:100},
+    {id:'clr_revivify',        name:'Revivify',             ico:'💫', lv:5,  cd:45, type:'heal',   desc:'Bring back a fallen ally once per raid.',dmg:0, heal:50, range:60, aoe:0},
+    // ── Lv 6: War God's Blessing ──
+    {id:'clr_war_gods_blessing',name:'War God\'s Blessing', ico:'⚡', lv:6,  cd:20, type:'buff',   desc:'+25% ATK and +15% crit for 8s to an ally.',dmg:0, heal:0, range:200, aoe:0, duration:8, atkBoostPct:0.25, critPct:0.15},
+    // ── Lv 7: 4th-Level Spells ──
+    {id:'clr_guardian_of_faith',name:'Guardian of Faith',   ico:'🗡', lv:7,  cd:16, type:'aoe',    desc:'Summon a radiant guardian dealing 35 aoe dmg.',dmg:35, heal:0, range:0, aoe:110},
+    {id:'clr_death_ward',      name:'Death Ward',           ico:'💀', lv:7,  cd:60, type:'buff',   desc:'Survive lethal blow at 1 HP. Once per raid.',dmg:0, heal:0, range:0, aoe:0},
+    // ── Lv 8: Divine Strike ──
+    {id:'clr_divine_strike',   name:'Divine Strike',        ico:'✨', lv:8,  cd:6,  type:'melee',  desc:'Melee hit infused with radiant energy for 45 dmg.',dmg:45, heal:0, range:50, aoe:0},
+    // ── Lv 9: 5th-Level Spells ──
+    {id:'clr_flame_strike',    name:'Flame Strike',         ico:'🔥', lv:9,  cd:16, type:'aoe',    desc:'Pillar of divine fire deals 50 aoe dmg in 120 range.',dmg:50, heal:0, range:0, aoe:120},
+    {id:'clr_mass_cure',       name:'Mass Cure Wounds',     ico:'💚', lv:9,  cd:22, type:'heal',   desc:'Heals all allies for 40 HP.',dmg:0, heal:40, range:0, aoe:0},
+    // ── Lv 10: Divine Intervention ──
+    {id:'clr_divine_intervention',name:'Divine Intervention',ico:'🌟', lv:10, cd:30, type:'buff',  desc:'20% damage reduction for all allies for 8s.',dmg:0, heal:0, range:0, aoe:0, duration:8, drPct:0.2},
+    // ── Lv 11: 6th-Level Spells ──
+    {id:'clr_heal',            name:'Heal',                 ico:'❤', lv:11, cd:18, type:'heal',   desc:'Powerful single-target heal for 70 HP.',dmg:0, heal:70, range:200, aoe:0},
+    {id:'clr_blade_barrier',   name:'Blade Barrier',        ico:'🌀', lv:11, cd:18, type:'aoe',    desc:'Ring of spinning blades deals 40 dmg in 130 range.',dmg:40, heal:0, range:0, aoe:130},
+    // ── Lv 13: 7th-Level Spells ──
+    {id:'clr_holy_aura',       name:'Holy Aura',            ico:'🌈', lv:13, cd:25, type:'buff',   desc:'All allies gain +15% DR and +10% dodge for 10s.',dmg:0, heal:0, range:0, aoe:0, duration:10, drPct:0.15, dodgePct:0.1},
+    {id:'clr_regenerate',      name:'Regenerate',           ico:'🌿', lv:13, cd:20, type:'heal',   desc:'HoT: heals 15 HP per tick for 5 ticks on lowest ally.',dmg:0, heal:15, range:200, aoe:0, hotAmt:15, duration:5},
+    // ── Lv 15: 8th-Level Spells ──
+    {id:'clr_holy_word',       name:'Holy Word',            ico:'📜', lv:15, cd:22, type:'aoe',    desc:'Divine word deals 60 dmg and stuns all enemies for 1.5s.',dmg:60, heal:0, range:0, aoe:140, stunDur:1.5},
+    // ── Lv 17: 9th-Level Spells ──
+    {id:'clr_mass_heal',       name:'Mass Heal',            ico:'💖', lv:17, cd:35, type:'heal',   desc:'Massive group heal restoring 60 HP to all allies.',dmg:0, heal:60, range:0, aoe:0},
+    {id:'clr_true_resurrection',name:'True Resurrection',   ico:'🕊', lv:17, cd:90, type:'heal',   desc:'Revive all fallen heroes. Once per raid.',dmg:0, heal:80, range:0, aoe:0},
+    // ── Lv 18: Improved Divine Strike ──
+    {id:'clr_radiant_smite',   name:'Radiant Smite',        ico:'💥', lv:18, cd:8,  type:'melee',  desc:'Devastating radiant melee for 75 dmg.',dmg:75, heal:0, range:50, aoe:0},
+    // ── Lv 19: ASI ──
+    {id:'clr_avatar_of_war',   name:'Avatar of War',        ico:'🛡', lv:19, cd:30, type:'buff',   desc:'+35% ATK, +20% DR, +shield 60 for 10s.',dmg:0, heal:0, range:0, aoe:0, duration:10, atkBoostPct:0.35, drPct:0.2, shieldAmt:60},
+    // ── Lv 20: Capstone — Divine Wrath ──
+    {id:'clr_divine_wrath',    name:'Divine Wrath',         ico:'⚡', lv:20, cd:28, type:'aoe',    desc:'Capstone: Radiant explosion for 85 aoe dmg. Heals allies for 30.',dmg:85, heal:30, range:0, aoe:150},
   ]
 };
 
@@ -3495,7 +3573,8 @@ const HERO_DEFAULT_SKILLS = {
   meruem: ['magic_missile','shield_spell','scorching_ray','mirror_image'],
   melting: ['barb_rage','reckless_attack','stones_endurance','unarmored_defense'],
   esoj: ['esoj_hunters_mark','esoj_cure','esoj_ensnare','esoj_nature_bond'],
-  zephyr: ['zeph_sneak_attack','zeph_cunning_action','zeph_twin_fangs','zeph_expertise']
+  zephyr: ['zeph_sneak_attack','zeph_cunning_action','zeph_twin_fangs','zeph_expertise'],
+  cleric: ['clr_sacred_flame','clr_healing_word','clr_shield_of_faith','clr_war_domain']
 };
 
 // Get skills available to a hero at a given level
@@ -3762,7 +3841,7 @@ const ACHIEVEMENTS=[
   {id:'sw_enter',        cat:'exploration', name:'Skyriver Traveler',desc:'Enter the Skyriver galaxy',            ico:'⭐', check:()=>{const c=GS.conquered;for(const r in c)if(r.startsWith('sw_'))return true;return false;}},
   {id:'all_easy',        cat:'exploration', name:'Tourist',         desc:'Clear all Easy raids in any realm',      ico:'🗺', check:()=>{let ct=0;const c=GS.conquered;for(const r in c)if(r!=='coop'&&c[r].easy)ct++;return ct>=10;}},
   {id:'quest_1',         cat:'exploration', name:'Quest Seeker',    desc:'Complete your first quest',              ico:'📜', check:()=>{const q=GS.quests||{};for(const k in q)if(q[k].completed)return true;return false;}},
-  {id:'quest_all',       cat:'exploration', name:'Questmaster',     desc:'Complete all available quests',          ico:'🏆', check:()=>{const q=GS.quests||{};const keys=['pumpkin_quest','gandalf_quest','ranger_quest','scholar_quest','dwarf_quest'];return keys.every(k=>q[k]&&q[k].completed);}},
+  {id:'quest_all',       cat:'exploration', name:'Questmaster',     desc:'Complete all available quests',          ico:'🏆', check:()=>{const q=GS.quests||{};const keys=['pumpkin_quest','gandalf_quest','ranger_quest','scholar_quest','dwarf_quest','cleric_quest'];return keys.every(k=>q[k]&&q[k].completed);}},
 
   // ── CASTLE ──
   {id:'castle_first',    cat:'castle', name:'Home Improvement',    desc:'Upgrade any castle room to Tier 1',      ico:'🔨', check:()=>Object.values(GS.castleUpgrades).some(v=>v>=1)},
@@ -3778,7 +3857,7 @@ const ACHIEVEMENTS=[
   {id:'coop_first',      cat:'social', name:'Together We Rise',     desc:'Complete your first co-op raid',         ico:'🤝', check:()=>!!GS.conquered?.coop&&Object.keys(GS.conquered.coop).length>=1},
   {id:'coop_10',         cat:'social', name:'Battle Brothers',       desc:'Complete 10 co-op raids',               ico:'⚔️', check:()=>!!GS.conquered?.coop&&Object.keys(GS.conquered.coop).length>=10},
   {id:'hero_unlock',     cat:'social', name:'Hero Summoner',         desc:'Unlock your first hero',                ico:'🦸', check:()=>(GS.heroes?.unlocked?.size||0)>=1},
-  {id:'hero_all',        cat:'social', name:'Legendary Allies',      desc:'Unlock all heroes',                     ico:'👥', check:()=>(GS.heroes?.unlocked?.size||0)>=2},
+  {id:'hero_all',        cat:'social', name:'Legendary Allies',      desc:'Unlock all heroes',                     ico:'👥', check:()=>(GS.heroes?.unlocked?.size||0)>=Object.keys(HERO_DEFS).length},
 
   // ── COLLECTION ──
   {id:'pet_1',           cat:'collection', name:'Pet Owner',         desc:'Acquire your first pet',                ico:'🐾', check:()=>(GS.inv?.familiars?.size||0)>=1},
@@ -4447,7 +4526,7 @@ const SpriteManager=(()=>{
   // Keys that MUST stay procedural (heroes, necromancer, special variants)
   const _PROCEDURAL_ONLY=new Set([
     'necromancer','necromancer_coop','sammaels',
-    'hero_meruem','hero_esoj','hero_melting','hero_rikker','hero_zephyr',
+    'hero_meruem','hero_esoj','hero_melting','hero_rikker','hero_zephyr','hero_cleric','cleric_npc',
     'meruem_hero_of_time','melting_thor','rikker_seraph','esoj_ent',
     'charizard','charmeleon','hobbit',
     'pumpkin_merchant_stall',
@@ -10841,6 +10920,103 @@ SPR.hero_zephyr=(c,t=0,w=0,anim='idle')=>{
   }
 };
 
+SPR.hero_cleric=(c,t=0,w=0,anim='idle')=>{
+  const bob=Math.abs(w)*1.5;const lean=w*1.2;
+  const pulse=0.6+Math.sin(t*3)*0.25;
+  // White & gold vestments
+  c.save();c.translate(lean*0.4,-bob);
+  const rG=c.createLinearGradient(-9,-8,9,16);
+  rG.addColorStop(0,'#fffbeb');rG.addColorStop(0.5,'#fef3c7');rG.addColorStop(1,'#fde68a');
+  c.fillStyle=rG;
+  c.beginPath();c.moveTo(-9+w,-8);c.lineTo(9+w,-8);c.lineTo(13+w*2,16);c.lineTo(-13+w*2,16);c.closePath();c.fill();
+  // Gold trim lines
+  c.fillStyle='rgba(251,191,36,.6)';c.fillRect(-9,-8,2,24);
+  c.fillStyle='rgba(217,119,6,.4)';c.fillRect(7,-8,2,24);
+  // Morninglord sun emblem on chest
+  c.fillStyle=`rgba(251,191,36,${pulse})`;
+  c.beginPath();c.arc(0,0,4,0,Math.PI*2);c.fill();
+  for(let i=0;i<8;i++){const a=i*Math.PI/4+t*0.5;c.fillRect(Math.cos(a)*4-0.5,Math.sin(a)*4-0.5,1,4);c.save();c.translate(Math.cos(a)*4,Math.sin(a)*4);c.rotate(a);c.fillRect(-0.5,0,1,3);c.restore();}
+  // White stole hanging down
+  c.fillStyle='rgba(255,255,255,.8)';c.fillRect(-2,-6,1.5,20);c.fillRect(0.5,-6,1.5,20);
+  // Feet — golden sandals
+  c.fillStyle='#d97706';c.fillRect((-5+w*5)-2,14,4,4);c.fillRect((3-w*5)-2,14,4,4);
+  c.restore();
+  // Head — warm complexion, short auburn hair
+  c.save();c.translate(lean*0.2,-bob*0.7);
+  // Hair
+  c.fillStyle='#92400e';c.beginPath();c.arc(0,-17,9,Math.PI+0.3,2*Math.PI-0.3);c.fill();
+  c.fillRect(-5,-26,10,4);
+  // Face
+  c.fillStyle='#e8b88a';c.beginPath();c.arc(0,-17,7,0,Math.PI*2);c.fill();
+  // Eyes — warm amber with holy glow
+  c.fillStyle=`rgba(251,191,36,${0.6+pulse*0.3})`;c.shadowColor='#fbbf24';c.shadowBlur=3;
+  c.beginPath();c.arc(-2.5,-18,1.8,0,Math.PI*2);c.fill();
+  c.beginPath();c.arc(2.5,-18,1.8,0,Math.PI*2);c.fill();
+  c.shadowBlur=0;
+  // Gentle smile
+  c.strokeStyle='rgba(120,80,50,.4)';c.lineWidth=0.7;
+  c.beginPath();c.moveTo(-2,-13.5);c.quadraticCurveTo(0,-12.5,2,-13.5);c.stroke();
+  // Circlet — thin gold band with sun gem
+  c.strokeStyle='#fbbf24';c.lineWidth=1;
+  c.beginPath();c.arc(0,-17,8,Math.PI+0.5,2*Math.PI-0.5);c.stroke();
+  c.fillStyle=`rgba(251,191,36,${pulse})`;c.beginPath();c.arc(0,-25,2.5,0,Math.PI*2);c.fill();
+  c.restore();
+  // Golden Mace — sunburst head
+  c.save();c.translate(lean*0.3,-bob*0.5);
+  c.translate(13,-2);c.rotate(-0.25);
+  // Shaft
+  c.fillStyle='#78350f';c.fillRect(-1.5,-18,3,22);
+  // Gold grip wrapping
+  c.fillStyle='rgba(251,191,36,.6)';
+  for(let i=0;i<4;i++)c.fillRect(-2,-16+i*5,4,1.5);
+  // Mace head — radiant sunburst
+  c.fillStyle='#fbbf24';c.beginPath();c.arc(0,-20,5,0,Math.PI*2);c.fill();
+  c.fillStyle=`rgba(253,224,71,${pulse})`;c.beginPath();c.arc(0,-20,3,0,Math.PI*2);c.fill();
+  // Sunburst rays
+  c.strokeStyle=`rgba(251,191,36,${pulse*0.8})`;c.lineWidth=1.2;
+  for(let i=0;i<6;i++){const a=i*Math.PI/3+t*0.8;c.beginPath();c.moveTo(Math.cos(a)*5,-20+Math.sin(a)*5);c.lineTo(Math.cos(a)*9,-20+Math.sin(a)*9);c.stroke();}
+  c.restore();
+  // Radiant aura particles
+  if(pulse>0.5){
+    for(let i=0;i<4;i++){
+      const a=(t*2+i*1.57)%(Math.PI*2);
+      const r=16+Math.sin(t*1.5+i)*5;
+      c.fillStyle=`rgba(251,191,36,${(pulse-0.3)*0.35})`;
+      c.beginPath();c.arc(Math.cos(a)*r,Math.sin(a)*r-10,1.8,0,Math.PI*2);c.fill();
+    }
+  }
+};
+
+// ── Cleric NPC — village sprite (smaller, no weapon, white vestments) ──
+SPR.cleric_npc=(c,t=0,w=0,anim='idle')=>{
+  const bob=Math.sin(t*2)*1.5;
+  const lean=w*0.15;
+  c.save();c.rotate(lean);
+  // White vestments body
+  c.fillStyle='#f0ead6';c.beginPath();c.ellipse(0,2+bob,7,10,0,0,Math.PI*2);c.fill();
+  c.strokeStyle='#fbbf24';c.lineWidth=0.8;c.strokeRect(-6,-6+bob,12,16);
+  // Gold trim sash
+  c.fillStyle='#fbbf24';c.fillRect(-6,4+bob,12,2);
+  // Sun emblem on chest
+  c.fillStyle='#f59e0b';c.beginPath();c.arc(0,-1+bob,2.5,0,Math.PI*2);c.fill();
+  c.strokeStyle='#fcd34d';c.lineWidth=0.5;
+  for(let i=0;i<6;i++){const a=i*Math.PI/3;c.beginPath();c.moveTo(Math.cos(a)*2.5,-1+bob+Math.sin(a)*2.5);c.lineTo(Math.cos(a)*4,-1+bob+Math.sin(a)*4);c.stroke();}
+  // Head
+  c.fillStyle='#e8c4a0';c.beginPath();c.arc(0,-14+bob,6,0,Math.PI*2);c.fill();
+  // Auburn hair
+  c.fillStyle='#8b4513';c.beginPath();c.arc(0,-16+bob,5.5,Math.PI,0);c.fill();
+  c.fillRect(-5,-16+bob,10,2);
+  // Eyes
+  c.fillStyle='#d97706';c.beginPath();c.arc(-2,-14+bob,1,0,Math.PI*2);c.fill();c.beginPath();c.arc(2,-14+bob,1,0,Math.PI*2);c.fill();
+  // Golden circlet
+  c.strokeStyle='#fcd34d';c.lineWidth=1;c.beginPath();c.arc(0,-16+bob,5,Math.PI+0.3,2*Math.PI-0.3);c.stroke();
+  c.fillStyle='#f59e0b';c.beginPath();c.arc(0,-20+bob,1.5,0,Math.PI*2);c.fill();
+  // Gentle holy glow
+  const glw=0.08+Math.sin(t*3)*0.04;
+  c.fillStyle=`rgba(251,191,36,${glw})`;c.beginPath();c.arc(0,-4+bob,18,0,Math.PI*2);c.fill();
+  c.restore();
+};
+
 // ── Esoj Ent — Treefolk ascension (1.5× scale, leaves change color by HP) ──
 SPR.esoj_ent=(c,t,w=0,hpPct)=>{
   const bob=Math.abs(w)*1.5,lean=w*1.2;
@@ -11727,6 +11903,7 @@ function renderShopContent(){
     else if(item.effect==='defBuff')effectStr=`+${Math.round(item.val*100)}% DEF (1 raid)`;
     else if(item.effect==='xpBuff')effectStr=`+${Math.round(item.val*100)}% XP (1 raid)`;
     else if(item.effect==='healAndAtk')effectStr=`Heals ${item.val} HP + 15% ATK (1 raid)`;
+    else if(item.effect==='healAndHoly')effectStr=`Heals ${item.val} HP + 20% DMG vs undead (1 raid)`;
     div.innerHTML=`<div class="scard-ico">${item.ico}</div>
       <div class="scard-body">
         <div class="scard-name">${item.name}${qty>0?' ×'+qty:''}</div>
@@ -12063,6 +12240,7 @@ function loadGame(){
     // Auto-unlock heroes if devUnlocks contains the codes (backward compat)
     if(GS.devUnlocks.has('MERUEM')) GS.heroes.unlocked.add('meruem');
     if(GS.devUnlocks.has('RIKKER')) GS.heroes.unlocked.add('rikker');
+    if(GS.devUnlocks.has('ALTHEA')) GS.heroes.unlocked.add('cleric');
     // Load tavern buff state
     GS.tavernBuff=d.tavernBuff||{id:null,raidsLeft:0};
     GS.bountyBoard=d.bountyBoard||{day:0,bounties:[],completed:[]};
@@ -12094,8 +12272,9 @@ function loadGame(){
       if(!GS.quests.ranger_quest)GS.quests.ranger_quest={started:false,completed:false,has_map:false};
       if(!GS.quests.scholar_quest)GS.quests.scholar_quest={started:false,completed:false,has_tome:false};
       if(!GS.quests.dwarf_quest)GS.quests.dwarf_quest={started:false,completed:false,has_axe:false};
+      if(!GS.quests.cleric_quest)GS.quests.cleric_quest={started:false,completed:false,has_relic:false};
     } else {
-      GS.quests={pumpkin_quest:{started:false,completed:false,has_pumpkin:false,npcMet:false,npcLeft:false},gandalf_quest:{started:false,completed:false,has_fireworks:false},ranger_quest:{started:false,completed:false,has_map:false},scholar_quest:{started:false,completed:false,has_tome:false},dwarf_quest:{started:false,completed:false,has_axe:false}};
+      GS.quests={pumpkin_quest:{started:false,completed:false,has_pumpkin:false,npcMet:false,npcLeft:false},gandalf_quest:{started:false,completed:false,has_fireworks:false},ranger_quest:{started:false,completed:false,has_map:false},scholar_quest:{started:false,completed:false,has_tome:false},dwarf_quest:{started:false,completed:false,has_axe:false},cleric_quest:{started:false,completed:false,has_relic:false}};
     }
     if(d.savedAt){
       const lbl=new Date(d.savedAt).toLocaleString();
@@ -14228,6 +14407,22 @@ function refreshQuestsList(){
     list.appendChild(dDiv);
   }
 
+  // Cleric Quest — Sister Althea's Dawning Light
+  if(GS.quests.cleric_quest&&GS.quests.cleric_quest.started&&!GS.quests.cleric_quest.completed){
+    hasQuests=true;
+    const cq=GS.quests.cleric_quest;
+    const cDiv=document.createElement('div');
+    cDiv.style.cssText='padding:10px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;margin-top:6px';
+    cDiv.innerHTML=`
+      <div style="color:#fef3c7;font-weight:bold;font-size:9px;margin-bottom:4px">☀️ The Dawning Light</div>
+      <div style="color:#fbbf24;font-size:8px;margin-bottom:6px">Active${cq.has_relic?' - Sun Relic Acquired!':''}</div>
+      <div style="color:#9ca3af;font-size:8px;line-height:1.4">
+        Recover the Morninglord's Sun Relic from the Crypt Guardian in the Sanctum Easy raid, then return it to Sister Althea at the chapel.
+      </div>
+    `;
+    list.appendChild(cDiv);
+  }
+
   if(!hasQuests){
     list.innerHTML='<div style="color:#6b7280;font-size:9px;text-align:center;padding:10px">No active quests</div>';
   }
@@ -14290,6 +14485,7 @@ function useRaidItem(id){
   else if(item.effect==='defBuff'){const mult=item.val||0.25;RS.defMult=(RS.defMult||1)*(1+mult);RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`🛡 +${Math.round(mult*100)}% DEF!`,col:'#60a5fa',life:1.5,ml:1.5,vy:-30});}
   else if(item.effect==='xpBuff'){const mult=item.val||0.3;RS.xpMult=(RS.xpMult||1)*(1+mult);RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`📜 +${Math.round(mult*100)}% XP!`,col:'#94a3b8',life:1.5,ml:1.5,vy:-30});}
   else if(item.effect==='healAndAtk'){RS.necro.hp=Math.min(RS.necro.maxHP,RS.necro.hp+(item.val||80));const atkMult=1.15;RS.atkMult=(RS.atkMult||1)*atkMult;RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`🍺 +${item.val}HP +15%ATK!`,col:'#65a30d',life:1.5,ml:1.5,vy:-30});}
+  else if(item.effect==='healAndHoly'){RS.necro.hp=Math.min(RS.necro.maxHP,RS.necro.hp+(item.val||60));RS.atkMult=(RS.atkMult||1)*1.20;RS.parts.push({k:'flt',x:RS.necro.x,y:RS.necro.y-30,txt:`💧 +${item.val}HP +20% DMG!`,col:'#fbbf24',life:1.5,ml:1.5,vy:-30});}
   SND.buff();flash(`${item.ico} ${item.name} used!`,14,'#a855f7');
   refreshRaidInventory();
   updateHUD();
@@ -16444,6 +16640,7 @@ function onBossKilled(){
   if(RS.cfg?.bossKey==='inn_revenant'&&GS.quests?.ranger_quest?.started&&!GS.quests.ranger_quest.completed){GS.inv.consumables['stolen_map']=(GS.inv.consumables['stolen_map']||0)+1;GS.quests.ranger_quest.has_map=true;RS.parts.push({k:'flt',x:RS.boss.x,y:RS.boss.y-40,txt:'🗺️ Stolen Map obtained!',col:'#d97706',life:2.5,ml:2,vy:-50});flash('🗺️ The Revenant had the Stolen Map!',14,'#d97706');}
   if(RS.cfg?.bossKey==='barrow_specter'&&GS.quests?.scholar_quest?.started&&!GS.quests.scholar_quest.completed){GS.inv.consumables['ancient_tome']=(GS.inv.consumables['ancient_tome']||0)+1;GS.quests.scholar_quest.has_tome=true;RS.parts.push({k:'flt',x:RS.boss.x,y:RS.boss.y-40,txt:'📖 Ancient Tome obtained!',col:'#94a3b8',life:2.5,ml:2,vy:-50});flash('📖 The Specter had the Ancient Tome!',14,'#94a3b8');}
   if(RS.cfg?.bossKey==='great_troll'&&GS.quests?.dwarf_quest?.started&&!GS.quests.dwarf_quest.completed){GS.inv.consumables['dwarven_axe']=(GS.inv.consumables['dwarven_axe']||0)+1;GS.quests.dwarf_quest.has_axe=true;RS.parts.push({k:'flt',x:RS.boss.x,y:RS.boss.y-40,txt:'⚔️ Dwarven Axe obtained!',col:'#65a30d',life:2.5,ml:2,vy:-50});flash('⚔️ The Troll had the Dwarven Axe!',14,'#65a30d');}
+  if(RS.cfg?.bossKey==='lich'&&GS.quests?.cleric_quest?.started&&!GS.quests.cleric_quest.completed){GS.inv.consumables['sun_relic']=(GS.inv.consumables['sun_relic']||0)+1;GS.quests.cleric_quest.has_relic=true;RS.parts.push({k:'flt',x:RS.boss.x,y:RS.boss.y-40,txt:'☀️ Sun Relic obtained!',col:'#fbbf24',life:2.5,ml:2,vy:-50});flash('☀️ The Lich had the Morninglord\'s Sun Relic!',14,'#fbbf24');}
   // ── Boss loot drops ──
   const _bKey=RS.cfg?.bossKey||(RS.raidKey==='cemetery'?'wight_lord':RS.raidKey==='forest'?'forest_hag':'lich');
   const _bossDrops=rollBossLoot(_bKey);
@@ -21509,6 +21706,44 @@ function openDwarfTap(){
   npcDialogue('⚔️','Gimrik Ironhand',`Exchanged ${axeCount} Dwarven Axe${axeCount>1?'s':''} for ${axeCount} Dwarven Ale${axeCount>1?'s':''}!\n\nDrink deep, friend!`,'#65a30d');
 }
 
+// ═══ SISTER ALTHEA (Cleric Quest NPC) — unlock Cleric hero ═══
+function openClericTap(){
+  if(!(GS.conquered&&GS.conquered.sanctum&&GS.conquered.sanctum.easy)){showToast('🔒 Clear Sanctum Easy first!');return;}
+  if(!GS.quests)GS.quests={};
+  if(!GS.quests.cleric_quest)GS.quests.cleric_quest={started:false,completed:false,has_relic:false};
+  const quest=GS.quests.cleric_quest;
+  if(!quest.started){
+    GS.quests.cleric_quest.started=true;
+    npcDialogue('☀️','Sister Althea','Praise the Morninglord! I have traveled far seeking aid.\n\nThe Crypt Guardian in the Sanctum stole our Sun Relic—without it, the dead grow bolder with every dusk.\n\nRetrieve it, and I shall lend my mace and prayers to your cause!','#fbbf24');
+    saveGame(false);
+    return;
+  }
+  if(!quest.completed){
+    if(!quest.has_relic){
+      npcDialogue('☀️','Sister Althea','The Sun Relic still lies in the Sanctum, guarded by the Crypt Guardian.\nI can feel its light fading... please, hurry!','#fbbf24');
+      return;
+    }
+    const relicCount=GS.inv.consumables['sun_relic']||0;
+    if(relicCount===0){npcDialogue('☀️','Sister Althea','I sensed the relic... but it is not with you?','#fbbf24');return;}
+    GS.quests.cleric_quest.completed=true;
+    GS.inv.consumables['sun_relic']=0;
+    GS.heroes.unlocked.add('cleric');_ensureHeroLevels();if(!GS.heroes.levels.cleric)GS.heroes.levels.cleric={lv:GS.necroLv||1,xp:0};
+    npcDialogue('☀️','Sister Althea','The Sun Relic! Its radiance returns!\nThe Morninglord smiles upon you, Necromancer.\n\nI pledge my mace and my healing light to your cause.\n\n⚔ Hero Unlocked: Sister Althea joins the Pub!\n✓ Quest Complete!','#fbbf24');
+    saveGame(false);
+    return;
+  }
+  // Quest already completed — offer holy water trade
+  const relicCount=GS.inv.consumables['sun_relic']||0;
+  if(relicCount===0){
+    npcDialogue('☀️','Sister Althea','Blessings upon you! I can trade Sun Relics for Holy Water.\nBring me relics from the Sanctum and I shall consecrate them.','#fbbf24');
+    return;
+  }
+  GS.inv.consumables['sun_relic']=0;
+  GS.inv.consumables['holy_water']=(GS.inv.consumables['holy_water']||0)+relicCount;
+  npcDialogue('☀️','Sister Althea',`Consecrated ${relicCount} Sun Relic${relicCount>1?'s':''} into ${relicCount} Holy Water${relicCount>1?'s':''}!\n\nMay the dawn guide your path!`,'#fbbf24');
+  saveGame(false);
+}
+
 // ── VILLAGE NPC INTERACTION HANDLERS ────────────────────────────────────────
 
 function _getDayKey(){return Math.floor(Date.now()/86400000);}
@@ -23467,6 +23702,7 @@ const CASTLE_OBJECTS = [
   {id:'ranger',     room:'exit',      rx:.55, ry:.30, ico:'🏹', label:'Ranger Haldir',  action:'openRangerTap',   color:'#d97706', tapR:20},
   {id:'scholar',    room:'exit',      rx:.20, ry:.45, ico:'📖', label:'Scholar Elara',  action:'openScholarTap',  color:'#94a3b8', tapR:20},
   {id:'dwarf',      room:'exit',      rx:.80, ry:.70, ico:'⚔️', label:'Gimrik Ironhand', action:'openDwarfTap',   color:'#65a30d', tapR:20},
+  {id:'cleric_npc', room:'exit',      rx:.40, ry:.55, ico:'☀️', label:'Sister Althea',  action:'openClericTap',  color:'#fbbf24', tapR:20},
   // maproom — war table center
   {id:'map',        room:'maproom',   rx:.50, ry:.52, ico:'🗺', label:'World Map',      action:'openMapSelector',    color:'#60a5fa', tapR:24},
   // menagerie — caretaker NPC (left side) opens pet management
@@ -24934,6 +25170,45 @@ function crDrawRoomInterior(c,rm,b,t,fl,W,H){
           const _dqB=Math.sin(t*4)*2;
           c.fillStyle=_dqCol;c.font='bold 10px "Cinzel",serif';c.textAlign='center';
           c.fillText('!',dwf.px,dwf.py-22+_dqB);
+        }
+      }
+
+      // ── Cleric NPC (Sanctum quest giver — Sister Althea) ──────────────
+      if(CR){
+        CR.cleric_npc||(CR.cleric_npc={px:0,py:0,tx:0,ty:0,facing:1,wp:0,_init:false,_retarget:0,_glowShown:false,_glowT:0});
+        const cln=CR.cleric_npc;
+        const clnArea={x:b.x+b.w*.30,y:b.y+b.h*.45,w:b.w*.20,h:b.h*.25};
+        if(!cln._init){
+          cln.px=clnArea.x+clnArea.w*.5;cln.py=clnArea.y+clnArea.h*.5;
+          cln.tx=cln.px;cln.ty=cln.py;cln._init=true;cln._retarget=0;
+        }
+        const necroNearCln=Math.hypot(CR.px-cln.px,CR.py-cln.py)<44;
+        if(t>(cln._retarget||0)){
+          cln.tx=clnArea.x+Math.random()*clnArea.w;
+          cln.ty=clnArea.y+Math.random()*clnArea.h;
+          cln._retarget=t+3.5+Math.random()*2.5;
+        }
+        const clx=cln.tx-cln.px,cly=cln.ty-cln.py,cld=Math.hypot(clx,cly);
+        if(cld>4){const spd=11/60;cln.px+=clx/cld*spd;cln.py+=cly/cld*spd;cln.facing=clx>0?1:-1;cln.wp+=0.04;}
+        c.save();c.translate(cln.px,cln.py);
+        if(cln.facing<0)c.scale(-1,1);
+        try{drawSprite(c,'cleric_npc',0,0,0.5,1,t,Math.sin(cln.wp)*0.14);}catch(e){}
+        c.restore();
+        if(necroNearCln&&!cln._glowShown){cln._glowT=t;cln._glowShown=true;}
+        if(cln._glowShown&&t-(cln._glowT||0)<1.8){
+          c.fillStyle='rgba(251,191,36,'+(0.3*(1-(t-(cln._glowT||0))/1.8))+')';
+          c.beginPath();c.arc(cln.px,cln.py-16,18,0,Math.PI*2);c.fill();
+        } else if(t-(cln._glowT||0)>2) cln._glowShown=false;
+        if(necroNearCln){
+          c.fillStyle='rgba(0,0,0,.8)';c.fillRect(cln.px-34,cln.py+20,68,12);
+          c.fillStyle='#fbbf24';c.font='bold 7px "Cinzel",serif';c.textAlign='center';
+          c.fillText('[ Sister Althea ]',cln.px,cln.py+29);
+        }
+        if(GS.quests&&GS.quests.cleric_quest&&!GS.quests.cleric_quest.completed){
+          const _cqCol=GS.quests.cleric_quest.started?(GS.quests.cleric_quest.has_relic?'#22c55e':'#f97316'):'#fbbf24';
+          const _cqB=Math.sin(t*4)*2;
+          c.fillStyle=_cqCol;c.font='bold 10px "Cinzel",serif';c.textAlign='center';
+          c.fillText('!',cln.px,cln.py-22+_cqB);
         }
       }
 
@@ -33510,6 +33785,12 @@ const DEV_GIFT_CODES = {
     items: ['zephyr_dagger','zephyr_cloak','zephyr_hood'],
     message: "🗡 The shadows part — Zephyr's Rogue Set is yours!\n⚔ Hero Unlocked: Zephyr joins the Pub!",
     onClaim: function(){ GS.heroes.unlocked.add('zephyr');_ensureHeroLevels();if(!GS.heroes.levels.zephyr)GS.heroes.levels.zephyr={lv:GS.necroLv||1,xp:0}; }
+  },
+  'ALTHEA': {
+    label: "Sister Althea's Cleric Set",
+    items: ['althea_mace','althea_vestments','althea_circlet'],
+    message: "☀ The dawn breaks — Sister Althea's Cleric Set is yours!\n⚔ Hero Unlocked: Sister Althea joins the Pub!",
+    onClaim: function(){ GS.heroes.unlocked.add('cleric');_ensureHeroLevels();if(!GS.heroes.levels.cleric)GS.heroes.levels.cleric={lv:GS.necroLv||1,xp:0}; }
   }
 };
 
