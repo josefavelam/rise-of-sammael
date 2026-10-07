@@ -967,6 +967,17 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   </div>
 </div>
 
+<!-- Daily Rewards Panel Overlay -->
+<div id="dailyRewardsPanel" onclick="if(event.target===this)closeDailyRewardsPanel()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.88);backdrop-filter:blur(6px);align-items:center;justify-content:center">
+  <div style="background:rgba(8,6,20,.97);border:1.5px solid rgba(245,158,11,.4);border-radius:16px;padding:20px;width:min(94vw,420px);max-height:80vh;overflow-y:auto;box-shadow:0 0 60px rgba(245,158,11,.12)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-family:'Cinzel Decorative',serif;font-size:16px;color:#fbbf24">📅 Daily Rewards</div>
+      <button onclick="closeDailyRewardsPanel()" style="-webkit-appearance:none;font-family:'Cinzel',serif;font-size:11px;padding:4px 11px;border-radius:8px;cursor:pointer;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.1);color:#fbbf24">✕</button>
+    </div>
+    <div id="dailyRewardsContent"></div>
+  </div>
+</div>
+
 <!-- Castle quick-menu overlay -->
 <div id="castleMenu" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;backdrop-filter:blur(4px)">
   <div style="font-family:'Cinzel Decorative',serif;font-size:18px;color:#c084fc;margin-bottom:10px">☠ Dark Fortress</div>
@@ -977,6 +988,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   <button onclick="closeCastle_menu();openMapSelector()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(96,165,250,.4);border-radius:10px;background:rgba(96,165,250,.1);color:#93c5fd;cursor:pointer;-webkit-appearance:none">🗺 World Map & Raids</button>
   <button onclick="closeCastle_menu();startSurvival()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(239,68,68,.5);border-radius:10px;background:rgba(239,68,68,.12);color:#fca5a5;cursor:pointer;-webkit-appearance:none;animation:glowPulse 2s infinite">🩸 Hellbridge Survival</button>
   <button onclick="closeCastle_menu();openAchievementPanel()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(252,211,77,.4);border-radius:10px;background:rgba(252,211,77,.08);color:#fcd34d;cursor:pointer;-webkit-appearance:none">🏆 Achievements</button>
+  <button onclick="closeCastle_menu();openDailyRewardsPanel()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(245,158,11,.4);border-radius:10px;background:rgba(245,158,11,.08);color:#fbbf24;cursor:pointer;-webkit-appearance:none">📅 Daily Rewards</button>
   <button onclick="closeCastle_menu();openSettings()" style="width:200px;padding:11px;font-family:'Cinzel',serif;font-size:11px;border:1px solid rgba(100,100,100,.3);border-radius:10px;background:rgba(100,100,100,.05);color:var(--dim);cursor:pointer;-webkit-appearance:none">⚙️ Settings</button>
 </div>
 
@@ -1835,6 +1847,65 @@ function devPetGainXP(n){
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  PURCHASABLE PET LEVELING — non-dev pets level up from kills while summoned
+// ═══════════════════════════════════════════════════════════════════════════════
+const PURCHASABLE_PET_IDS=['shadow_raven','bone_hound','spectral_cat','plague_rat'];
+const PET_XP_TABLE=[0,120,300,600,1200,2400,4800,9600,19200,38400,60000,84000,112000,148000,192000,244000,304000,380000,480000,99999];
+// Evolution tiers: lv1-4 = base, lv5-14 = tier 2, lv15-20 = tier 3
+const PET_EVOLUTION={
+  shadow_raven: {t2:'Dusk Raven',t3:'Void Raven'},
+  bone_hound:   {t2:'Grave Hound',t3:'Death Hound'},
+  spectral_cat: {t2:'Phantom Cat',t3:'Wraith Cat'},
+  plague_rat:   {t2:'Blight Rat',t3:'Pestilence Rat'},
+};
+function getPetLevel(petId){
+  if(!GS.petLevels||!GS.petLevels[petId])return 1;
+  return GS.petLevels[petId].lv||1;
+}
+function getPetXP(petId){
+  if(!GS.petLevels||!GS.petLevels[petId])return{lv:1,xp:0};
+  return GS.petLevels[petId];
+}
+function getPetEvoName(petId){
+  const lv=getPetLevel(petId);
+  const evo=PET_EVOLUTION[petId];
+  if(!evo)return _getPetDef(petId).name;
+  if(lv>=15)return evo.t3;
+  if(lv>=5)return evo.t2;
+  return _getPetDef(petId).name;
+}
+function purchasablePetGainXP(n){
+  if(!RS||!RS.activePet)return;
+  const petId=RS.activePet.type;
+  if(!PURCHASABLE_PET_IDS.includes(petId))return;
+  if(!GS.petLevels)GS.petLevels={};
+  if(!GS.petLevels[petId])GS.petLevels[petId]={lv:1,xp:0};
+  const p=GS.petLevels[petId];
+  if(p.lv>=20){p.xp=PET_XP_TABLE[19];return;}
+  const prevLv=p.lv;
+  p.xp+=n;
+  let leveled=false;
+  while(p.lv<20&&p.xp>=PET_XP_TABLE[Math.min(p.lv,19)]){
+    p.xp-=PET_XP_TABLE[Math.min(p.lv,19)];p.lv++;leveled=true;
+  }
+  if(leveled){
+    const evolved=(prevLv<5&&p.lv>=5)||(prevLv<15&&p.lv>=15);
+    const nm=getPetEvoName(petId),pnm=prevLv<5?_getPetDef(petId).name:prevLv<15?PET_EVOLUTION[petId].t2:PET_EVOLUTION[petId].t3;
+    if(typeof showToast==='function')showToast(evolved?'✦ '+pnm+' evolved into '+nm+'! (Lv'+p.lv+')':'▲ '+nm+' reached Lv'+p.lv+'!',evolved?2800:1800);
+    // Update active pet maxHP on level up
+    if(RS&&RS.activePet&&RS.activePet.type===petId){
+      RS.activePet.maxHP=petHPScale(petId,p.lv);
+      RS.activePet.hp=Math.min(RS.activePet.hp,RS.activePet.maxHP);
+    }
+  }
+}
+// Damage scaling for purchasable pets: 1.03^(petLv-1), ~15-20% DPS at max
+function petDmgScale(petId){
+  const lv=getPetLevel(petId);
+  return Math.pow(1.03,Math.max(0,lv-1));
+}
+
 // ── PASSIVES unlocked per level ──
 // Passives unlock every 2 levels (passive N unlocks at level N*2)
 const PASSIVES={
@@ -2280,6 +2351,10 @@ const SHOP_ITEMS={
     {id:'bat_familiar', name:'Bone Bat Familiar',   ico:'🦇',price:{gp:20},  type:'familiar',unique:true, desc:'A loyal bat accompanies you. Auto-attacks the weakest enemy for 3 dmg every 2s.',effect:'bat'},
     {id:'skull_seer',   name:'Skull Seer',          ico:'☠️',price:{gp:35},  type:'familiar',unique:true, desc:'Hovering skull. Auto-casts Chill Touch on cooldown targeting the strongest enemy.',effect:'skull'},
     {id:'shadow_hound', name:'Shadow Hound',        ico:'🐾',price:{gp:55},  type:'familiar',unique:true, desc:'Spectral hound. Intercepts one attack per floor that would hit you, absorbing it.',effect:'hound'},
+    {id:'shadow_raven', name:'Shadow Raven',        ico:'🐦‍⬛',price:{gp:5000}, type:'familiar',unique:true, desc:'A dark raven that fires shadow bolts at range, dealing dark damage. Evolves at Lv5 and Lv15.',effect:'raven'},
+    {id:'bone_hound',   name:'Bone Hound',          ico:'🦴',price:{gp:3000}, type:'familiar',unique:true, desc:'An undead hound that tanks hits and taunts enemies. High HP, melee fighter. Evolves at Lv5 and Lv15.',effect:'bonehound'},
+    {id:'spectral_cat', name:'Spectral Cat',        ico:'🐱',price:{gp:4000}, type:'familiar',unique:true, desc:'A ghostly cat that grants a crit aura to your minions. Ranged shadow strikes. Evolves at Lv5 and Lv15.',effect:'spectralcat'},
+    {id:'plague_rat',   name:'Plague Rat',           ico:'🐀',price:{gp:2500}, type:'familiar',unique:true, desc:'A diseased rat that spreads AoE poison to nearby enemies. Evolves at Lv5 and Lv15.',effect:'plaguerat'},
   ],
   // Dev-only familiars — unlocked via gift codes, never lost on death
   devFamiliars:[
@@ -3170,9 +3245,173 @@ GS.wood=0;
 GS.fallenSummons=[];  // [{type, diedAt(ms), cr}] fallen minions awaiting banishment
 GS._survTimeSinceLastBanish=0;  // for merge checking
 GS.catacombRuns=0;  // completed catacomb raid counter (for scaling rewards)
+GS.petLevels={};  // purchasable pet levels: {petId: {lv, xp}}
 GS.herbs=0;
 GS.villageAssign={};   // minionIndex → nodeId | null
 GS.vilLastTick=0;      // timestamp of last resource tick (ms)
+
+// ═══════════════════════════════════════════════════════
+//  DAILY LOGIN REWARDS & STREAK SYSTEM
+// ═══════════════════════════════════════════════════════
+GS.dailyRewards={lastClaim:0, streak:0, totalDays:0, dayInCycle:0};
+
+const DAILY_REWARD_CYCLE=[
+  {day:1, label:'Day 1', rewards:{bones:25, gold:5},  ico:'🦴'},
+  {day:2, label:'Day 2', rewards:{wood:15, herbs:10},  ico:'🪵'},
+  {day:3, label:'Day 3', rewards:{bones:40, gold:10}, ico:'💰'},
+  {day:4, label:'Day 4', rewards:{herbs:20, wood:20},  ico:'🌿'},
+  {day:5, label:'Day 5', rewards:{bones:60, gold:20}, ico:'🦴'},
+  {day:6, label:'Day 6', rewards:{wood:30, herbs:30, gold:15}, ico:'🎁'},
+  {day:7, label:'Day 7 ★', rewards:{bones:100, gold:50, wood:40, herbs:40}, ico:'⭐', rare:true}
+];
+
+const MONTHLY_MILESTONES=[
+  {days:15, label:'15-Day Milestone', rewards:{bones:200, gold:80, wood:60, herbs:60}, ico:'🏅'},
+  {days:30, label:'30-Day Milestone', rewards:{bones:500, gold:200, wood:120, herbs:120}, ico:'👑'}
+];
+
+function getDailyStreakMultiplier(){
+  const s=GS.dailyRewards.streak;
+  return Math.min(2.0, 1 + s * 0.1); // 1.1x per day, max 2x at 10 days
+}
+
+function canClaimDailyReward(){
+  if(!GS.dailyRewards.lastClaim) return true; // never claimed
+  const elapsed=Date.now()-GS.dailyRewards.lastClaim;
+  const hours=elapsed/3600000;
+  return hours>=24; // 24h minimum between claims
+}
+
+function isDailyStreakAlive(){
+  if(!GS.dailyRewards.lastClaim) return true;
+  const elapsed=Date.now()-GS.dailyRewards.lastClaim;
+  const hours=elapsed/3600000;
+  return hours<48; // streak breaks after 48h without claiming
+}
+
+function claimDailyReward(){
+  if(!canClaimDailyReward()) return;
+  // Update streak
+  if(!isDailyStreakAlive()) GS.dailyRewards.streak=0; // reset broken streak
+  GS.dailyRewards.streak++;
+  GS.dailyRewards.totalDays++;
+  GS.dailyRewards.dayInCycle=(GS.dailyRewards.dayInCycle % 7); // 0-6
+  const cycleDay=DAILY_REWARD_CYCLE[GS.dailyRewards.dayInCycle];
+  const mult=getDailyStreakMultiplier();
+  // Apply rewards with streak multiplier
+  const given={};
+  if(cycleDay.rewards.bones){const amt=Math.floor(cycleDay.rewards.bones*mult);GS.bones+=amt;given.bones=amt;}
+  if(cycleDay.rewards.gold){const amt=Math.floor(cycleDay.rewards.gold*mult);GS.wallet.gp=(GS.wallet.gp||0)+amt;given.gold=amt;}
+  if(cycleDay.rewards.wood){const amt=Math.floor(cycleDay.rewards.wood*mult);GS.wood+=amt;given.wood=amt;}
+  if(cycleDay.rewards.herbs){const amt=Math.floor(cycleDay.rewards.herbs*mult);GS.herbs+=amt;given.herbs=amt;}
+  GS.dailyRewards.dayInCycle++;
+  GS.dailyRewards.lastClaim=Date.now();
+  // Check monthly milestones
+  let milestoneHit=null;
+  for(const ms of MONTHLY_MILESTONES){
+    if(GS.dailyRewards.totalDays===ms.days){
+      milestoneHit=ms;
+      if(ms.rewards.bones)GS.bones+=ms.rewards.bones;
+      if(ms.rewards.gold)GS.wallet.gp=(GS.wallet.gp||0)+ms.rewards.gold;
+      if(ms.rewards.wood)GS.wood+=ms.rewards.wood;
+      if(ms.rewards.herbs)GS.herbs+=ms.rewards.herbs;
+    }
+  }
+  saveGame();
+  // Build reward summary
+  let msg='📅 Daily reward claimed! ';
+  const parts=[];
+  if(given.bones)parts.push(`🦴${given.bones}`);
+  if(given.gold)parts.push(`💰${given.gold}gp`);
+  if(given.wood)parts.push(`🪵${given.wood}`);
+  if(given.herbs)parts.push(`🌿${given.herbs}`);
+  msg+=parts.join(' ');
+  if(mult>1)msg+=` (${mult.toFixed(1)}x streak!)`;
+  showToast(msg);
+  if(milestoneHit){
+    setTimeout(()=>showToast(`🏅 ${milestoneHit.label} bonus unlocked!`),2800);
+  }
+  renderDailyRewardsPanel();
+  renderHub();
+}
+
+function openDailyRewardsPanel(){
+  const panel=document.getElementById('dailyRewardsPanel');
+  if(panel){panel.style.display='flex';renderDailyRewardsPanel();}
+}
+function closeDailyRewardsPanel(){
+  const panel=document.getElementById('dailyRewardsPanel');
+  if(panel)panel.style.display='none';
+}
+
+function renderDailyRewardsPanel(){
+  const ct=document.getElementById('dailyRewardsContent');
+  if(!ct)return;
+  const canClaim=canClaimDailyReward();
+  const streakAlive=isDailyStreakAlive();
+  const streak=GS.dailyRewards.streak;
+  const mult=getDailyStreakMultiplier();
+  const totalDays=GS.dailyRewards.totalDays;
+  const currentDay=GS.dailyRewards.dayInCycle; // next day to claim (0-6)
+  // Streak bar
+  let html=`<div style="text-align:center;margin-bottom:14px">
+    <div style="font-size:13px;color:#f59e0b;margin-bottom:4px">🔥 Streak: <b>${streak} day${streak!==1?'s':''}</b> &nbsp;·&nbsp; Multiplier: <b>${mult.toFixed(1)}x</b></div>
+    <div style="font-size:11px;color:#9ca3af">Total logins: ${totalDays}</div>
+  </div>`;
+  // 7-day calendar grid
+  html+=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px">`;
+  for(let i=0;i<7;i++){
+    const rd=DAILY_REWARD_CYCLE[i];
+    const isCurrent=i===currentDay&&canClaim;
+    const isClaimed=i<currentDay||(i===currentDay&&!canClaim);
+    const isFuture=i>currentDay||(i===currentDay&&!canClaim&&i>=currentDay);
+    let bg='rgba(100,100,100,.12)';let border='rgba(100,100,100,.25)';let opacity='0.5';
+    if(isClaimed){bg='rgba(34,197,94,.15)';border='rgba(34,197,94,.5)';opacity='1';}
+    if(isCurrent){bg='rgba(245,158,11,.2)';border='rgba(245,158,11,.7)';opacity='1';}
+    const rParts=[];
+    if(rd.rewards.bones)rParts.push(`🦴${rd.rewards.bones}`);
+    if(rd.rewards.gold)rParts.push(`💰${rd.rewards.gold}`);
+    if(rd.rewards.wood)rParts.push(`🪵${rd.rewards.wood}`);
+    if(rd.rewards.herbs)rParts.push(`🌿${rd.rewards.herbs}`);
+    html+=`<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 4px;text-align:center;opacity:${opacity};${rd.rare?'box-shadow:0 0 12px rgba(245,158,11,.3);':''}${isCurrent?'animation:glowPulse 2s infinite;':''}">
+      <div style="font-size:16px;margin-bottom:2px">${isClaimed?'✅':rd.ico}</div>
+      <div style="font-size:9px;color:${isCurrent?'#fbbf24':'#9ca3af'};font-family:'Cinzel',serif">${rd.label}</div>
+      <div style="font-size:8px;color:#d1d5db;margin-top:2px">${rParts.join(' ')}</div>
+    </div>`;
+  }
+  html+=`</div>`;
+  // Claim button
+  if(canClaim){
+    html+=`<button onclick="claimDailyReward()" style="-webkit-appearance:none;width:100%;padding:13px;font-family:'Cinzel',serif;font-size:13px;border:1.5px solid rgba(245,158,11,.7);border-radius:12px;background:linear-gradient(135deg,rgba(245,158,11,.25),rgba(234,88,12,.2));color:#fbbf24;cursor:pointer;letter-spacing:.06em;animation:glowPulse 1.5s infinite;font-weight:700">🎁 Claim Today's Reward</button>`;
+  } else {
+    const elapsed=Date.now()-GS.dailyRewards.lastClaim;
+    const remaining=Math.max(0,86400000-elapsed);
+    const hrs=Math.floor(remaining/3600000);
+    const mins=Math.floor((remaining%3600000)/60000);
+    html+=`<div style="text-align:center;padding:12px;border:1px solid rgba(100,100,100,.3);border-radius:12px;background:rgba(100,100,100,.08);color:#6b7280;font-family:'Cinzel',serif;font-size:11px">⏳ Next reward in ${hrs}h ${mins}m</div>`;
+  }
+  // Monthly milestones progress
+  html+=`<div style="margin-top:14px;border-top:1px solid rgba(100,100,100,.2);padding-top:12px">
+    <div style="font-size:11px;color:#a78bfa;font-family:'Cinzel',serif;margin-bottom:8px">Monthly Milestones</div>`;
+  for(const ms of MONTHLY_MILESTONES){
+    const done=totalDays>=ms.days;
+    const pct=Math.min(100,Math.round((totalDays/ms.days)*100));
+    html+=`<div style="margin-bottom:8px;opacity:${done?'0.6':'1'}">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:${done?'#22c55e':'#d1d5db'};margin-bottom:3px">
+        <span>${ms.ico} ${ms.label}</span><span>${done?'✅ Claimed':totalDays+'/'+ms.days}</span>
+      </div>
+      <div style="height:4px;background:rgba(100,100,100,.2);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${done?'#22c55e':'linear-gradient(90deg,#f59e0b,#ea580c)'};border-radius:4px;transition:width .3s"></div>
+      </div>
+    </div>`;
+  }
+  html+=`</div>`;
+  // Streak info
+  if(!streakAlive&&streak>0){
+    html+=`<div style="text-align:center;margin-top:10px;font-size:10px;color:#ef4444">⚠️ Streak expired! Claim today to start a new one.</div>`;
+  }
+  ct.innerHTML=html;
+}
 
 // ═══════════════════════════════════════════════════════
 //  ACHIEVEMENT SYSTEM
@@ -3850,6 +4089,18 @@ const SpriteManager=(()=>{
     fire_salamander:'sprites/pets/fire_salamander.png',
     hedgehog:'sprites/pets/hedgehog.png',
     dragon_firework:'sprites/pets/dragon_firework.png',
+    shadow_raven:'sprites/pets/shadow_raven.png',
+    bone_hound:'sprites/pets/bone_hound.png',
+    spectral_cat:'sprites/pets/spectral_cat.png',
+    plague_rat:'sprites/pets/plague_rat.png',
+    shadow_raven_2:'sprites/pets/shadow_raven_2.png',
+    shadow_raven_3:'sprites/pets/shadow_raven_3.png',
+    bone_hound_2:'sprites/pets/bone_hound_2.png',
+    bone_hound_3:'sprites/pets/bone_hound_3.png',
+    spectral_cat_2:'sprites/pets/spectral_cat_2.png',
+    spectral_cat_3:'sprites/pets/spectral_cat_3.png',
+    plague_rat_2:'sprites/pets/plague_rat_2.png',
+    plague_rat_3:'sprites/pets/plague_rat_3.png',
     // === NPCs ===
     gandalf_npc:'sprites/npcs/gandalf_npc.png',
     hobbit_npc:'sprites/npcs/hobbit_npc.png',
@@ -3959,6 +4210,299 @@ const SpriteManager=(()=>{
 
 // Start preloading sprites immediately
 SpriteManager.preloadAll();
+
+// ═══════════════════════════════════════════════════════
+//  SPRITESHEET ANIMATION ENGINE — frame-based atlas rendering
+//  Replaces sin(t) parametric animation with spritesheet frames
+//  Standard: 32×32 tiles, 4-directional, 3–4 frames/state, 8–12 FPS
+// ═══════════════════════════════════════════════════════
+
+// ── SpriteSheet: loads a sprite atlas PNG and slices into frame arrays ──
+class SpriteSheet {
+  constructor(src, tileW=32, tileH=32){
+    this.src=src;
+    this.tileW=tileW;
+    this.tileH=tileH;
+    this.img=null;
+    this.ready=false;
+    this.cols=0;
+    this.rows=0;
+    this._frameCache={};  // "col,row" → canvas
+  }
+  load(){
+    return new Promise((resolve,reject)=>{
+      if(this.ready){resolve(this);return;}
+      const img=new Image();
+      img.crossOrigin='anonymous';
+      img.onload=()=>{
+        this.img=img;
+        this.cols=Math.floor(img.width/this.tileW);
+        this.rows=Math.floor(img.height/this.tileH);
+        this.ready=true;
+        resolve(this);
+      };
+      img.onerror=()=>{
+        console.warn('[SpriteSheet] failed to load',this.src);
+        reject(new Error('Failed to load spritesheet: '+this.src));
+      };
+      img.src=this.src;
+    });
+  }
+  // Get a single frame as a pre-cut canvas (cached for perf)
+  getFrame(col,row){
+    const key=col+','+row;
+    if(this._frameCache[key])return this._frameCache[key];
+    if(!this.ready||!this.img)return null;
+    const fc=document.createElement('canvas');
+    fc.width=this.tileW;fc.height=this.tileH;
+    const fx=fc.getContext('2d');
+    fx.drawImage(this.img, col*this.tileW, row*this.tileH, this.tileW, this.tileH, 0, 0, this.tileW, this.tileH);
+    // Chroma-key removal (magenta #FF00FF)
+    const id=fx.getImageData(0,0,this.tileW,this.tileH);
+    const d=id.data;
+    for(let i=0;i<d.length;i+=4){
+      if(d[i]>240&&d[i+1]<20&&d[i+2]>240) d[i+3]=0;
+    }
+    fx.putImageData(id,0,0);
+    this._frameCache[key]=fc;
+    return fc;
+  }
+  // Get an array of frame canvases for a row
+  getRow(row, frameCount){
+    const frames=[];
+    const count=frameCount||this.cols;
+    for(let c=0;c<count;c++) frames.push(this.getFrame(c,row));
+    return frames;
+  }
+}
+
+// ── AnimationController: manages named states with frame timing ──
+// Each entity type gets one controller shared across all instances.
+// Per-instance state (current frame, timer) lives on the entity object.
+class AnimationController {
+  // config: { states: { idle: {row,frames,fps,loop}, walk: {…}, attack: {…}, … }, directions: {down,left,right,up} }
+  constructor(config){
+    this.states=config.states||{};
+    this.directions=config.directions||{down:0,left:1,right:2,up:3};
+    this.defaultState='idle';
+  }
+  // Get the current frame canvas for an entity's animation state
+  // entity needs: _animState, _animFrame, _animTimer, _animDir
+  getFrame(sheet, entity, dt){
+    const state=entity._animState||this.defaultState;
+    const stDef=this.states[state];
+    if(!stDef||!sheet||!sheet.ready)return null;
+    // Initialize animation tracking on entity if missing
+    if(entity._animFrame===undefined) entity._animFrame=0;
+    if(entity._animTimer===undefined) entity._animTimer=0;
+    // Advance frame timer
+    entity._animTimer+=dt;
+    const frameDur=1/(stDef.fps||8);
+    if(entity._animTimer>=frameDur){
+      entity._animTimer-=frameDur;
+      entity._animFrame++;
+      if(entity._animFrame>=stDef.frames){
+        if(stDef.loop===false){
+          entity._animFrame=stDef.frames-1; // hold last frame
+          if(stDef.onEnd) stDef.onEnd(entity);
+        } else {
+          entity._animFrame=0;
+        }
+      }
+    }
+    // Determine direction row offset
+    const dirRow=this._dirRow(entity._animDir||'down');
+    const row=(stDef.row||0)+dirRow;
+    const col=entity._animFrame;
+    return sheet.getFrame(col, row);
+  }
+  _dirRow(dir){
+    if(typeof dir==='number') return dir;
+    return this.directions[dir]||0;
+  }
+  // Set animation state on an entity, resetting frame if state changed
+  setState(entity, newState){
+    if(entity._animState===newState)return;
+    entity._animState=newState;
+    entity._animFrame=0;
+    entity._animTimer=0;
+  }
+  // Set facing direction from walk vector
+  setDirection(entity, dx, dy){
+    if(Math.abs(dx)>Math.abs(dy)){
+      entity._animDir=dx>0?'right':'left';
+    } else if(dy!==0){
+      entity._animDir=dy>0?'down':'up';
+    }
+  }
+  setDirectionFromW(entity, w){
+    // w>0 = walking right, w<0 = walking left, 0 = idle facing
+    if(w>0.05) entity._animDir='right';
+    else if(w<-0.05) entity._animDir='left';
+    // keep current direction if ~0
+  }
+}
+
+// ── SpriteAtlasManager: registry of spritesheet configs per entity type ──
+const SpriteAtlasManager=(()=>{
+  const _sheets={};       // sheetId → SpriteSheet instance
+  const _controllers={};  // entityType → AnimationController
+  const _sheetMap={};     // entityType → sheetId
+  const _configs={};      // entityType → config object
+  let _ready=false;
+
+  // Register a spritesheet atlas for an entity type
+  // config: { sheet: {src, tileW, tileH}, states: {idle:{row,frames,fps,loop?}, walk:{…}, attack:{…}, cast:{…}, death:{…}}, directions:{…} }
+  function register(entityType, config){
+    const sheetCfg=config.sheet;
+    const sheetId=sheetCfg.src;
+    if(!_sheets[sheetId]){
+      _sheets[sheetId]=new SpriteSheet(sheetCfg.src, sheetCfg.tileW||32, sheetCfg.tileH||32);
+    }
+    _sheetMap[entityType]=sheetId;
+    _controllers[entityType]=new AnimationController({
+      states:config.states||{},
+      directions:config.directions
+    });
+    _configs[entityType]=config;
+  }
+
+  // Load all registered spritesheets
+  function loadAll(){
+    const promises=Object.values(_sheets).map(s=>s.load().catch(e=>{
+      console.warn('[SpriteAtlasManager]',e.message);
+      return null;
+    }));
+    return Promise.all(promises).then(()=>{
+      _ready=true;
+      const loaded=Object.values(_sheets).filter(s=>s.ready).length;
+      const total=Object.keys(_sheets).length;
+      if(total>0) console.log(`[SpriteAtlasManager] Ready! ${loaded}/${total} atlases loaded.`);
+    });
+  }
+
+  // Draw an animated sprite for an entity at the current transform origin
+  // entity: must have _animState, _animFrame, _animTimer, _animDir (auto-initialized)
+  // dt: delta time in seconds since last frame
+  // drawSize: pixel size to draw at
+  // Returns true if drew successfully, false to fall back
+  function draw(ctx, entityType, entity, dt, drawSize){
+    const sheetId=_sheetMap[entityType];
+    if(!sheetId)return false;
+    const sheet=_sheets[sheetId];
+    if(!sheet||!sheet.ready)return false;
+    const ctrl=_controllers[entityType];
+    if(!ctrl)return false;
+    const frame=ctrl.getFrame(sheet, entity, dt);
+    if(!frame)return false;
+    const half=drawSize/2;
+    ctx.drawImage(frame, -half, -half, drawSize, drawSize);
+    return true;
+  }
+
+  // Check if an entity type has a registered atlas
+  function has(entityType){
+    const sheetId=_sheetMap[entityType];
+    if(!sheetId)return false;
+    const sheet=_sheets[sheetId];
+    return sheet&&sheet.ready;
+  }
+
+  // Get the AnimationController for an entity type
+  function getController(entityType){
+    return _controllers[entityType]||null;
+  }
+
+  function isReady(){return _ready;}
+
+  return {register, loadAll, draw, has, getController, isReady, SpriteSheet, AnimationController};
+})();
+
+// ── Register sprite atlases ──
+// Atlas layout standard: each row = one animation state for one direction
+// Cols = frames (3-4 per state), Rows grouped by direction (down/left/right/up)
+// Row layout per entity: idle(4dir) → walk(4dir) → attack(4dir) → cast(4dir) → death(1row)
+//
+// For entities without full atlases yet, we define configs with generated
+// procedural atlas sheets that SpriteAtlasManager will try to load.
+// If the PNG doesn't exist, draw() returns false and drawSprite() falls through
+// to single-PNG or procedural rendering — zero regression.
+
+// Skeleton — 4 states × 4 directions + death = 17 rows, 4 frames each
+SpriteAtlasManager.register('skeleton',{
+  sheet:{src:'sprites/atlas/skeleton_atlas.png', tileW:32, tileH:32},
+  states:{
+    idle:  {row:0, frames:4, fps:6, loop:true},
+    walk:  {row:4, frames:4, fps:8, loop:true},
+    attack:{row:8, frames:4, fps:10, loop:false},
+    cast:  {row:8, frames:4, fps:10, loop:false},  // reuse attack
+    death: {row:16, frames:4, fps:6, loop:false}
+  },
+  directions:{down:0, left:1, right:2, up:3}
+});
+
+// Zombie — slower animations
+SpriteAtlasManager.register('zombie',{
+  sheet:{src:'sprites/atlas/zombie_atlas.png', tileW:32, tileH:32},
+  states:{
+    idle:  {row:0, frames:4, fps:4, loop:true},
+    walk:  {row:4, frames:4, fps:6, loop:true},
+    attack:{row:8, frames:4, fps:8, loop:false},
+    death: {row:16, frames:4, fps:6, loop:false}
+  },
+  directions:{down:0, left:1, right:2, up:3}
+});
+
+// Ghoul — quick and twitchy
+SpriteAtlasManager.register('ghoul',{
+  sheet:{src:'sprites/atlas/ghoul_atlas.png', tileW:32, tileH:32},
+  states:{
+    idle:  {row:0, frames:4, fps:6, loop:true},
+    walk:  {row:4, frames:4, fps:10, loop:true},
+    attack:{row:8, frames:3, fps:12, loop:false},
+    death: {row:16, frames:4, fps:6, loop:false}
+  },
+  directions:{down:0, left:1, right:2, up:3}
+});
+
+// Wraith — floaty
+SpriteAtlasManager.register('wraith',{
+  sheet:{src:'sprites/atlas/wraith_atlas.png', tileW:32, tileH:32},
+  states:{
+    idle:  {row:0, frames:4, fps:5, loop:true},
+    walk:  {row:4, frames:4, fps:7, loop:true},
+    attack:{row:8, frames:4, fps:9, loop:false},
+    cast:  {row:12, frames:4, fps:8, loop:false},
+    death: {row:16, frames:4, fps:6, loop:false}
+  },
+  directions:{down:0, left:1, right:2, up:3}
+});
+
+// Necromancer (hero) — full animation set
+SpriteAtlasManager.register('necromancer',{
+  sheet:{src:'sprites/atlas/necromancer_atlas.png', tileW:32, tileH:32},
+  states:{
+    idle:  {row:0, frames:4, fps:6, loop:true},
+    walk:  {row:4, frames:4, fps:8, loop:true},
+    attack:{row:8, frames:4, fps:10, loop:false},
+    cast:  {row:12, frames:4, fps:8, loop:false},
+    death: {row:16, frames:4, fps:6, loop:false}
+  },
+  directions:{down:0, left:1, right:2, up:3}
+});
+
+// Load all registered atlases (non-blocking — missing PNGs just log a warning)
+SpriteAtlasManager.loadAll();
+
+// ── Global animation delta-time tracker ──
+let _lastAnimTime=0;
+function _getAnimDT(t){
+  // t is in seconds (Date.now()/1000 or performance.now()/1000)
+  if(!_lastAnimTime||t-_lastAnimTime>1){_lastAnimTime=t;return 0.016;} // clamp after long pauses
+  const dt=t-_lastAnimTime;
+  _lastAnimTime=t;
+  return Math.min(dt,0.1); // cap at 100ms to prevent huge jumps
+}
 
 SPR.necromancer=(c,t,w=0)=>{
   // Read cosmetics from co-op override or player's GS
@@ -7928,25 +8472,55 @@ SPR.gravedigger=(c,t=0,w=0)=>{
 
 
 
-function drawSprite(c,type,x,y,scale,alpha,t,w,anim,hurtUntil){
+function drawSprite(c,type,x,y,scale,alpha,t,w,anim,hurtUntil,entity){
   c.save();c.globalAlpha=alpha||1;c.translate(x,y);c.scale(scale||1,scale||1);
-  // Idle breathing — subtle vertical pulse
-  const idleBob=anim==='attack'?0:Math.sin((t||0)*1.8)*.8;
-  if(idleBob)c.translate(0,idleBob);
 
-  // Try PNG sprite first (skip procedural-only keys like heroes/necromancer)
   const sprKey=type||'skeleton';
   const fallbackKey=_sprFallback(sprKey);
-  let drewPNG=false;
-  if(!SpriteManager.isProceduralOnly(sprKey)){
-    // Flip horizontally based on walk direction
+  let drew=false;
+
+  // ── PRIORITY 1: Spritesheet atlas animation ──
+  // If an atlas is registered and loaded for this entity type, use frame-based animation
+  if(SpriteAtlasManager.has(sprKey)||SpriteAtlasManager.has(fallbackKey)){
+    const atlasKey=SpriteAtlasManager.has(sprKey)?sprKey:fallbackKey;
+    const ctrl=SpriteAtlasManager.getController(atlasKey);
+    // Create a lightweight animation proxy if no entity object passed
+    const ent=entity||drawSprite._anonEntity||(drawSprite._anonEntity={});
+    if(!entity){
+      // For stateless calls, derive state from params
+      ent._animState=anim||'idle';
+      if(w&&Math.abs(w)>0.05&&(!anim||anim==='idle')) ent._animState='walk';
+    } else {
+      // Set state from anim param if entity doesn't manage its own
+      if(!entity._animSelfManaged){
+        const targetState=anim||'idle';
+        if(w&&Math.abs(w)>0.05&&targetState==='idle') ctrl.setState(entity,'walk');
+        else ctrl.setState(entity,targetState);
+        ctrl.setDirectionFromW(entity,w||0);
+      }
+    }
+    const dt=_getAnimDT(t||Date.now()/1000);
+    // Flip for left-facing
     if(w&&w<0)c.scale(-1,1);
-    drewPNG=SpriteManager.draw(c,sprKey,48)||SpriteManager.draw(c,fallbackKey,48);
-    if(w&&w<0)c.scale(-1,1); // restore flip for overlays
+    drew=SpriteAtlasManager.draw(c,atlasKey,ent,dt,48);
+    if(w&&w<0)c.scale(-1,1);
   }
 
-  if(!drewPNG){
-    // Fall back to procedural sprite
+  // ── PRIORITY 2: Single PNG sprite ──
+  if(!drew&&!SpriteManager.isProceduralOnly(sprKey)){
+    // Idle breathing — subtle vertical pulse (only for non-atlas static PNGs)
+    const idleBob=anim==='attack'?0:Math.sin((t||0)*1.8)*.8;
+    if(idleBob)c.translate(0,idleBob);
+    if(w&&w<0)c.scale(-1,1);
+    drew=SpriteManager.draw(c,sprKey,48)||SpriteManager.draw(c,fallbackKey,48);
+    if(w&&w<0)c.scale(-1,1);
+  }
+
+  // ── PRIORITY 3: Procedural sprite (SPR.* functions) ──
+  if(!drew){
+    // Idle breathing for procedural sprites
+    const idleBob=anim==='attack'?0:Math.sin((t||0)*1.8)*.8;
+    if(idleBob)c.translate(0,idleBob);
     const sprFn=SPR[sprKey]||SPR[fallbackKey];
     if(!sprFn){c.restore();return;}
     const effectiveW = anim==='attack' ? (w>0?.4:w<0?-.4:0.4) : (w||0);
@@ -9456,7 +10030,7 @@ function renderShopContent(){
     const famDiv=document.createElement('div');famDiv.style.cssText='padding:12px 2px 0;font-family:"Cinzel",serif;font-size:11px;color:var(--dim)';
     famDiv.innerHTML=`<div style="border-top:1px solid rgba(245,158,11,.2);padding-top:10px">
       <div style="color:var(--gold);letter-spacing:2px;font-size:10px;text-transform:uppercase;margin-bottom:6px">▸ Active Familiars</div>
-      ${GS.inv.familiars.size?[...GS.inv.familiars].map(f=>{const fi=SHOP_ITEMS.familiars.find(x=>x.id===f);if(!fi)return '';const hp=petHPScale(f,GS.necroLv);const stock=fi.immortal?'∞':((GS.inv.petCounts||{})[f]||0);return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span>${fi.ico} ${f==='fire_salamander'?salName(GS.devPet&&GS.devPet.lv||1):fi.name}</span><span style="font-size:8px;color:#9ca3af">❤${hp} · ×${stock}</span></div>`;}).join(''):'<div style="font-style:italic">No familiars yet.</div>'}
+      ${GS.inv.familiars.size?[...GS.inv.familiars].map(f=>{const fi=SHOP_ITEMS.familiars.find(x=>x.id===f)||(SHOP_ITEMS.devFamiliars||[]).find(x=>x.id===f);if(!fi)return '';const hp=petHPScale(f,GS.necroLv);const stock=fi.immortal?'∞':((GS.inv.petCounts||{})[f]||0);const isPurch=typeof PURCHASABLE_PET_IDS!=='undefined'&&PURCHASABLE_PET_IDS.includes(f);const pName=f==='fire_salamander'?salName(GS.devPet&&GS.devPet.lv||1):isPurch?getPetEvoName(f):fi.name;const lvStr=isPurch?' Lv'+getPetLevel(f):f==='fire_salamander'?' Lv'+(GS.devPet&&GS.devPet.lv||1):f==='hedgehog'?' Lv'+(GS.devPet2&&GS.devPet2.lv||1):'';return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span>${fi.ico} ${pName}<span style="font-size:8px;color:#a78bfa">${lvStr}</span></span><span style="font-size:8px;color:#9ca3af">❤${hp} · ×${stock}</span></div>`;}).join(''):'<div style="font-style:italic">No familiars yet.</div>'}
     </div>`;
     el.appendChild(famDiv);
   }
@@ -9616,7 +10190,7 @@ function applyPreRaidBuffs(){
 // ═══════════════════════════════════════════════════════
 const SAVE_KEY='necro_v2_save';
 function buildSaveData(){if(!GS.bank)GS.bank={gold:{pp:0,gp:0,sp:0,cp:0},bones:0};if(GS.bank.herbs===undefined)GS.bank.herbs=0;if(GS.bank.wood===undefined)GS.bank.wood=0;
-  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,savedAt:Date.now()};}
+  return{bones:GS.bones,wallet:GS.wallet,bank:GS.bank||{gold:{pp:0,gp:0,sp:0,cp:0},bones:0},necroName:GS.necroName||'',necroLv:GS.necroLv,necroXP:GS.necroXP,necroMaxHP:GS.necroMaxHP,necroHP:GS.necroHP,prestige:GS.prestige||0,skeletons:GS.skeletons,equippedSpells:[...GS.equippedSpells],equippedSpellsOrdered:GS.equippedSpellsOrdered||[...GS.equippedSpells],inv:{consumables:GS.inv.consumables,equipped:GS.inv.equipped,familiars:[...GS.inv.familiars],purchased:GS.inv.purchased?[...GS.inv.purchased]:[],petCounts:GS.inv.petCounts||{},lootOwned:[...(GS.inv.lootOwned||[])]},cosmetics:GS.cosmetics||{},devUnlocks:[...(GS.devUnlocks||[])],wood:GS.wood||0,herbs:GS.herbs||0,villageAssign:GS.villageAssign||{},vilLastTick:GS.vilLastTick||0,conquered:GS.conquered||{},fallenSummons:GS.fallenSummons||[],catacombRuns:GS.catacombRuns||0,raidParty:[...GS.raidParty]||[],devPet:GS.devPet||null,devPet2:GS.devPet2||null,raisedBosses:GS.raisedBosses||[],passivesDisabled:[...(GS.passivesDisabled||[])],quests:GS.quests||{},heroes:{unlocked:[...(GS.heroes?.unlocked||[])],equippedSkills:GS.heroes?.equippedSkills||{},levels:GS.heroes?.levels||{}},tavernBuff:GS.tavernBuff||{id:null,raidsLeft:0},castleUpgrades:GS.castleUpgrades||{},castleBuilding:GS.castleBuilding||null,achievements:GS.achievements||{},achTotalCrafted:GS._achTotalCrafted||0,achTypesRaised:[...(GS._achTypesRaised||[])],achNoLossRaid:GS._achNoLossRaid||false,dailyRewards:GS.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0},petLevels:GS.petLevels||{},savedAt:Date.now()};}
 function saveGame(showMsg){try{localStorage.setItem(SAVE_KEY,JSON.stringify(buildSaveData()));const d=new Date();const label=`Saved ${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;const el=document.getElementById('lastSaveLabel');if(el)el.textContent=label;if(showMsg)showToast('💾 Game saved!');}catch(e){if(showMsg)showToast('Save failed: '+e.message);}}
 function loadGame(){
   try{
@@ -9680,6 +10254,10 @@ function loadGame(){
     GS._achTotalCrafted=d.achTotalCrafted||0;
     GS._achTypesRaised=new Set(d.achTypesRaised||[]);
     GS._achNoLossRaid=d.achNoLossRaid||false;
+    // Load daily rewards state
+    GS.dailyRewards=d.dailyRewards||{lastClaim:0,streak:0,totalDays:0,dayInCycle:0};
+    // Load purchasable pet levels
+    GS.petLevels=d.petLevels||{};
     // Load quest progress (or initialize for fresh/old saves)
     if(d.quests){
       GS.quests=d.quests;
@@ -9841,6 +10419,8 @@ function initGame(){
   _updateAutoBtn(); // Update button styling after initialization
   // Start in castle
   openCastle();
+  // Check daily login reward — show popup if claimable
+  setTimeout(()=>{if(canClaimDailyReward())openDailyRewardsPanel();},1500);
 }
 function openSB(){renderSB();showScreen('spellbook');}
 function _closeSB_orig(){renderHub();showScreen('hub');}
@@ -11102,18 +11682,33 @@ function setGroupOrder(mode){
 }
 
 // Pet HP stats by type
-const PET_MAX_HP={bat_familiar:25,skull_seer:35,shadow_hound:50,fire_salamander:40,hedgehog:35,dragon_firework:45};
+const PET_MAX_HP={bat_familiar:25,skull_seer:35,shadow_hound:50,fire_salamander:40,hedgehog:35,dragon_firework:45,shadow_raven:30,bone_hound:70,spectral_cat:35,plague_rat:40};
 // Pet HP scaling for non-dev pets based on necro level (1.04^(lv-1))
 function petHPScale(petType,lv){
   if(petType==='fire_salamander')return Math.round((PET_MAX_HP[petType]||40)*salStatMult(GS.devPet&&GS.devPet.lv||1));
   if(petType==='hedgehog')return Math.round((PET_MAX_HP[petType]||35)*salStatMult(GS.devPet2&&GS.devPet2.lv||1));
+  // Purchasable pets scale with their own pet level
+  if(PURCHASABLE_PET_IDS.includes(petType)){
+    const plv=getPetLevel(petType);
+    const base=PET_MAX_HP[petType]||25;
+    return Math.round(base*Math.pow(1.04,Math.max(0,plv-1)));
+  }
   const base=PET_MAX_HP[petType]||25;
   return Math.round(base*Math.pow(1.04,Math.max(0,(lv||1)-1)));
 }
-const PET_SPRITE={bat_familiar:'skel_bat',skull_seer:'wraith',shadow_hound:'skel_wolf',fire_salamander:'fire_salamander',hedgehog:'hedgehog',dragon_firework:'dragon_firework'};
+const PET_SPRITE={bat_familiar:'skel_bat',skull_seer:'wraith',shadow_hound:'skel_wolf',fire_salamander:'fire_salamander',hedgehog:'hedgehog',dragon_firework:'dragon_firework',shadow_raven:'shadow_raven',bone_hound:'bone_hound',spectral_cat:'spectral_cat',plague_rat:'plague_rat'};
 // Universal boss definition lookup across all tables
 function getBossDef(key){return BOSSES[key]||REGION_BOSSES[key]||(typeof SW_BOSSES!=='undefined'&&SW_BOSSES[key])||null;}
-function getPetSprKey(type){if(type==='fire_salamander')return salSpriteKey(GS.devPet&&GS.devPet.lv||1);return PET_SPRITE[type]||'skel_bat';}
+function getPetSprKey(type){
+  if(type==='fire_salamander')return salSpriteKey(GS.devPet&&GS.devPet.lv||1);
+  // Purchasable pet evolution sprites
+  if(PURCHASABLE_PET_IDS.includes(type)){
+    const plv=getPetLevel(type);
+    if(plv>=15)return type+'_3';
+    if(plv>=5)return type+'_2';
+  }
+  return PET_SPRITE[type]||'skel_bat';
+}
 // Helper: get all familiar defs (shop + dev)
 function _allPetDefs(){return[...SHOP_ITEMS.familiars,...(SHOP_ITEMS.devFamiliars||[])];}
 // Helper: get one pet def by id, safe fallback
@@ -13436,7 +14031,7 @@ function onEnemyKilled(en,t){
   const _xpEquip=getXPBonus();
   const _tavXP=getTavernBuff('xpMult');
   RS.xpGained+=(_rikkerActive?2:1)*d.xp*_xpLvMult*(1+_xpEquip+_tavXP+getCastleBonus('xpMult'));
-  devPetGainXP(d.xp);heroGainXP(d.xp);
+  devPetGainXP(d.xp);heroGainXP(d.xp);purchasablePetGainXP(d.xp);
   RS.parts.push({k:'flt',x:en.x,y:en.y,txt:`+${bones}🦴`,col:'#fcd34d',life:.9,ml:.9,vy:-38});
   en.dead=true;
   // Death dissolve particle effect
@@ -13916,7 +14511,7 @@ function killMinion(mk){
 function tickFamiliars(t,dt){
   if(!RS||RS.done||RS.necro.dead)return;
   const famMode=RS._famMode||_famMode||'defend';
-  if(!RS.activePet)return;
+  if(!RS.activePet){RS._spectralCritAura=false;return;}
   const ap=RS.activePet;
   if(ap.hp<=0){consumePet();return;}
 
@@ -13955,7 +14550,8 @@ function tickFamiliars(t,dt){
   // Effective attack range per pet type — used to stop ranged pets at kiting distance
   const PET_ATK_RANGE={
     bat_familiar:40, skull_seer:160, shadow_hound:40,
-    fire_salamander:160, hedgehog:160
+    fire_salamander:160, hedgehog:160,
+    shadow_raven:160, bone_hound:45, spectral_cat:140, plague_rat:80
   };
   const petAtkRange=PET_ATK_RANGE[ap.type]||40;
 
@@ -14219,6 +14815,131 @@ function tickFamiliars(t,dt){
           });
         }
         if(p.tgt.hp<=0&&RS.enemies.includes(p.tgt))onEnemyKilled(p.tgt,t);
+      }
+    });
+  } else if(ap.type==='shadow_raven'){
+    // ── Shadow Raven — ranged dark bolts, targets strongest ──────────────
+    const RAVEN_RANGE=160;
+    const ravenCd=famMode==='attack'?1.6:famMode==='patrol'?2.2:3.0;
+    const _ravenScale=petDmgScale('shadow_raven');
+    let ravenTgt=null;
+    if(famMode==='defend'){
+      const nearNecro=allE.filter(e=>hyp(n.x,n.y,e.x,e.y)<TILE_SIZE*4.5&&hyp(ap.x,ap.y,e.x,e.y)<=RAVEN_RANGE);
+      if(nearNecro.length)ravenTgt=nearNecro.reduce((a,b)=>a.hp>b.hp?a:b);
+    } else {
+      const inRange=allE.filter(e=>hyp(ap.x,ap.y,e.x,e.y)<=RAVEN_RANGE);
+      if(inRange.length)ravenTgt=inRange.reduce((a,b)=>a.hp>b.hp?a:b);
+    }
+    if(ravenTgt&&t-(RS.famLastRaven||0)>=ravenCd){
+      RS.famLastRaven=t;
+      const baseDmg=famMode==='attack'?10:7;
+      const dmg=Math.round(baseDmg*_ravenScale);
+      ravenTgt.hp-=dmg;
+      // Dark projectile
+      RS.parts.push({k:'proj',x:ap.x,y:ap.y-6,tx:ravenTgt.x,ty:ravenTgt.y,prog:0,spd:7,col:'#6d28d9',life:1,ml:1});
+      RS.parts.push({k:'dmg',x:ravenTgt.x,y:ravenTgt.y-18,txt:`-${dmg}🐦‍⬛`,col:'#8b5cf6',life:.7,ml:.7,vy:-28});
+      // Shadow burst
+      for(let i=0;i<4;i++){const a=i/4*Math.PI*2;RS.parts.push({k:'spark',x:ravenTgt.x,y:ravenTgt.y,vx:Math.cos(a)*25,vy:Math.sin(a)*25,col:'#4c1d95',life:.25,ml:.25});}
+      if(ravenTgt.hp<=0&&RS.enemies.includes(ravenTgt))onEnemyKilled(ravenTgt,t);
+    }
+  } else if(ap.type==='bone_hound'){
+    // ── Bone Hound — melee tank, taunts enemies, high damage ────────────
+    const BONEH_RANGE=45;
+    const bonehCd=famMode==='attack'?1.8:famMode==='patrol'?2.5:3.5;
+    const _bonehScale=petDmgScale('bone_hound');
+    // Taunt: enemies within 3 tiles prefer to target the bone hound
+    const tauntRange=TILE_SIZE*3;
+    allE.forEach(e=>{
+      if(hyp(ap.x,ap.y,e.x,e.y)<tauntRange&&!e.isBoss&&!e.isMB){
+        if(!e._tauntUntil||t>e._tauntUntil){e._tauntTarget=ap;e._tauntUntil=t+4;}
+      }
+    });
+    if(t-(RS.famLastBoneH||0)>=bonehCd&&allE.length){
+      RS.famLastBoneH=t;
+      const houndTargets=famMode==='defend'?allE.filter(e=>hyp(n.x,n.y,e.x,e.y)<TILE_SIZE*4):allE;
+      if(houndTargets.length){
+        const near=houndTargets.reduce((a,b)=>hyp(ap.x,ap.y,a.x,a.y)<hyp(ap.x,ap.y,b.x,b.y)?a:b);
+        if(hyp(ap.x,ap.y,near.x,near.y)<=BONEH_RANGE){
+          const baseDmg=famMode==='attack'?12:8;
+          const dmg=Math.round(baseDmg*_bonehScale);near.hp-=dmg;
+          RS.parts.push({k:'dmg',x:near.x,y:near.y-18,txt:`-${dmg}🦴`,col:'#d4a574',life:.7,ml:.7,vy:-28});
+          RS.parts.push({k:'burst',x:near.x,y:near.y,r:8,col:'#92400e',life:.2,ml:.2});
+          if(near.hp<=0&&RS.enemies.includes(near))onEnemyKilled(near,t);
+        }
+      }
+    }
+  } else if(ap.type==='spectral_cat'){
+    // ── Spectral Cat — ranged shadow strikes + crit aura for minions ────
+    const SCAT_RANGE=140;
+    const scatCd=famMode==='attack'?1.8:famMode==='patrol'?2.4:3.2;
+    const _scatScale=petDmgScale('spectral_cat');
+    // Crit aura: set a flag that minions check for bonus crit chance
+    RS._spectralCritAura=true;
+    RS._spectralCritBonus=0.12+0.003*getPetLevel('spectral_cat'); // 12-18% crit at max
+    let scatTgt=null;
+    if(famMode==='defend'){
+      const nearNecro=allE.filter(e=>hyp(n.x,n.y,e.x,e.y)<TILE_SIZE*4.5&&hyp(ap.x,ap.y,e.x,e.y)<=SCAT_RANGE);
+      if(nearNecro.length)scatTgt=nearNecro.reduce((a,b)=>hyp(ap.x,ap.y,a.x,a.y)<hyp(ap.x,ap.y,b.x,b.y)?a:b);
+    } else {
+      const inRange=allE.filter(e=>hyp(ap.x,ap.y,e.x,e.y)<=SCAT_RANGE);
+      if(inRange.length)scatTgt=inRange.reduce((a,b)=>hyp(ap.x,ap.y,a.x,a.y)<hyp(ap.x,ap.y,b.x,b.y)?a:b);
+    }
+    if(scatTgt&&t-(RS.famLastSCat||0)>=scatCd){
+      RS.famLastSCat=t;
+      const baseDmg=famMode==='attack'?8:5;
+      const dmg=Math.round(baseDmg*_scatScale);
+      scatTgt.hp-=dmg;
+      RS.parts.push({k:'proj',x:ap.x,y:ap.y-4,tx:scatTgt.x,ty:scatTgt.y,prog:0,spd:8,col:'#818cf8',life:.8,ml:.8});
+      RS.parts.push({k:'dmg',x:scatTgt.x,y:scatTgt.y-18,txt:`-${dmg}🐱`,col:'#a78bfa',life:.7,ml:.7,vy:-28});
+      if(scatTgt.hp<=0&&RS.enemies.includes(scatTgt))onEnemyKilled(scatTgt,t);
+    }
+  } else if(ap.type==='plague_rat'){
+    // ── Plague Rat — AoE poison cloud, damages all nearby enemies ───────
+    const PRAT_RANGE=80;
+    const pratCd=famMode==='attack'?2.0:famMode==='patrol'?2.8:3.8;
+    const _pratScale=petDmgScale('plague_rat');
+    const POISON_SPLASH=TILE_SIZE*2;
+    if(t-(RS.famLastPRat||0)>=pratCd&&allE.length){
+      RS.famLastPRat=t;
+      // Find cluster of enemies — target the position with most enemies nearby
+      const pratTargets=famMode==='defend'?allE.filter(e=>hyp(n.x,n.y,e.x,e.y)<TILE_SIZE*5):allE;
+      if(pratTargets.length){
+        // Target enemy with most neighbors
+        let bestT=pratTargets[0],bestCount=0;
+        pratTargets.forEach(e=>{
+          const cnt=pratTargets.filter(e2=>e2!==e&&hyp(e.x,e.y,e2.x,e2.y)<POISON_SPLASH).length;
+          if(cnt>bestCount||(cnt===bestCount&&hyp(ap.x,ap.y,e.x,e.y)<hyp(ap.x,ap.y,bestT.x,bestT.y))){bestT=e;bestCount=cnt;}
+        });
+        if(hyp(ap.x,ap.y,bestT.x,bestT.y)<=PRAT_RANGE+POISON_SPLASH){
+          const baseDmg=famMode==='attack'?6:4;
+          const dmg=Math.round(baseDmg*_pratScale);
+          const poisonDmg=Math.round(3*_pratScale);
+          // Direct hit
+          bestT.hp-=dmg;
+          bestT.poisonUntil=t+4;bestT.poisonDmg=poisonDmg;
+          RS.parts.push({k:'dmg',x:bestT.x,y:bestT.y-18,txt:`-${dmg}🐀`,col:'#65a30d',life:.7,ml:.7,vy:-28});
+          // Poison cloud visual
+          for(let i=0;i<6;i++){const a=i/6*Math.PI*2;RS.parts.push({k:'spark',x:bestT.x+Math.cos(a)*12,y:bestT.y+Math.sin(a)*12,vx:Math.cos(a)*15,vy:Math.sin(a)*15,col:'#84cc16',life:.4,ml:.4});}
+          // Splash poison to nearby enemies
+          pratTargets.forEach(e2=>{
+            if(e2===bestT||e2.dead)return;
+            if(hyp(bestT.x,bestT.y,e2.x,e2.y)<=POISON_SPLASH){
+              const splDmg=Math.round(dmg*0.5);
+              e2.hp-=splDmg;e2.poisonUntil=t+4;e2.poisonDmg=poisonDmg;
+              RS.parts.push({k:'dmg',x:e2.x,y:e2.y-16,txt:`-${splDmg}☠`,col:'#84cc16',life:.6,ml:.6,vy:-24});
+              if(e2.hp<=0&&RS.enemies.includes(e2))onEnemyKilled(e2,t);
+            }
+          });
+          if(bestT.hp<=0&&RS.enemies.includes(bestT))onEnemyKilled(bestT,t);
+        }
+      }
+    }
+    // Apply poison over time
+    allE.forEach(e=>{
+      if(e.poisonUntil&&t<e.poisonUntil&&t-(e._lastPoison||0)>=1){
+        e._lastPoison=t;const pd=e.poisonDmg||3;e.hp-=pd;
+        RS.parts.push({k:'dmg',x:e.x,y:e.y-14,txt:`-${pd}☣`,col:'#65a30d',life:.5,ml:.5,vy:-20});
+        if(e.hp<=0&&RS.enemies.includes(e))onEnemyKilled(e,t);
       }
     });
   }
@@ -15272,7 +15993,7 @@ function drawEnemy(en,t){
     ctx.font='8px serif';ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.fillText('◎',en.x,en.y-32);
     ctx.restore();
   }
-  ctx.save();ctx.translate(en.x,en.y);drawSprite(ctx,en.type,0,0,.85,1,t,Math.sin(en._wp||0));ctx.restore();
+  ctx.save();ctx.translate(en.x,en.y);drawSprite(ctx,en.type,0,0,.85,1,t,Math.sin(en._wp||0),undefined,undefined,en);ctx.restore();
   hpBar(en.x,en.y-28,30,4,en.hp/(EDEF[en.type]?.hp||en.maxHP||1),null);
   if(en.slowUntil>t){ctx.fillStyle='rgba(132,204,22,.35)';ctx.beginPath();ctx.arc(en.x,en.y,18,0,Math.PI*2);ctx.fill();}
 }
@@ -15310,7 +16031,7 @@ function drawMinion(mk,t){
     ctx.fillText(mk._overrideMd?.name||'Boss',mk.x,mk.y-48*sz);
     ctx.shadowBlur=0;ctx.textAlign='left';ctx.restore();
   } else {
-    ctx.save();ctx.translate(mk.x,mk.y);drawSprite(ctx,mk.type,0,0,.85,1,t,Math.sin(mk._wp||0));ctx.restore();
+    ctx.save();ctx.translate(mk.x,mk.y);drawSprite(ctx,mk.type,0,0,.85,1,t,Math.sin(mk._wp||0),undefined,undefined,mk);ctx.restore();
     hpBar(mk.x,mk.y-24,26,3,mk.hp/mk.maxHP,'#22c55e');
   }
 }
@@ -15320,14 +16041,14 @@ function drawPet(t){
   const ap=RS.activePet;
   const sprKey=getPetSprKey(ap.type);
   // Glow aura for pet
-  const petCol=ap.type==='skull_seer'?'#60a5fa':ap.type==='shadow_hound'?'#a855f7':ap.type==='fire_salamander'?'#f97316':ap.type==='hedgehog'?'#c8a060':ap.type==='dragon_firework'?'#ef4444':'#c084fc';
+  const petCol=ap.type==='skull_seer'?'#60a5fa':ap.type==='shadow_hound'?'#a855f7':ap.type==='fire_salamander'?'#f97316':ap.type==='hedgehog'?'#c8a060':ap.type==='dragon_firework'?'#ef4444':ap.type==='shadow_raven'?'#6d28d9':ap.type==='bone_hound'?'#92400e':ap.type==='spectral_cat'?'#818cf8':ap.type==='plague_rat'?'#65a30d':'#c084fc';
   const pa=ctx.createRadialGradient(ap.x,ap.y,2,ap.x,ap.y,18);
   const _htr=h=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return `rgba(${r},${g},${b},.18)`;};
   pa.addColorStop(0,_htr(petCol));
   pa.addColorStop(1,'rgba(0,0,0,0)');
   try{ctx.fillStyle=pa;ctx.beginPath();ctx.arc(ap.x,ap.y,18,0,Math.PI*2);ctx.fill();}catch(e){}
   ctx.save();ctx.translate(ap.x,ap.y);
-  const sc=ap.type==='shadow_hound'?0.7:sprKey==='charizard'?0.50:sprKey==='charmeleon'?0.54:ap.type==='hedgehog'?0.62:ap.type==='dragon_firework'?0.55:0.55;
+  const sc=ap.type==='shadow_hound'?0.7:sprKey==='charizard'?0.50:sprKey==='charmeleon'?0.54:ap.type==='hedgehog'?0.62:ap.type==='dragon_firework'?0.55:ap.type==='bone_hound'?0.65:ap.type==='shadow_raven'?0.55:ap.type==='spectral_cat'?0.55:ap.type==='plague_rat'?0.50:0.55;
   // Flip to face movement direction
   if((ap._facing||(ap._facing=1))<0) ctx.scale(-1,1);
   drawSprite(ctx,sprKey,0,0,sc,1,t,Math.sin(ap._wp||0));
@@ -15510,7 +16231,7 @@ function drawNecro(t){
   ctx.save();ctx.translate(n.x,n.y);ctx.scale(scale,scale);
   if(isLich){if(SPR.sammaels)SPR.sammaels(ctx,t,Math.sin(n._wp||0));}
   else if(isAscended){const _aSprite=getAscensionSprite();if(_aSprite&&SPR[_aSprite]){if(_entActive)SPR[_aSprite](ctx,t,Math.sin(n._wp||0),n.hp/n.maxHP);else SPR[_aSprite](ctx,t,Math.sin(n._wp||0));}}
-  else{drawSprite(ctx,'necromancer',0,0,1,1,t,Math.sin(n._wp||0),necroAnim,n._hurtUntil);}
+  else{drawSprite(ctx,'necromancer',0,0,1,1,t,Math.sin(n._wp||0),necroAnim,n._hurtUntil,n);}
   ctx.restore();
   hpBar(n.x,n.y-((isLich||isAscended)?48:32),(isLich||isAscended)?44:34,(isLich||isAscended)?5:4,n.hp/n.maxHP,'#f87171');
 }
@@ -16517,7 +17238,7 @@ function endRaid(result){
    'petMgmtPanel','npcDialogueOverlay','heroPanelModal','heroPanelBdrop',
    'devGiftModal','deskLogModal','cofferModal','boneVaultModal',
    'herbStorageModal','woodStorageModal','hubPanelOverlay',
-   'castleSBOverlay','castleArmyOverlay','trophyPanelOverlay','achievementPanel',
+   'castleSBOverlay','castleArmyOverlay','trophyPanelOverlay','achievementPanel','dailyRewardsPanel',
    'wmPopup','wmRaidPanel','wmCountryPanel','tauRaidPanel','tauCountryPanel',
    'swRaidPanel','swCountryPanel','assignPanel','risePanelOverlay'
   ].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
