@@ -16868,8 +16868,8 @@ function _dragDown(e){
   const hit=_dragResolve(e.target);if(!hit)return;
   const el=hit.el,pt=_dragPoint(e),r=el.getBoundingClientRect();
   if(hit.handle){if(!hit.handle.contains(e.target))return;}
-  else if(pt.y-r.top>_DRAG.HANDLE_H)return; // only the top bar drags
-  if(_dragInteractive(e.target,el))return;
+  else if(!(el._dragCfg&&el._dragCfg.force)&&pt.y-r.top>_DRAG.HANDLE_H)return; // only the top bar drags (HUD edit mode drags anywhere)
+  if(!(el._dragCfg&&el._dragCfg.force)&&_dragInteractive(e.target,el))return;
   const p=_DRAG.pos.get(el)||{dx:0,dy:0};
   _DRAG.cur={el,x0:pt.x,y0:pt.y,dx0:p.dx||0,dy0:p.dy||0,base:_dragBaseRect(el),moved:false,touch:e.type==='touchstart'};
 }
@@ -16891,6 +16891,7 @@ function _dragUp(e){
     c.el.style.transition='';document.body.style.userSelect='';document.body.style.webkitUserSelect='';
     c.el.classList.remove('is-dragging');
     // The click that ends a drag must not trigger header buttons or click-outside-to-close
+    if(c.el._dragCfg&&c.el._dragCfg.onEnd)try{c.el._dragCfg.onEnd();}catch(e){}
     _DRAG.suppressClick=true;_DRAG.lastDragAt=Date.now();setTimeout(()=>{_DRAG.suppressClick=false;},60);
   }
 }
@@ -45292,6 +45293,292 @@ var _grmOldOpenSB=(typeof openSB==='function')?openSB:null;
 openSB=function(){openGrimoire('summons');};
 var _grmOldOpenCastleSB=(typeof openCastleSBOverlay==='function')?openCastleSBOverlay:null;
 openCastleSBOverlay=function(){openGrimoire('summons');};
+</script>
+<!-- ═══════════════════ GUILD WARS-STYLE HUD + KEYBOARD ═══════════════════ -->
+<style>
+/* Skill bar: stone slots with gold bevel, key badge, clockwise dark cooldown sweep */
+#activeSpells{gap:4px;padding:5px 6px;background:linear-gradient(180deg,rgba(38,30,22,.92),rgba(14,10,8,.94));border:1px solid #0a0705;border-radius:6px;box-shadow:0 0 0 1px #6f5a36,0 0 0 2px #0a0705,0 4px 14px rgba(0,0,0,.7)}
+.asp-btn{width:52px;height:52px;min-width:52px;padding:3px 2px 2px;justify-content:center;border-radius:4px;border:1px solid #0a0705;background:radial-gradient(ellipse at 50% 35%,#3a3148 0%,#15101c 80%);box-shadow:inset 0 0 0 1px #8a7446,inset 0 0 0 2px #1a1410,0 1px 0 rgba(255,255,255,.06)}
+.asp-btn.ready{border-color:#0a0705;box-shadow:inset 0 0 0 1px #d9b76a,inset 0 0 0 2px #1a1410,0 0 8px rgba(217,183,106,.25)}
+.asp-btn.oncd{opacity:1;border-color:#0a0705;box-shadow:inset 0 0 0 1px #4a4132,inset 0 0 0 2px #1a1410}
+.asp-btn.oncd .asp-ico{filter:grayscale(.7) brightness(.7)}
+.asp-btn:hover{box-shadow:inset 0 0 0 1px #fde68a,inset 0 0 0 2px #1a1410,0 0 10px rgba(253,230,138,.4)}
+.asp-btn[data-q]{box-shadow:inset 0 0 0 2px #fde68a,0 0 12px rgba(253,230,138,.8);animation:gwQ .5s ease-in-out infinite}
+@keyframes gwQ{50%{box-shadow:inset 0 0 0 2px #fff,0 0 18px rgba(253,230,138,1)}}
+.asp-ico{font-size:22px}.asp-ico .px-ico{width:24px;height:24px}
+.asp-name{font-size:10px;max-width:48px;color:#cbb994}
+.asp-cd{font-size:12px;font-weight:bold;color:#fff;text-shadow:0 1px 2px #000,0 0 4px #000;position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center}
+.asp-cd-sweep{border-radius:3px;background:conic-gradient(from 0deg,rgba(0,0,0,0) var(--cd-fill,0%),rgba(4,3,8,.74) var(--cd-fill,0%))}
+/* Health bar: GW1 deep-red gradient with quarter marks */
+#hudHPBar{width:232px;height:24px;border:1px solid #0a0705;border-radius:4px;padding:0;background:#120a0a;box-shadow:0 0 0 1px #6f5a36,0 0 0 2px #0a0705,0 3px 10px rgba(0,0,0,.6)}
+#hudHPFill{left:0;top:0;bottom:0;border-radius:3px;background:linear-gradient(180deg,#f0564e 0%,#c81e1e 38%,#8f1010 70%,#5c0808 100%)}
+#hudHPBar::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(90deg,transparent calc(25% - 1px),rgba(0,0,0,.55) calc(25% - 1px),rgba(0,0,0,.55) 25%,transparent 25%,transparent calc(50% - 1px),rgba(0,0,0,.55) calc(50% - 1px),rgba(0,0,0,.55) 50%,transparent 50%,transparent calc(75% - 1px),rgba(0,0,0,.55) calc(75% - 1px),rgba(0,0,0,.55) 75%,transparent 75%),linear-gradient(180deg,rgba(255,255,255,.22),transparent 45%)}
+#hudHPText{z-index:2;font-size:13px;font-weight:bold}
+/* Target frame */
+#kbTargetHUD{top:10px!important;flex-direction:row!important;align-items:center!important;gap:8px!important;padding:5px 12px 5px 5px!important;min-width:230px!important;border-radius:6px!important;border:1px solid #0a0705!important;background:linear-gradient(180deg,rgba(38,30,22,.92),rgba(14,10,8,.94))!important;box-shadow:0 0 0 1px #6f5a36,0 0 0 2px #0a0705,0 4px 14px rgba(0,0,0,.7)}
+#kbTargetHUD .gw-port{width:44px;height:44px;flex:0 0 44px;border-radius:4px;background:radial-gradient(ellipse at 50% 70%,#4a2a2a,#160c0c);box-shadow:inset 0 0 0 1px #8a7446;image-rendering:pixelated}
+#kbTargetHUD .gw-tcol{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+#kbTargetName{font-size:13px!important;text-align:left!important;color:#fde68a!important;text-shadow:0 1px 0 #000!important;letter-spacing:.3px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#kbTargetBarWrap{width:100%!important;height:11px!important;border-radius:3px!important;border:1px solid #0a0705!important;background:#120a0a!important}
+#kbTargetBarFill{border-radius:2px!important;background:linear-gradient(180deg,#f0564e,#8f1010)!important}
+#kbTargetHP{font-size:11px!important;text-align:left!important;margin:0!important;display:flex;gap:8px;align-items:center}
+.gw-cond{display:inline-flex;gap:3px}.gw-cond span{font-size:10px;padding:0 5px;border-radius:2px;background:#5b2a86;color:#f3e8ff}
+/* keep toasts clear of the target frame during combat */
+#raid.active~#toast{top:84px}
+/* Combat log */
+#gwLog{display:none;position:fixed;left:8px;bottom:8px;z-index:21;width:300px;max-width:42vw;max-height:132px;overflow:hidden;flex-direction:column;justify-content:flex-end;font-family:'Almendra','Cinzel',serif;font-size:13px;line-height:1.35;color:#e8dcc8;background:linear-gradient(180deg,rgba(10,8,14,.0),rgba(10,8,14,.62) 22%);border-radius:6px;padding:6px 9px;pointer-events:auto;text-shadow:0 1px 2px #000}
+#gwLog:hover{overflow-y:auto;background:rgba(10,8,14,.82);max-height:240px;justify-content:flex-start}
+#gwLog .ln{opacity:.95}#gwLog .ln.kill{color:#fca5a5}#gwLog .ln.sys{color:#c4b5fd}#gwLog .ln.old{opacity:.55}
+/* Shortcut key badges on HUD buttons */
+.gw-key{position:absolute;top:1px;right:2px;font-family:'Almendra','Cinzel',serif;font-size:9px;line-height:11px;color:#fde68a;background:rgba(0,0,0,.72);border-radius:2px;padding:0 3px;pointer-events:none}
+#autoToggle button,#bottomRight button,#hudSkelBtn{position:relative}
+/* Guild Wars layout preset: compass top-right, menu top-left */
+body.hud-gw #minimapCluster{left:auto;right:8px}
+body.hud-gw #autoToggle{right:auto;left:8px}
+body.hud-gw #bottomRight{right:auto;left:8px;align-items:flex-start}
+/* HUD edit mode */
+body.hud-edit .gw-hud-el{outline:2px dashed #fde68a;outline-offset:3px;cursor:move!important}
+body.hud-edit .gw-hud-el *{pointer-events:none!important}
+body.hud-edit .gw-hud-el{pointer-events:auto!important}
+#gwLayout{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:215;width:min(340px,calc(100vw - 16px));font-family:'Almendra','Cinzel',serif;background:radial-gradient(ellipse at 50% 0%,#17102a 0%,#07040d 85%);border:1px solid rgba(245,158,11,.55);border-radius:10px;box-shadow:0 12px 48px rgba(0,0,0,.85);color:var(--bone)}
+#gwLayout .hd{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(245,158,11,.35);cursor:grab}
+#gwLayout .hd b{font-size:16px;color:#fcd34d}
+#gwLayout .hd button{margin-left:auto}
+#gwLayout .bd{padding:10px 14px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+#gwLayout label{display:flex;align-items:center;gap:8px;cursor:pointer}
+#gwLayout .row{display:flex;gap:6px;flex-wrap:wrap}
+#gwLayout .gb{font-family:inherit;font-size:13px;padding:6px 12px;border-radius:4px;cursor:pointer;-webkit-appearance:none;border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.12);color:#fcd34d}
+#gwLayout .gb.on{background:#fcd34d;color:#1a1208}
+#gwLayout .sub{font-size:12px;color:var(--dim)}
+@media (max-width:700px){#gwLog{width:200px;font-size:12px;max-height:84px;bottom:74px}.asp-btn{width:46px;height:46px;min-width:46px}#hudHPBar{width:190px}}
+</style>
+<div id="gwLog" class="gw-hud-el"></div>
+<div id="gwLayout">
+  <div class="hd"><b>HUD Layout</b><button class="gb" onclick="GWHud.closeLayout()">Close</button></div>
+  <div class="bd">
+    <div class="sub">Preset</div>
+    <div class="row"><button class="gb" id="gwPreGw" onclick="GWHud.preset('gw')">Guild Wars</button><button class="gb" id="gwPreClassic" onclick="GWHud.preset('classic')">Classic</button></div>
+    <div class="sub">Show</div>
+    <div id="gwShow"></div>
+    <div class="row"><button class="gb" id="gwEdit" onclick="GWHud.edit()">Move HUD pieces</button><button class="gb" onclick="GWHud.reset()">Reset positions</button></div>
+    <div class="sub" id="gwEditHint">Turn on "Move HUD pieces", start a raid, then drag any piece. Ctrl+Shift+H hides the whole HUD.</div>
+  </div>
+</div>
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  GUILD WARS-STYLE HUD + KEYBOARD
+//  Keys follow GW1/GW2 defaults where the game has an equivalent:
+//   1-4 skills · Space "do it" · Tab / Shift+Tab next / previous target · C nearest target
+//   I inventory · P party · L quest log · M map · H hero · K skills · F11 options (GW2)
+//   F1-F3 summon stance (auto / attack / defend) · F4 stance panel · R toggle auto-play
+//  Also: skill queuing, target frame with portrait, combat log, movable/toggleable HUD.
+// ═══════════════════════════════════════════════════════════════════════
+var GWHud=(function(){
+  var $=function(id){return document.getElementById(id);};
+  var LS='necro_hud_layout',ST={preset:null,hidden:{},pos:{},edit:false,shift:false,hideAll:false};
+  var EL=[['spellArea','Skill bar & health'],['minimapCluster','Compass / minimap'],['autoToggle','Menu buttons'],['bottomRight','Inventory / party buttons'],['kbTargetHUD','Target frame'],['gwLog','Combat log']];
+  function load(){try{var d=JSON.parse(localStorage.getItem(LS)||'{}');ST.preset=d.preset||null;ST.hidden=d.hidden||{};ST.pos=d.pos||{};}catch(e){}
+    if(!ST.preset){var touch=('ontouchstart' in window)||window.innerWidth<900;ST.preset=touch?'classic':'gw';if(touch)ST.hidden.gwLog=1;} // phones keep the classic layout and no log by default
+  }
+  function save(){try{localStorage.setItem(LS,JSON.stringify({preset:ST.preset,hidden:ST.hidden,pos:ST.pos}));}catch(e){}}
+  function inCombat(){var r=$('raid');return !!(r&&r.classList.contains('active'));}
+
+  // ── New key actions ────────────────────────────────────────────────
+  var NEW={targetNearest:['c','Nearest Target'],inventory:['i','Inventory'],party:['p','Party'],quests:['l','Quest Log'],map:['m','Map'],heroPanel:['h','Hero Panel'],skills:['k','Skills / Grimoire'],autoPlay:['r','Toggle Auto-Play'],aiAuto:['f1','Summons: Auto'],aiAttack:['f2','Summons: Attack'],aiDefend:['f3','Summons: Defend'],aiPanel:['f4','Summon Stance Panel'],options:['f11','Options']};
+  function installKeys(){
+    try{
+      var saved={};try{saved=JSON.parse(localStorage.getItem('necro_keybinds')||'{}');}catch(e){}
+      Object.keys(NEW).forEach(function(a){KB_DEFAULT[a]=NEW[a][0];_KB_LABELS[a]=NEW[a][1];});
+      _loadKeyMap();
+      // A new default must never steal a key the player already uses for something else
+      Object.keys(NEW).forEach(function(a){if(saved[a]!==undefined)return;var k=KB_MAP[a];
+        var clash=Object.keys(KB_MAP).some(function(o){return o!==a&&!NEW[o]&&KB_MAP[o]===k;});if(clash)KB_MAP[a]='';});
+      _KB_GROUPS[1][1].splice(2,0,'targetNearest');
+      _KB_GROUPS.push(['Panels',['inventory','party','quests','map','heroPanel','skills','options']]);
+      _KB_GROUPS.push(['Summon commands',['aiAuto','aiAttack','aiDefend','aiPanel','autoPlay']]);
+    }catch(e){console.warn('GWHud keys',e);}
+  }
+  function nearestTarget(){
+    var eng=_kbGetActiveEngine();
+    if(eng==='raid'&&RS){var L=RS._liveE||[],n=null,nd=1e9;L.forEach(function(e){var d=Math.hypot(RS.necro.x-e.x,RS.necro.y-e.y);if(d<nd){nd=d;n=e;}});if(n)RS.focusTarget=n;}
+    else if(eng==='survival'&&SV){var A=SV.waveEnemies.filter(function(e){return !e.dead&&!e.banished;}),m=null,md=1e9;A.forEach(function(e){var d=Math.hypot(SV.necro.x-e.x,SV.necro.y-e.y);if(d<md){md=d;m=e;}});if(m)SV._kbTarget=m;}
+    _kbUpdateTargetHUD();
+  }
+  function prevTarget(){
+    var eng=_kbGetActiveEngine();
+    if(eng==='raid'&&RS){var L=(RS._liveE||[]).slice().sort(function(a,b){return Math.hypot(RS.necro.x-a.x,RS.necro.y-a.y)-Math.hypot(RS.necro.x-b.x,RS.necro.y-b.y);});if(!L.length){RS.focusTarget=null;}else{var i=L.indexOf(RS.focusTarget);RS.focusTarget=L[(i<=0?L.length:i)-1];}}
+    else if(eng==='survival'&&SV){var A=SV.waveEnemies.filter(function(e){return !e.dead&&!e.banished;}).sort(function(a,b){return Math.hypot(SV.necro.x-a.x,SV.necro.y-a.y)-Math.hypot(SV.necro.x-b.x,SV.necro.y-b.y);});if(!A.length){SV._kbTarget=null;}else{var j=A.indexOf(SV._kbTarget);SV._kbTarget=A[(j<=0?A.length:j)-1];}}
+    _kbUpdateTargetHUD();
+  }
+  function act(a){
+    var combat=inCombat();
+    switch(a){
+      case 'targetNearest':if(combat)nearestTarget();return true;
+      case 'inventory':if(combat){toggleRaidInventory();return true;}return false;
+      case 'party':if(combat){togglePartyPopup();return true;}return false;
+      case 'quests':if(combat){toggleQuestsPanel();return true;}return false;
+      case 'map':if(combat){toggleMinimapPopup();return true;}return false;
+      case 'heroPanel':try{openHeroPanel();}catch(e){}return true;
+      case 'skills':if(combat){try{_kbOpenAltSpellbook();}catch(e){}}else{try{openGrimoire('spells');}catch(e){}}return true;
+      case 'autoPlay':if(combat&&typeof RS!=='undefined'&&RS){toggleAuto();return true;}return false;
+      case 'aiAuto':if(combat&&RS){setAiMode('auto');log('Summons: auto','sys');return true;}return false;
+      case 'aiAttack':if(combat&&RS){setAiMode('offense');log('Summons: attack','sys');return true;}return false;
+      case 'aiDefend':if(combat&&RS){setAiMode('defense');log('Summons: defend','sys');return true;}return false;
+      case 'aiPanel':if(combat&&RS){toggleAiPanel();return true;}return false;
+      case 'options':var s=$('settings');if(s&&s.style.display==='block')closeSettings();else openSettings();return true;
+    }
+    return false;
+  }
+  function onKey(e){
+    ST.shift=!!e.shiftKey;
+    if(typeof _kbRebinding!=='undefined'&&_kbRebinding)return;
+    var tag=(document.activeElement||{}).tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+    var key=(e.key||'').toLowerCase();
+    if(e.ctrlKey&&e.shiftKey&&key==='h'){e.preventDefault();ST.hideAll=!ST.hideAll;applyVisibility();return;}
+    if(e.ctrlKey||e.metaKey||e.altKey)return;
+    var a=_keyAction(key);if(!a||!NEW[a])return;
+    if(act(a)){e.preventDefault();}
+  }
+
+  // ── Skill queue ────────────────────────────────────────────────────
+  var Q=null;
+  function eqSpells(){return (GS.equippedSpellsOrdered||[]).filter(function(k){return k!=='staffStrike'&&GS.equippedSpells.has(k)&&SPELLS[k]&&GS.necroLv>=SPELLS[k].lv;});}
+  function remaining(key){
+    var sp=SPELLS[key];if(!sp)return 0;
+    var raid=(typeof RS!=='undefined'&&RS),sv=(typeof SV!=='undefined'&&SV);if(!raid&&!sv)return 0;
+    var t=(raid?RS.lastTs:SV.lastTs)/1000,cds=(raid?RS.spellCDs:SV.spellCDs)||{};
+    var eff=sp.cd*getStaffMult().cd*((raid&&typeof getHeroOfTimeCdMult==='function')?getHeroOfTimeCdMult():1);
+    return Math.max(0,eff-(t-(cds[key]||0)));
+  }
+  function clearQ(){if(Q){var b=$('asp_'+Q.key);if(b)b.removeAttribute('data-q');}Q=null;}
+  function installQueue(){
+    var orig=_kbCastSlot;
+    _kbCastSlot=function(slot){
+      try{var key=eqSpells()[slot-1];if(key){var rem=remaining(key);
+        if(rem>0.05&&rem<=1.5){clearQ();Q={key:key,slot:slot,until:performance.now()+2200};var b=$('asp_'+key);if(b)b.setAttribute('data-q','1');return;}}}catch(e){}
+      clearQ();return orig(slot);
+    };
+    setInterval(function(){
+      if(!Q)return;
+      if(performance.now()>Q.until||!inCombat()){clearQ();return;}
+      try{if(remaining(Q.key)<=0.02){var s=Q.slot;clearQ();orig(s);}}catch(e){clearQ();}
+    },40);
+    var oc=_kbCycleTarget;_kbCycleTarget=function(){if(ST.shift)prevTarget();else oc();};
+  }
+
+  // ── Target frame ───────────────────────────────────────────────────
+  var _lastT=null;
+  function installTarget(){
+    var orig=_kbUpdateTargetHUD;
+    _kbUpdateTargetHUD=function(){
+      orig();
+      var hud=$('kbTargetHUD');if(!hud)return;
+      if(!hud._gw){hud._gw=1;hud.classList.add('gw-hud-el');
+        var pc=document.createElement('canvas');pc.className='gw-port';pc.width=pc.height=44;pc.id='gwTPort';
+        var col=document.createElement('div');col.className='gw-tcol';
+        ['kbTargetName','kbTargetBarWrap','kbTargetHP'].forEach(function(id){var n=$(id);if(n)col.appendChild(n);});
+        hud.appendChild(pc);hud.appendChild(col);restorePos('kbTargetHUD');applyVisibility();}
+      if(hud.style.display==='none'){_lastT=null;return;}
+      var raid=(typeof RS!=='undefined'&&RS),tgt=raid?RS.focusTarget:(typeof SV!=='undefined'&&SV?SV._kbTarget:null);if(!tgt)return;
+      var nm=$('kbTargetName');
+      if(nm){var isB=raid&&tgt===RS.boss;var name=isB?((tgt.def&&tgt.def.name)||'Boss'):((EDEF[tgt.type]&&EDEF[tgt.type].name)||String(tgt.type||'Enemy').replace(/_e$/,'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}));
+        if(nm.textContent!==name)nm.textContent=name;}
+      if(tgt!==_lastT){_lastT=tgt;var pc2=$('gwTPort');
+        if(pc2){var c=pc2.getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,44,44);c.imageSmoothingEnabled=false;c.save();c.translate(22,40);
+          try{drawSprite(c,(raid&&tgt===RS.boss&&RS.cfg)?RS.cfg.bossKey:tgt.type,0,0,(raid&&tgt===RS.boss)?0.5:0.75,1,1.3);}catch(e){}c.restore();}}
+      var hp=$('kbTargetHP');
+      if(hp){var t=(raid?RS.lastTs:SV.lastTs)/1000,cs=[];
+        if(tgt.slowUntil&&tgt.slowUntil>t)cs.push('Slowed');if(tgt.stunUntil&&tgt.stunUntil>t)cs.push('Stunned');if(tgt.markUntil&&tgt.markUntil>t)cs.push('Marked');if(tgt.fearUntil&&tgt.fearUntil>t)cs.push('Feared');if(tgt.dotUntil&&tgt.dotUntil>t)cs.push('Rotting');if(tgt.noHealUntil&&tgt.noHealUntil>t)cs.push('Chilled');
+        var txt=Math.max(0,Math.ceil(tgt.hp))+' / '+(tgt.maxHP||1)+'|'+cs.join(',');
+        if(hp._t!==txt){hp._t=txt;hp.innerHTML='<span>'+Math.max(0,Math.ceil(tgt.hp))+' / '+(tgt.maxHP||1)+'</span><span class="gw-cond">'+cs.map(function(x){return '<span>'+x+'</span>';}).join('')+'</span>';}}
+    };
+    // keep the frame live for click-selected targets too
+    setInterval(function(){if(inCombat())try{_kbUpdateTargetHUD();}catch(e){}},150);
+  }
+
+  // ── Combat log ─────────────────────────────────────────────────────
+  var _lines=0;
+  function log(txt,cls){
+    var L=$('gwLog');if(!L||!txt)return;
+    var d=document.createElement('div');d.className='ln'+(cls?' '+cls:'');d.textContent=String(txt).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    if(!d.textContent)return;
+    var last=L.lastElementChild;if(last&&last.textContent===d.textContent&&Date.now()-(last._at||0)<1500)return;
+    d._at=Date.now();L.appendChild(d);
+    while(L.children.length>60)L.removeChild(L.firstChild);
+    for(var i=0;i<L.children.length;i++)L.children[i].classList.toggle('old',i<L.children.length-4);
+    L.scrollTop=L.scrollHeight;
+  }
+  function installLog(){
+    var of=flash;flash=function(txt,size,col){try{if(inCombat())log(txt);}catch(e){}return of.apply(this,arguments);};
+    var ot=showToast;showToast=function(m){try{if(inCombat())log(m,'sys');}catch(e){}return ot.apply(this,arguments);};
+    var ok=onEnemyKilled;onEnemyKilled=function(en,t){try{var k=en&&en.type;if(k)log(((EDEF[k]&&EDEF[k].name)||String(k).replace(/_e$/,'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}))+' slain','kill');}catch(e){}return ok.apply(this,arguments);};
+  }
+
+  // ── Layout: presets, visibility, positions ─────────────────────────
+  function applyPreset(){
+    document.body.classList.toggle('hud-gw',ST.preset==='gw');
+    try{_applyHudScale();}catch(e){}
+    var a=$('gwPreGw'),b=$('gwPreClassic');if(a)a.classList.toggle('on',ST.preset==='gw');if(b)b.classList.toggle('on',ST.preset==='classic');
+  }
+  function applyVisibility(){
+    EL.forEach(function(p){var el=$(p[0]);if(!el)return;var hide=ST.hideAll||!!ST.hidden[p[0]];el.style.visibility=hide?'hidden':'';if(p[0]==='gwLog')el.style.display=(inCombat()&&!hide)?'flex':'none';});
+  }
+  function restorePos(id){var p=ST.pos[id],el=$(id);if(!el||!p||typeof _dragApply!=='function')return;_dragApply(el,p[0],p[1]);}
+  function installScale(){
+    var os=_applyHudScale;
+    _applyHudScale=function(){os();
+      var gw=ST.preset==='gw',m=$('minimapCluster'),a=$('autoToggle'),b=$('bottomRight');
+      if(m)m.style.transformOrigin=gw?'top right':'top left';if(a)a.style.transformOrigin=gw?'top left':'top right';if(b)b.style.transformOrigin=gw?'top left':'top right';
+      var s=(SETTINGS.hudScale||100)/100,L=$('gwLog'),T=$('kbTargetHUD');
+      if(L){L.style.transform=s===1?'':'scale('+s+')';L.style.transformOrigin='bottom left';}
+      if(T){T.style.transform=s===1?'translateX(-50%)':'translateX(-50%) scale('+s+')';T.style.transformOrigin='top center';}
+    };
+  }
+  function setEdit(on){
+    ST.edit=on;document.body.classList.toggle('hud-edit',on);
+    EL.forEach(function(p){var el=$(p[0]);if(!el)return;el.classList.add('gw-hud-el');
+      if(on){el._dragCfg={handle:null,force:true,onEnd:function(){var q=_DRAG.pos.get(el);if(q){ST.pos[p[0]]=[Math.round(q.dx||0),Math.round(q.dy||0)];save();}}};}
+      else delete el._dragCfg;});
+    var b=$('gwEdit');if(b){b.classList.toggle('on',on);b.textContent=on?'Done moving':'Move HUD pieces';}
+  }
+  function openLayout(){
+    var p=$('gwLayout'),sh=$('gwShow');if(!p)return;sh.innerHTML='';
+    EL.forEach(function(e){var l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.checked=!ST.hidden[e[0]];
+      c.onchange=function(){if(c.checked)delete ST.hidden[e[0]];else ST.hidden[e[0]]=1;save();applyVisibility();};l.appendChild(c);l.appendChild(document.createTextNode(e[1]));sh.appendChild(l);});
+    applyPreset();p.style.display='block';
+  }
+  function decorate(){
+    // Shortcut badges + tooltips on HUD buttons, read from the live key map
+    var set=function(el,actn,label){if(!el)return;var k=KB_MAP[actn];var b=el.querySelector('.gw-key');
+      if(!k){if(b)b.remove();el.title=label;return;}
+      if(!b){b=document.createElement('span');b.className='gw-key';el.appendChild(b);}
+      var t=_kbKeyLabel(k);if(b.textContent!==t)b.textContent=t;el.title=label+' ('+t+')';};
+    set($('mapBtn'),'map','Map');set($('autoBtn'),'autoPlay','Auto-play');
+    var at=$('autoToggle');if(at){var bs=at.querySelectorAll('button');if(bs[2])set(bs[2],'options','Settings');}
+    var br=$('bottomRight');if(br){var q=br.querySelectorAll('button');if(q[0])set(q[0],'inventory','Inventory');if(q[1])set(q[1],'party','Party');if(q[2])set(q[2],'quests','Quest log');}
+    set($('hudSkelBtn'),'aiPanel','Summons');
+  }
+  function init(){
+    load();installKeys();installQueue();installTarget();installLog();installScale();
+    document.addEventListener('keydown',onKey,true);
+    document.addEventListener('keyup',function(e){ST.shift=!!e.shiftKey;},true);
+    EL.forEach(function(p){var el=$(p[0]);if(el)el.classList.add('gw-hud-el');restorePos(p[0]);});
+    applyPreset();applyVisibility();decorate();
+    try{makeDraggable($('gwLayout'),$('gwLayout').querySelector('.hd'));}catch(e){}
+    // refresh badges after the skill bar is rebuilt or keys are rebound; toggle the log with combat
+    var ob=buildSpellBar;buildSpellBar=function(){var r=ob.apply(this,arguments);try{decorate();}catch(e){}return r;};
+    var oc=closeKeyBindings;closeKeyBindings=function(){var r=oc.apply(this,arguments);try{decorate();}catch(e){}return r;};
+    var was=false;setInterval(function(){var c=inCombat();if(c!==was){was=c;applyVisibility();if(c){var L=$('gwLog');if(L)L.innerHTML='';EL.forEach(function(p){restorePos(p[0]);});decorate();}else clearQ();}},300);
+    // Settings row
+    try{var kbBtn=$('openKeyBindingsBtn'),row=kbBtn&&kbBtn.closest('.set-row');
+      if(row){var r2=row.cloneNode(true);r2.querySelector('.set-label').textContent='HUD Layout';r2.querySelector('.set-desc').textContent='Presets, show or hide pieces, move them';
+        var ico=r2.querySelector('.set-ico');if(ico)ico.innerHTML=PxIcon.html('fullscreen',18);
+        var nb=r2.querySelector('button');nb.id='openHudLayoutBtn';nb.textContent='HUD Layout';nb.setAttribute('onclick','GWHud.openLayout()');row.parentNode.insertBefore(r2,row.nextSibling);}}catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+  return {openLayout:openLayout,closeLayout:function(){$('gwLayout').style.display='none';if(ST.edit)setEdit(false);},preset:function(p){ST.preset=p;save();applyPreset();},edit:function(){setEdit(!ST.edit);},
+    reset:function(){ST.pos={};save();EL.forEach(function(p){var el=$(p[0]);if(el&&typeof _dragApply==='function')_dragApply(el,0,0);});},log:log,_st:ST,remaining:remaining};
+})();
 </script>
 </body>
 </html>
