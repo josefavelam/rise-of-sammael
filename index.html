@@ -45185,6 +45185,24 @@ var Grimoire=(function(){
       if(c.bossKey)(h.boss[c.bossKey]||(h.boss[c.bossKey]=[])).indexOf(c.name)<0&&h.boss[c.bossKey].push(c.name);});
     return _habitat=h;
   }
+  // Which world map a region belongs to (for the region chips)
+  var _MAPS=[['me','Middle Earth',function(){return typeof WORLD_REGIONS!=='undefined'?WORLD_REGIONS:null;}],['tau',"Tau'ri",function(){return typeof TAU_REGIONS!=='undefined'?TAU_REGIONS:null;}],['sw','Skyriver',function(){return typeof SW_REGIONS!=='undefined'?SW_REGIONS:null;}],['nw','Netherworld',function(){return typeof NW_REGIONS!=='undefined'?NW_REGIONS:null;}]];
+  var _regIdx=null;
+  function regionInfo(id){
+    if(!_regIdx){_regIdx={};_MAPS.forEach(function(m){var t=m[2]();if(!t)return;(Array.isArray(t)?t:Object.keys(t).map(function(k){var r=t[k];if(r&&r.id===undefined)r=Object.assign({id:k},r);return r;})).forEach(function(r){if(!r||r.id===undefined)return;var v={map:m[0],mapName:m[1],name:r.name||String(r.id)};_regIdx[m[0]+':'+r.id]=v;if(!_regIdx[r.id])_regIdx[r.id]=v;});});}
+    if(id===undefined||id===null)return null;
+    // raid configs prefix the region id with the map on some maps (sw_tatooine)
+    var pm=/^(sw|tau|nw|me)_(.+)$/.exec(String(id));
+    return (pm&&_regIdx[pm[1]+':'+pm[2]])||_regIdx[id]||null;
+  }
+  var _raidMaps=null;
+  function raidMaps(){
+    // enemy/boss key -> world maps it appears on; raid key -> its map ('classic' = the three castle dungeons)
+    if(_raidMaps)return _raidMaps;var o={ent:{},raid:{}};
+    Object.keys(RAID_CONFIGS).forEach(function(rk){var c=RAID_CONFIGS[rk],ri=regionInfo(c.regionId),mp=ri?ri.map:'classic';o.raid[rk]={map:mp,region:ri?ri.name:''};
+      (c.enemyPool||[]).concat(c.bossKey?[c.bossKey]:[]).forEach(function(k){(o.ent[k]||(o.ent[k]={}))[mp]=1;});});
+    return _raidMaps=o;
+  }
   function allBosses(){var o={};[BOSSES,REGION_BOSSES,(typeof SW_BOSSES!=='undefined'?SW_BOSSES:null)].forEach(function(t){if(t)Object.keys(t).forEach(function(k){if(!o[k])o[k]=t[k];});});return o;}
   function spellClass(sp){return sp.paladinOnly?'Paladin':sp.barbarianOnly?'Barbarian':sp.meruemOnly?'Wizard':sp.rangerOnly?'Ranger':'Necromancy';}
   function spellKind(sp){var t=sp.tgt;if(t==='raise')return 'Raise';if(t==='buff'||t==='selfBuff')return 'Buff';if(t==='selfHeal'||sp.heals&&!sp.dmg)return 'Heal';if(t==='debuff'||t==='dot')return 'Curse';if(t==='aoe')return 'Area';return 'Strike';}
@@ -45203,13 +45221,16 @@ var Grimoire=(function(){
     } else if(tab==='bestiary'){
       var hab=habitat();
       Object.keys(EDEF).forEach(function(k){var d=EDEF[k];if(d.merged)return;
-        out.push({k:k,name:d.name||pretty(k),spr:k,cat:'enemy',tag:'',known:!!cx.seen[k],hint:'Encounter this creature in a raid'});});
+        out.push({k:k,name:d.name||pretty(k),spr:k,cat:'enemy',tag:'',maps:raidMaps().ent[k]||{},known:!!cx.seen[k],hint:'Encounter this creature in a raid'});});
       var bs=allBosses();Object.keys(bs).forEach(function(k){
-        out.push({k:k,name:bs[k].name||pretty(k),spr:k,cat:'boss',tag:'Boss',known:!!cx.seen[k],hint:'Reach the final floor of its dungeon'});});
+        out.push({k:k,name:bs[k].name||pretty(k),spr:k,cat:'boss',tag:'Boss',maps:raidMaps().ent[k]||{},known:!!cx.seen[k],hint:'Reach the final floor of its dungeon'});});
     } else if(tab==='lore'){
       Object.keys(RAID_CONFIGS).forEach(function(rk){var c=RAID_CONFIGS[rk];
         var known=!!(cx.seen['raid:'+rk])||(c.regionId&&GS.conquered&&GS.conquered[c.regionId])||(!c.regionId&&GS.necroLv>=(c.minLv||1));
-        out.push({k:rk,name:c.name,ico:c.ico||'🏰',cat:c.biome||'dungeon',tag:(c.floors||3)+' floors',known:!!known,hint:'Enter this dungeon to record it'});});
+        out.push({k:rk,name:c.name,ico:c.ico||'🏰',cat:c.biome||'dungeon',tag:(raidMaps().raid[rk]||{}).region||((c.floors||3)+' floors'),maps:(function(){var q={};q[(raidMaps().raid[rk]||{map:'classic'}).map]=1;return q;})(),region:(raidMaps().raid[rk]||{}).region||'',known:!!known,hint:'Enter this dungeon to record it'});});
+      // read like an atlas: grouped by world map, then region
+      var _ord={classic:0,me:1,tau:2,sw:3,nw:4};
+      out.sort(function(a,b){var ma=_ord[Object.keys(a.maps)[0]]||0,mb=_ord[Object.keys(b.maps)[0]]||0;return (ma-mb)||String(a.region).localeCompare(String(b.region));});
     }
     out.forEach(function(e,i){e.i=i;});
     return out;
@@ -45217,14 +45238,16 @@ var Grimoire=(function(){
   function chipsFor(tab){
     if(tab==='summons')return [['all','All'],['skeletal','Skeletal'],['flesh','Flesh'],['spiritual','Spiritual']];
     if(tab==='spells')return [['all','All'],['Necromancy','Necromancy'],['Paladin','Paladin'],['Barbarian','Barbarian'],['Wizard','Wizard'],['Ranger','Ranger']];
-    if(tab==='bestiary')return [['all','All'],['enemy','Creatures'],['boss','Bosses'],['known','Discovered']];
-    if(tab==='lore')return [['all','All'],['known','Discovered']];
+    var mapChips=[['map:me','Middle Earth'],['map:tau',"Tau'ri"],['map:sw','Skyriver'],['map:nw','Netherworld']];
+    if(tab==='bestiary')return [['all','All'],['enemy','Creatures'],['boss','Bosses'],['known','Discovered']].concat(mapChips);
+    if(tab==='lore')return [['all','All'],['known','Discovered'],['map:classic','Castle dungeons']].concat(mapChips);
     return [];
   }
   function visible(){
     var f=S.filter[S.tab]||'all',q=S.q.trim().toLowerCase();
     return S.list.filter(function(e){
       if(f==='known'){if(!e.known)return false;}
+      else if(f.indexOf('map:')===0){if(!(e.maps&&e.maps[f.slice(4)]))return false;}
       else if(f!=='all'&&e.cat!==f)return false;
       if(q&&!(e.known&&e.name.toLowerCase().indexOf(q)>=0))return false;
       return true;});
@@ -45333,7 +45356,8 @@ var Grimoire=(function(){
   function pageLore(e){
     var c=RAID_CONFIGS[e.k],boss=c.bossKey&&getBossDef(c.bossKey),cx=codex();
     var pool=[];(c.enemyPool||[]).forEach(function(k){if(pool.indexOf(k)<0)pool.push(k);});
-    var h=head(e,pretty(c.biome||'dungeon')+' dungeon','<span class="grm-badge">'+(c.floors||3)+' floors</span><span class="grm-badge p">Requires Lv '+(c.minLv||1)+'</span>',true);
+    var ri=regionInfo(c.regionId);
+    var h=head(e,(ri?ri.name+' \u00b7 '+ri.mapName:pretty(c.biome||'dungeon')+' dungeon'),'<span class="grm-badge">'+(c.floors||3)+' floors</span><span class="grm-badge p">Requires Lv '+(c.minLv||1)+'</span>',true);
     h+=box('lore','Denizens','<div class="grm-txt">'+pool.map(function(k){return cx.seen[k]?esc((EDEF[k]&&EDEF[k].name)||pretty(k)):'<i>???</i>';}).join(', ')+'</div>');
     if(boss)h+=box('abil','Lord of the dungeon','<div class="grm-txt">'+(cx.seen[c.bossKey]?'<b>'+esc(boss.name)+'</b> &mdash; '+boss.hp+' health, '+boss.dmg+' damage.':'<i>Unknown. Reach the final floor.</i>')+'</div>');
     return h;
