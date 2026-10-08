@@ -24875,14 +24875,14 @@ function _drawMinimapFrame(mm,cw,ch,o){
     mm.fillStyle='rgba(232,220,200,.55)';
     mm.beginPath();mm.moveTo(crx,cry-crs);mm.lineTo(crx+crs*.3,cry);mm.lineTo(crx,cry+crs*.65);mm.lineTo(crx-crs*.3,cry);mm.closePath();mm.fill();
     mm.beginPath();mm.moveTo(crx+crs,cry);mm.lineTo(crx,cry+crs*.3);mm.lineTo(crx-crs*.65,cry);mm.lineTo(crx,cry-crs*.3);mm.closePath();mm.fill();
-    mm.font=R(5*sc)+'px "Almendra","Cinzel",serif';mm.fillStyle='rgba(252,211,77,.8)';mm.textAlign='center';mm.textBaseline='alphabetic';
+    mm.font=R(8*sc)+'px "Almendra","Cinzel",serif';mm.fillStyle='rgba(252,211,77,.8)';mm.textAlign='center';mm.textBaseline='alphabetic';
     mm.fillText('N',crx,cry-crs-R(1.5*sc));
   }
   // Label — bottom-left, clear of the corner diamond
   if(o.label){
     const lx=R(15*sc),ly=R(ch-8*sc);
     mm.textAlign='left';mm.textBaseline='alphabetic';
-    mm.font='bold '+R(7*sc)+'px "Almendra","Cinzel",serif';
+    mm.font='bold '+R(9*sc)+'px "Almendra","Cinzel",serif';
     mm.fillStyle='rgba(0,0,0,.7)';mm.fillText(o.label,lx+Math.max(1,R(sc)),ly+Math.max(1,R(sc)));
     mm.fillStyle=o.labelCol;mm.fillText(o.label,lx,ly);
   }
@@ -26629,7 +26629,7 @@ function drawWorldMap() {
   // ══ LEGEND ══
   c.save();c.fillStyle='rgba(0,0,0,.7)';
   if(c.roundRect)c.roundRect(6,H-56,122,50,8);else c.rect(6,H-56,122,50);
-  c.fill();c.font='6px "Almendra","Cinzel",monospace';c.textAlign='left';
+  c.fill();c.font='9px "Almendra","Cinzel",monospace';c.textAlign='left';
   [['#22c55e','E  Easy'],[PALETTE.holyDk,'M  Medium'],['#ef4444','H  Hard']].forEach(([col,lbl],idx)=>{
     const lx=10+(idx%2)*60,ly=H-44+(Math.floor(idx/2))*18;
     c.fillStyle=col;c.beginPath();c.arc(lx+5,ly,4,0,Math.PI*2);c.fill();
