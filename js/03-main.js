@@ -1551,8 +1551,8 @@ function ngTrackCompletion(raidKey,mods){
 
 const TUTORIAL_STEPS=[
   {id:'welcome',      title:'Welcome, Necromancer',  text:'You have been chosen to command the undead. Let me guide you through your dark domain.',ico:'☠️',panel:null,action:null,highlight:null},
-  {id:'hub_overview',  title:'Your Command Center',   text:'This is your Hub — your army roster, quick actions, and campaign log are all here.',ico:'🏠',panel:'hub',action:null,highlight:'hub'},
-  {id:'castle_intro',  title:'Enter the Castle',      text:'Tap the Castle button to explore your stronghold. Each room offers unique powers.',ico:'🏰',panel:'hub',action:'openCastle_fromHub',highlight:'.action-row4 .btn'},
+  {id:'hub_overview',  title:'Your Stronghold',       text:'This is your castle. Walk up to a person or an object to use it. The throne shows your summary.',ico:'🏰',panel:null,action:null},
+  {id:'castle_intro',  title:'Explore the Castle',    text:'Each room offers its own powers. Tap anywhere to walk there.',ico:'🏰',panel:null,action:null},
   {id:'army_intro',    title:'Summon Your Army',      text:'Visit the Army panel to summon undead minions. They fight beside you in raids.',ico:'💀',panel:'castle',action:null,highlight:null},
   {id:'raid_intro',    title:'Your First Raid',       text:'Raids are the core of combat. Select a dungeon, deploy your army, and defeat enemies to earn bones and XP.',ico:'⚔️',panel:null,action:null,highlight:null},
   {id:'spells_intro',  title:'Spellbook',             text:'Your Necromancer has powerful spells. Open the Spellbook to equip offensive and utility spells for combat.',ico:'📖',panel:null,action:null,highlight:null},
@@ -16052,7 +16052,10 @@ function setVolume(category,val){
 let sbTab='summon';
 let sbCat='all';
 function stopCatRoom(){if(typeof _catAnimId!=='undefined'){clearInterval(_catAnimId);_catAnimId=null;}}
-function showScreen(id){if(id!=='village')stopVilCanvas();if(id!=='castle')stopCastleRoom();if(id!=='catacombs')stopCatRoom();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=document.getElementById(id);if(el)el.classList.add('active');
+function showScreen(id){
+  // The Hub screen is retired (2026-10-08): every path that used to land there lands in the castle.
+  if(id==='hub'){if(typeof openCastle==='function'){openCastle();return;}id='castle';}
+  if(id!=='village')stopVilCanvas();if(id!=='castle')stopCastleRoom();if(id!=='catacombs')stopCatRoom();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=document.getElementById(id);if(el)el.classList.add('active');
   // ── Audio scene transitions (disabled — transition sounds removed) ──
 }
 // ── INIT on load ──
@@ -16106,9 +16109,9 @@ function initGame(){
   setTimeout(()=>{if(canClaimDailyReward())openDailyRewardsPanel();},1500);
 }
 function openSB(){renderSB();showScreen('spellbook');Analytics.panelOpen('spellbook');showFeatureHighlight('spellbook','Spellbook','Equip spells for combat. Drag to reorder. Summon minions from the Summon tab.','📖');}
-function _closeSB_orig(){renderHub();showScreen('hub');}
+function _closeSB_orig(){renderHub();openCastle();}
 function openArmy(){renderArmy();showScreen('army');Analytics.panelOpen('army');showFeatureHighlight('army','Your Army','Manage your undead forces. Tap a minion to add/remove from your Raid Party. Evolve minions for powerful upgrades.','💀');}
-function _closeArmy_orig(){renderHub();showScreen('hub');}
+function _closeArmy_orig(){renderHub();openCastle();}
 function switchTab(t){
   sbTab=t;
   document.getElementById('tabSummon').classList.toggle('active',t==='summon');
@@ -16120,101 +16123,101 @@ function switchTab(t){
 //  HUB RENDER
 // ═══════════════════════════════════════════════════════
 function renderHub(){
-  document.getElementById('hubBones').textContent=GS.bones;
-  const hw=document.getElementById('hubWood');if(hw)hw.textContent=GS.wood;
-  const hh=document.getElementById('hubHerbs');if(hh)hh.textContent=GS.herbs;
-  document.getElementById('hubGold').textContent=fmtWallet(GS.wallet);
-  document.getElementById('hubLvl').textContent='Lv.'+GS.necroLv;
-  if(GS.necroLv>=20){
-    document.getElementById('hubXP').textContent='MAX';
-    document.getElementById('hubXPnext').textContent='MAX LEVEL';
-  }else{
-    document.getElementById('hubXP').textContent=GS.necroXP;
-    document.getElementById('hubXPnext').textContent=Math.round(XP_TABLE[Math.min(GS.necroLv,19)]*GS.prestXPMult());
-  }
-  document.getElementById('walletDisp').textContent=`PP: ${GS.wallet.pp} | GP: ${GS.wallet.gp} | SP: ${GS.wallet.sp} | CP: ${GS.wallet.cp}`;
-  // Army cap
+  // Hub screen removed — all elements below are null-guarded.
+  // Stats that the Hub Panel overlay also reads are kept.
+  const _el=id=>document.getElementById(id);
+  const _set=(id,v)=>{const e=_el(id);if(e)e.textContent=v;};
+  _set('hubBones',GS.bones);
+  const hw=_el('hubWood');if(hw)hw.textContent=GS.wood;
+  const hh=_el('hubHerbs');if(hh)hh.textContent=GS.herbs;
+  _set('hubGold',fmtWallet(GS.wallet));
+  _set('hubLvl','Lv.'+GS.necroLv);
+  if(GS.necroLv>=20){_set('hubXP','MAX');_set('hubXPnext','MAX LEVEL');}
+  else{_set('hubXP',GS.necroXP);_set('hubXPnext',Math.round(XP_TABLE[Math.min(GS.necroLv,19)]*GS.prestXPMult()));}
+  const wd=_el('walletDisp');if(wd)wd.textContent=`PP: ${GS.wallet.pp} | GP: ${GS.wallet.gp} | SP: ${GS.wallet.sp} | CP: ${GS.wallet.cp}`;
+  // Army cap (hub screen elements — may be absent)
   const alive=GS.skeletons.filter(s=>s.hp>0).length,cap=armyCap(GS.necroLv);
-  const inRaid=[...GS.raidParty].filter(i=>GS.skeletons[i]?.hp>0&&!GS.villageAssign[i]).length;
   const usedCR=Math.round(barracksCR()*10)/10,maxCR=crCap(GS.necroLv);
-  document.getElementById('armyCapLabel').textContent=`${alive}/${cap} units · CR ${usedCR}/${maxCR}`;
-  const pct=Math.min(alive/cap*100,100);
-  const fill=document.getElementById('armyCapFill');
-  fill.style.width=pct+'%';fill.className='cap-fill'+(alive>=cap?' over':'');
-  // Roster summary — shows ONLY units currently set to Raiding
-  const empty=document.getElementById('rosterEmpty'),grid=document.getElementById('rosterGrid');
-  const raidIdxs=[...GS.raidParty].filter(i=>GS.skeletons[i]?.hp>0);
-  if(!raidIdxs.length){
-    empty.style.display='';empty.textContent='No units assigned to Raid Party. Open Army to assign.';
-    grid.style.display='none';
-  }else{
-    empty.style.display='none';grid.style.display='grid';
-    const counts={};raidIdxs.forEach(i=>{const t2=GS.skeletons[i].type;counts[t2]=(counts[t2]||0)+1;});
-    grid.innerHTML='';
-    for(const[t,cnt]of Object.entries(counts)){
-      const m=MINIONS[t],div=document.createElement('div');div.className='rc';
-      const cv=document.createElement('canvas');cv.width=36;cv.height=50;cv.style.flexShrink='0';
-      const cx=cv.getContext('2d');
-      const isSmall=t==='skel_rat'||t==='skel_bat';
-      cx.translate(18,isSmall?24:38);drawSprite(cx,t,0,0,isSmall?.6:.75,1);
-      div.appendChild(cv);
-      div.innerHTML+=`<div><div class="rc-name">${m.name}</div><div class="rc-cnt">×${cnt}</div></div>`;
-      grid.appendChild(div);
+  _set('armyCapLabel',`${alive}/${cap} units · CR ${usedCR}/${maxCR}`);
+  const fill=_el('armyCapFill');
+  if(fill){const pct=Math.min(alive/cap*100,100);fill.style.width=pct+'%';fill.className='cap-fill'+(alive>=cap?' over':'');}
+  // Roster summary (hub screen — may be absent)
+  const empty=_el('rosterEmpty'),grid=_el('rosterGrid');
+  if(empty&&grid){
+    const raidIdxs=[...GS.raidParty].filter(i=>GS.skeletons[i]?.hp>0);
+    if(!raidIdxs.length){
+      empty.style.display='';empty.textContent='No units assigned to Raid Party. Open Army to assign.';
+      grid.style.display='none';
+    }else{
+      empty.style.display='none';grid.style.display='grid';
+      const counts={};raidIdxs.forEach(i=>{const t2=GS.skeletons[i].type;counts[t2]=(counts[t2]||0)+1;});
+      grid.innerHTML='';
+      for(const[t,cnt]of Object.entries(counts)){
+        const m=MINIONS[t],div=document.createElement('div');div.className='rc';
+        const cv=document.createElement('canvas');cv.width=36;cv.height=50;cv.style.flexShrink='0';
+        const cx=cv.getContext('2d');
+        const isSmall=t==='skel_rat'||t==='skel_bat';
+        cx.translate(18,isSmall?24:38);drawSprite(cx,t,0,0,isSmall?.6:.75,1);
+        div.appendChild(cv);
+        div.innerHTML+=`<div><div class="rc-name">${m.name}</div><div class="rc-cnt">×${cnt}</div></div>`;
+        grid.appendChild(div);
+      }
     }
   }
-  // Passives
-  const pl=document.getElementById('passiveList');
-  pl.innerHTML='';
-  let unlockedCount=0;
-  for(let n=1;n<=10;n++){
-    const p=PASSIVES[n];if(!p)continue;
-    const unlocked=GS.necroLv>=p.unlockLv;
-    if(!unlocked){
-      // Show a greyed-out locked preview for the NEXT passive only
-      if(unlockedCount===n-1){ // show first locked
-        const lockedRow=document.createElement('div');
-        lockedRow.style.cssText='display:flex;align-items:flex-start;gap:8px;padding:3px 0;opacity:0.38';
-        lockedRow.innerHTML=`<span style="width:14px;height:14px;flex-shrink:0;margin-top:2px;text-align:center;font-size:12px;color:#4b5563">🔒</span>
-          <div style="font-family:'Almendra','Cinzel',serif;font-size:9px;color:#4b5563">
-            <b>${p.name}</b>${n===10?' <span style="font-size:11px;color:#7f1d1d;margin-left:3px">ELITE</span>':''}
-            <span style="font-family:\'Almendra\',monospace;font-size:9px;color:#374151"> — Unlocks at Level ${p.unlockLv}</span>
-          </div>`;
-        pl.appendChild(lockedRow);
+  // Passives (hub screen — may be absent)
+  const pl=_el('passiveList');
+  if(pl){
+    pl.innerHTML='';
+    let unlockedCount=0;
+    for(let n=1;n<=10;n++){
+      const p=PASSIVES[n];if(!p)continue;
+      const unlocked=GS.necroLv>=p.unlockLv;
+      if(!unlocked){
+        if(unlockedCount===n-1){
+          const lockedRow=document.createElement('div');
+          lockedRow.style.cssText='display:flex;align-items:flex-start;gap:8px;padding:3px 0;opacity:0.38';
+          lockedRow.innerHTML=`<span style="width:14px;height:14px;flex-shrink:0;margin-top:2px;text-align:center;font-size:12px;color:#4b5563">🔒</span>
+            <div style="font-family:'Almendra','Cinzel',serif;font-size:9px;color:#4b5563">
+              <b>${p.name}</b>${n===10?' <span style="font-size:11px;color:#7f1d1d;margin-left:3px">ELITE</span>':''}
+              <span style="font-family:\'Almendra\',monospace;font-size:9px;color:#374151"> — Unlocks at Level ${p.unlockLv}</span>
+            </div>`;
+          pl.appendChild(lockedRow);
+        }
+        continue;
       }
-      continue;
+      unlockedCount++;
+      const disabled=GS.passivesDisabled&&GS.passivesDisabled.has(n);
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:flex-start;gap:8px;padding:4px 0;cursor:pointer';
+      const chk=document.createElement('input');
+      chk.type='checkbox';chk.checked=!disabled;
+      chk.style.cssText='accent-color:#a855f7;width:14px;height:14px;flex-shrink:0;margin-top:2px;cursor:pointer';
+      chk.onchange=()=>{
+        if(chk.checked){if(GS.passivesDisabled)GS.passivesDisabled.delete(n);}
+        else{if(!GS.passivesDisabled)GS.passivesDisabled=new Set();GS.passivesDisabled.add(n);}
+        if(SETTINGS.autoSave)saveGame(false);
+        renderHub();
+      };
+      const lbl=document.createElement('div');
+      lbl.style.cssText=`color:${disabled?'#4b5563':'var(--bone)'};font-family:'Almendra','Cinzel',serif;font-size:10px`;
+      lbl.innerHTML=`✦ <b style="${disabled?'text-decoration:line-through;color:#6b7280':''}">${p.name}</b>${n===10?' <span style="font-size:12px;color:#ef4444;margin-left:4px">ELITE</span>':''} <span style="color:var(--dim);font-style:italic;font-family:\'IM Fell English\',serif;font-size:13px">${p.desc}</span>`;
+      lbl.onclick=()=>{chk.checked=!chk.checked;chk.onchange();};
+      row.appendChild(chk);row.appendChild(lbl);
+      pl.appendChild(row);
     }
-    unlockedCount++;
-    const disabled=GS.passivesDisabled&&GS.passivesDisabled.has(n);
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:flex-start;gap:8px;padding:4px 0;cursor:pointer';
-    const chk=document.createElement('input');
-    chk.type='checkbox';chk.checked=!disabled;
-    chk.style.cssText='accent-color:#a855f7;width:14px;height:14px;flex-shrink:0;margin-top:2px;cursor:pointer';
-    chk.onchange=()=>{
-      if(chk.checked){if(GS.passivesDisabled)GS.passivesDisabled.delete(n);}
-      else{if(!GS.passivesDisabled)GS.passivesDisabled=new Set();GS.passivesDisabled.add(n);}
-      if(SETTINGS.autoSave)saveGame(false);
-      renderHub();
-    };
-    const lbl=document.createElement('div');
-    lbl.style.cssText=`color:${disabled?'#4b5563':'var(--bone)'};font-family:'Almendra','Cinzel',serif;font-size:10px`;
-    lbl.innerHTML=`✦ <b style="${disabled?'text-decoration:line-through;color:#6b7280':''}">${p.name}</b>${n===10?' <span style="font-size:12px;color:#ef4444;margin-left:4px">ELITE</span>':''} <span style="color:var(--dim);font-style:italic;font-family:\'IM Fell English\',serif;font-size:13px">${p.desc}</span>`;
-    lbl.onclick=()=>{chk.checked=!chk.checked;chk.onchange();};
-    row.appendChild(chk);row.appendChild(lbl);
-    pl.appendChild(row);
   }
   {
     const nextP=Object.values(PASSIVES).find(p=>GS.necroLv<p.unlockLv);
-    const lvLblEl=document.getElementById('passiveLvLabel');
+    const lvLblEl=_el('passiveLvLabel');
     if(lvLblEl){
       if(nextP)lvLblEl.textContent=`Lv.${nextP.unlockLv} next`;
       else lvLblEl.textContent='All passives unlocked';
     }
   }
-  // Prestige row
-  const pRow=document.getElementById('prestigeRow');
-  const pPill=document.getElementById('prestigePill');
-  const hTitle=document.getElementById('hubTitle');
+  // Prestige row (hub screen — may be absent)
+  const pRow=_el('prestigeRow');
+  const pPill=_el('prestigePill');
+  const hTitle=_el('hubTitle');
   if(pRow)pRow.style.display=(GS.necroLv>=20&&GS.prestige<20)?'':'none';
   if(pPill){
     if(GS.prestige>0){pPill.style.display='';const _isAsc=GS.prestige>=11;pPill.textContent=`${_isAsc?'🌟':'★'}${GS.prestige} ${PRESTIGE_NAMES[Math.min(GS.prestige,19)]||'Ascended'}`;if(_isAsc)pPill.style.color='#c084fc';}
@@ -25299,7 +25302,7 @@ function openVillage(){ // (raid/catacomb nav added inline in village header)
 function closeVillage(){
   stopVilWalk();
   renderArmy();renderHub();
-  showScreen('hub');
+  openCastle();
 }
 
 function renderVillage(){
@@ -27362,7 +27365,7 @@ function _updateVilStorageOverlay(W, H) {
     btn.onmouseenter=()=>{_vilHover={shape:'c',x:cxW,y:cyW,r:Math.max(sp.w,sp.h)/2,label:sp.label||'',_btn:btn,act:()=>{}};};
   });
 }
-function _vilGoToCastle(){stopVilWalk();renderHub();openCastle_fromHub();}
+function _vilGoToCastle(){stopVilWalk();renderHub();openCastle();}
 function _vilGoToMap(){closeVillage();openMapSelector();}
 
 // ── Update hobbit button overlay in castlee
@@ -27767,7 +27770,7 @@ function openCastle_fromHub() {
   }
   startCastleRoom();
 }
-function closeCastle() { stopCastleRoom(); renderHub(); showScreen('hub'); }
+function closeCastle() { /* the castle is home now: there is nowhere to go back to */ renderHub(); }
 function openCastle_menu(){const m=document.getElementById('castleMenu');if(m)m.style.display='flex';const nb=document.getElementById('necropolisMenuBtn');if(nb)nb.style.display=isNecropolisUnlocked()?'':'none';}
   const _evBtn=document.getElementById('eventShopBtn');if(_evBtn)_evBtn.style.display=EventManager.isActive()?'':'none';
 function closeCastle_menu(){const m=document.getElementById('castleMenu');if(m)m.style.display='none';}
@@ -30093,7 +30096,7 @@ function crInteract(obj) {
     case 'openPetRoster':  openPetRoster(); break;
     case 'openAviary':     stopCastleRoom(); openAviaryScreen(); break;
     case 'goToHub':
-    case 'openHub':        stopCastleRoom(); renderHub(); showScreen('hub'); break;
+    case 'openHub':        renderHub(); if(typeof openHubPanel==='function')openHubPanel(); break;
     case 'openHubPanel':   openHubPanel(); break;
     case 'openCastleUpgrades': openCastleUpgradePanel(); break;
     case 'openCatacombs':  stopCastleRoom(); CAT={px:0,py:0,tx:0,ty:0,facing:1,wp:0,nearStair:false,nearDeep:false,minionAnims:[]}; openCatacombs(); break;
@@ -33961,7 +33964,7 @@ function openPrestige(){
   showScreen('prestigeScreen');
 }
 
-function closePrestige(){renderHub();showScreen('hub');}
+function closePrestige(){renderHub();openCastle();}
 
 function doPrestige(){
   if(GS.prestige>=20)return; // max prestige cap
@@ -33988,7 +33991,7 @@ function doPrestige(){
   // Keep achievement progress across prestige
   saveGame(false);
   renderHub();
-  showScreen('hub');
+  openCastle();
   const pName=PRESTIGE_NAMES[Math.min(GS.prestige-1,19)]||'Ascended Eternal';
   const isAsc=GS.prestige>=11;
   const ico=isAsc?'🌟':'⭐';

@@ -4517,6 +4517,8 @@ function openHubPanel(){
   }
   const ppEl=document.getElementById('hpPrestige');
   if(ppEl){if(GS.prestige>0){ppEl.style.display='';const _isA=GS.prestige>=11;ppEl.textContent=`${_isA?'🌟':'★'}${GS.prestige} ${PRESTIGE_NAMES[Math.min(GS.prestige,19)]||'Ascended'}`;if(_isA)ppEl.style.color='#c084fc';}else ppEl.style.display='none';}
+  // Prestige used to be reachable only from the Hub screen; it lives here now
+  const prRow=document.getElementById('hpPrestigeRow');if(prRow)prRow.style.display=(GS.necroLv>=20&&GS.prestige<20)?'':'none';
   const titleEl=document.getElementById('hubPanelTitle');
   if(titleEl)titleEl.textContent=GS.prestige>0?`☠ ${PRESTIGE_NAMES[Math.min(GS.prestige,19)]||'Ascended'}'s Domain ☠`:'☠ Necromancer\'s Domain ☠';
   // Equipment section (full: Hat, Robes, Staff, Pets, Dev Pet)
