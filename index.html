@@ -1845,8 +1845,8 @@ var PALETTE={
 };
 
 var TILE_SIZE=32;
-const COLS=56,ROWS=56;
-var MAP=COLS*TILE_SIZE; // 1792 — keeps compatibility
+const COLS=72,ROWS=72; // was 56: floors felt cramped (José, 2026-10-08)
+var MAP=COLS*TILE_SIZE; // 2304
 // Camera zoom — GBA RPG feel (Pokémon Silver / KH:CoM scale)
 // Responsive: always shows ~25 tiles across regardless of screen size
 const TARGET_TILES_ACROSS=25;
@@ -7501,81 +7501,45 @@ const TilesetEngine=(()=>{
   // Stone slab patterns with decoration
   // ═══════════════════════════════════════
   function _genFloorTiles(floorRgb,accentRgb){
+    // Fine cobble: four 8px courses per tile, stones 8-14px wide, each with its own shade,
+    // a 1px highlight and shadow. Courses 1 and 3 carry a stone across the tile edge, so
+    // any variant sits seamlessly next to any other and the 32px grid does not read.
     const tiles=[];
     const base=floorRgb;
-    const light=_shade(base,12);
-    const dark=_shade(base,-10);
-    const joint=_shade(base,8);
-
+    const jointC=_rgb(..._shade(base,-14));
+    const stone=(c,x,y,w,h,sh)=>{
+      c.fillStyle=_rgb(..._shade(base,sh));c.fillRect(x,y,w,h);
+      c.fillStyle=_rgba(255,255,255,0.07);c.fillRect(x,y,w,1);c.fillRect(x,y,1,h);
+      c.fillStyle=_rgba(0,0,0,0.16);c.fillRect(x,y+h-1,w,1);c.fillRect(x+w-1,y,1,h);
+    };
     for(let v=0;v<8;v++){
       const cv=_mkC(TS,TS);const c=cv.getContext('2d');
       c.imageSmoothingEnabled=false;
-
-      // Base fill with slight variation per variant
-      const vShift=(v%3-1)*3;
-      c.fillStyle=_rgb(..._shade(base,vShift));c.fillRect(0,0,TS,TS);
-
-      // Stone slab pattern
-      if(v<4){
-        // Full slab with border joints
-        c.fillStyle=_rgba(...joint,0.25);
-        c.fillRect(0,0,TS,1);c.fillRect(0,0,1,TS);// top-left joints
-        c.fillRect(0,TS-1,TS,1);c.fillRect(TS-1,0,1,TS);// bottom-right joints
-        // Cross joint variants
-        if(v%2===0){
-          c.fillRect(TS/2,0,1,TS); // vertical split
+      c.fillStyle=jointC;c.fillRect(0,0,TS,TS);
+      for(let r=0;r<4;r++){
+        const y=r*8,hh=7;
+        if(r%2===0){
+          // course starts on the tile edge: three stones
+          const a=9+_h(v,r,41)%4,b=20+_h(v,r,42)%4;
+          const cuts=[0,a,b,TS];
+          for(let k=0;k<3;k++)stone(c,cuts[k],y,cuts[k+1]-cuts[k]-1,hh,((_h(v,r*5+k,43)%7)-3)*2);
+        }else{
+          // edge stone (neutral shade, shared with the neighbour) + two inner stones
+          const m=14+_h(v,r,44)%5;
+          c.fillStyle=_rgb(...base);c.fillRect(0,y,6,hh);c.fillRect(TS-6,y,6,hh);
+          c.fillStyle=_rgba(255,255,255,0.07);c.fillRect(0,y,6,1);c.fillRect(TS-6,y,6,1);c.fillRect(TS-6,y,1,hh);
+          c.fillStyle=_rgba(0,0,0,0.16);c.fillRect(0,y+hh-1,6,1);c.fillRect(TS-6,y+hh-1,6,1);c.fillRect(5,y,1,hh);
+          stone(c,7,y,m-7-1,hh,((_h(v,r*5,45)%7)-3)*2);
+          stone(c,m,y,TS-7-m,hh,((_h(v,r*5+1,45)%7)-3)*2);
         }
-        if(v%3===0){
-          c.fillRect(0,TS/2,TS,1); // horizontal split
-        }
-      }else{
-        // Flagstone — irregular slab pattern
-        c.fillStyle=_rgba(...joint,0.2);
-        // Horizontal joint
-        const jy=12+((v*7)%8);
-        c.fillRect(0,jy,TS,1);
-        // Vertical joint segments
-        const jx1=10+((v*13)%12);
-        c.fillRect(jx1,0,1,jy);
-        const jx2=20+((v*11)%8);
-        c.fillRect(jx2,jy,1,TS-jy);
       }
-
-      // Per-variant decorations
-      if(v===1){
-        // Worn/scuffed area
-        c.fillStyle=_rgba(0,0,0,0.05);
-        c.fillRect(8,8,12,10);c.fillRect(10,6,8,14);
-      }
-      if(v===2){
-        // Pebbles
-        c.fillStyle=_rgba(...light,0.3);
-        _px(c,6,12,2,2);_px(c,22,8,2,1);_px(c,14,24,1,2);
-      }
-      if(v===3){
-        // Subtle dust
-        c.fillStyle=_rgba(0,0,0,0.03);
-        c.fillRect(2,2,28,28);
-      }
-      if(v===5){
-        // Bone debris
-        c.fillStyle=_rgba(200,190,170,0.2);
-        // Tiny bone shape
-        _px(c,10,20,5,1);_px(c,10,19,1,1);_px(c,14,19,1,1);
-      }
-      if(v===6){
-        // Bloodstain
-        c.fillStyle=_rgba(80,10,10,0.12);
-        c.fillRect(14,14,4,3);c.fillRect(15,13,2,5);
-        // Splatter
-        _px(c,10,12,1,1);_px(c,20,16,1,1);_px(c,18,10,1,1);
-      }
-      if(v===7){
-        // Accent-tinted tile edge
-        c.fillStyle=_rgba(...accentRgb,0.06);
-        c.fillRect(0,0,TS,TS);
-      }
-
+      // Sparse detail, one kind per variant
+      if(v===1){c.fillStyle=_rgba(0,0,0,0.22);_px(c,11,10,1,1);_px(c,12,11,1,1);_px(c,12,12,1,2);_px(c,13,14,1,1);}          // hairline crack
+      if(v===2){c.fillStyle=_rgba(255,255,255,0.14);_px(c,6,13,2,1);_px(c,23,4,1,1);_px(c,15,27,2,1);}                         // grit
+      if(v===4){c.fillStyle=_rgba(...accentRgb,0.16);_px(c,2,6,3,1);_px(c,3,7,2,1);_px(c,19,22,3,1);_px(c,20,23,1,1);}          // moss in the joints
+      if(v===5){c.fillStyle=_rgba(214,204,182,0.34);_px(c,10,20,5,1);_px(c,10,19,1,1);_px(c,14,21,1,1);}                       // bone sliver
+      if(v===6){c.fillStyle=_rgba(90,12,12,0.20);_px(c,15,13,3,2);_px(c,14,14,5,1);_px(c,20,16,1,1);_px(c,12,11,1,1);}          // old stain
+      if(v===7){c.fillStyle=_rgba(0,0,0,0.20);_px(c,24,26,2,1);_px(c,25,27,2,1);_px(c,27,28,1,1);}                             // chipped corner
       tiles.push(cv);
     }
     return tiles;
@@ -8065,15 +8029,62 @@ const TilesetEngine=(()=>{
     gondor:_genGondorWalls,
     mordor:_genMordorWalls,
   };
+  // Fine-grain ground for the open terrains (2026-10-08): one even base, 2px dither in three
+  // shades and small details. No per-tile shade shift and no tile borders, so the 32px grid
+  // does not show and floors stop reading as big flat blocks.
+  function _genGroundTiles(base,accentRgb,kind){
+    const tiles=[];
+    const amp={grass:5,leaf:5,mud:4,cracked:4,sand:4,snow:5}[kind]||4;
+    for(let v=0;v<8;v++){
+      const cv=_mkC(TS,TS);const c=cv.getContext('2d');c.imageSmoothingEnabled=false;
+      c.fillStyle=_rgb(...base);c.fillRect(0,0,TS,TS);
+      for(let y=0;y<TS;y+=2)for(let x=0;x<TS;x+=2){
+        const n=_h(y+v*64,x,51)%9;
+        if(n<2){c.fillStyle=_rgb(..._shade(base,amp));c.fillRect(x,y,2,2);}
+        else if(n<4){c.fillStyle=_rgb(..._shade(base,-amp));c.fillRect(x,y,2,2);}
+        else if(n===8){c.fillStyle=_rgb(..._shade(base,amp*2));c.fillRect(x,y,1,1);}
+      }
+      const R=(k,m)=>_h(v,k,57)%m;
+      if(kind==='grass'||kind==='leaf'){
+        const blade=_rgb(..._mix(_shade(base,22),[70,120,50],.35));
+        for(let k=0;k<4+R(0,3);k++){const x=2+R(10+k,27),y=4+R(20+k,25);c.fillStyle=blade;_px(c,x,y,1,3);_px(c,x+1,y+1,1,2);_px(c,x-1,y+2,1,1);}
+        if(kind==='leaf'&&v%2===0){c.fillStyle=_rgba(150,96,40,.55);const x=4+R(30,22),y=5+R(31,20);_px(c,x,y,3,1);_px(c,x+1,y+1,2,1);}
+        if(v===3){c.fillStyle=_rgba(...accentRgb,.5);_px(c,20,9,1,1);_px(c,19,10,3,1);_px(c,20,11,1,1);}       // small flower
+        if(v===6){c.fillStyle=_rgb(..._shade(base,26));_px(c,9,22,3,2);c.fillStyle=_rgba(0,0,0,.25);_px(c,9,24,3,1);} // pebble
+      }else if(kind==='mud'){
+        c.fillStyle=_rgba(0,0,0,.22);for(let k=0;k<2;k++){const x=3+R(40+k,20),y=4+R(44+k,20),w=5+R(48+k,5);_px(c,x,y,w,2);_px(c,x+1,y-1,w-2,1);_px(c,x+1,y+2,w-2,1);}
+        c.fillStyle=_rgba(...accentRgb,.30);_px(c,6+R(50,18),7+R(51,18),2,1);
+        if(v%3===0){c.fillStyle=_rgb(..._mix(_shade(base,20),[60,100,50],.4));const x=5+R(52,20),y=8+R(53,16);_px(c,x,y,1,4);_px(c,x+2,y+1,1,3);}   // reed
+      }else if(kind==='cracked'||kind==='sand'){
+        if(kind==='cracked'){c.strokeStyle=_rgba(0,0,0,.30);let x=3+R(60,24),y=2+R(61,8);for(let k=0;k<7;k++){const nx=x+(R(62+k,5)-2),ny=y+2+R(70+k,3);_line(c,x,y,nx,ny,_rgba(0,0,0,.30));x=nx;y=ny;if(y>29)break;}}
+        else{c.fillStyle=_rgba(255,255,255,.07);for(let k=0;k<3;k++){const y=4+k*9+R(80+k,4),x=2+R(84+k,8);_px(c,x,y,10+R(88+k,8),1);_px(c,x+3,y+1,6,1);}}
+        if(v===2||v===5){c.fillStyle=_rgb(..._shade(base,24));_px(c,18+R(90,8),14+R(91,10),2,2);c.fillStyle=_rgba(0,0,0,.3);_px(c,18+R(90,8),16+R(91,10),2,1);}
+        if(v===7){c.fillStyle=_rgba(214,204,182,.35);_px(c,8,21,5,1);_px(c,8,20,1,1);_px(c,12,22,1,1);}
+      }else if(kind==='snow'){
+        c.fillStyle=_rgba(255,255,255,.16);for(let k=0;k<5;k++)_px(c,2+R(100+k,28),2+R(106+k,28),1,1);
+        c.fillStyle=_rgba(...accentRgb,.18);_px(c,5+R(112,16),8+R(113,16),4,1);_px(c,6+R(112,16),9+R(113,16),2,1);
+        if(v%4===1){c.fillStyle=_rgba(0,0,0,.2);_px(c,14,18,2,1);_px(c,18,20,2,1);}   // tracks
+      }
+      tiles.push(cv);
+    }
+    return tiles;
+  }
+  // Sanctum: the fine cobble with an occasional inlaid rune stone
+  function _genSanctumFine(floorRgb,accentRgb){
+    const tiles=_genFloorTiles(floorRgb,accentRgb);
+    [3,6].forEach(v=>{const c=tiles[v].getContext('2d');c.fillStyle=_rgba(...accentRgb,.38);
+      if(v===3){_px(c,12,10,1,5);_px(c,10,12,5,1);}else{_px(c,18,17,4,1);_px(c,18,21,4,1);_px(c,18,17,1,5);_px(c,21,17,1,5);}});
+    return tiles;
+  }
   const FLOOR_GENERATORS={
-    plains:_genPlainsFloor,
-    forest:_genForestFloor,
-    mountain:_genMountainFloor,
-    swamp:_genSwampFloor,
-    wasteland:_genWastelandFloor,
-    desert:_genDesertFloor,
-    tundra:_genTundraFloor,
-    sanctum:_genSanctumFloor,
+    plains:(f,a)=>_genGroundTiles(f,a,'grass'),
+    forest:(f,a)=>_genGroundTiles(f,a,'leaf'),
+    mountain:_genFloorTiles,
+    swamp:(f,a)=>_genGroundTiles(f,a,'mud'),
+    wasteland:(f,a)=>_genGroundTiles(f,a,'cracked'),
+    desert:(f,a)=>_genGroundTiles(f,a,'sand'),
+    tundra:(f,a)=>_genGroundTiles(f,a,'snow'),
+    sanctum:_genSanctumFine,
   };
 
   // ═══════════════════════════════════════
@@ -8634,7 +8645,8 @@ const TilesetEngine=(()=>{
     if(_atlasCache[key])return _atlasCache[key];
 
     const wallRgb=_hexToRgb(cfg.wallCol);
-    const floorRgb=_hexToRgb(cfg.floorCol);
+    // Floors in the data are near-black (max channel 6-18); lift them so the texture is visible
+    const floorRgb=(function(f){const m=Math.max(f[0],f[1],f[2],1),k=m<30?30/m:1;return [Math.min(255,f[0]*k)|0,Math.min(255,f[1]*k)|0,Math.min(255,f[2]*k)|0];})(_hexToRgb(cfg.floorCol));
     const accentRgb=_hexToRgb(cfg.accentCol);
 
     // Select generators based on tileset/terrain or fall back to defaults
@@ -18709,69 +18721,7 @@ function toggleAuto(){
     return false;
   };
 
-  // ── Swipe Gesture Recognition ──
-  let _swipeStartX=0,_swipeStartY=0,_swipeStartTime=0,_swipeTouchId=null;
-  const SWIPE_MIN=60,SWIPE_MAX_TIME=400;
-  const _openPanelFuncs=['openShop','openSB','openArmy','openSettings'];
-
-  function _getActivePanel(){
-    const panels=[
-      {id:'shop',close:'closeShop',idx:0},
-      {id:'spellbook',close:'closeSB',idx:1},
-      {id:'army',close:'closeArmy',idx:2},
-      {id:'settings',close:'closeSettings',idx:3}
-    ];
-    for(const p of panels){
-      const el=document.getElementById(p.id);
-      if(el&&(el.style.display==='flex'||el.style.display==='block'||el.classList.contains('active')))return p;
-    }
-    return null;
-  }
-
-  function _handleSwipe(dx,dy){
-    // Swipe-to-close / swipe-between-panels has never run: it called _isMobile(), which is scoped to the
-    // joystick IIFE, so every touch release threw a ReferenceError. Kept inert (without the error) because
-    // enabling it makes a fast scroll inside Settings close the panel. See Asana follow-up before reviving.
-    if(typeof _isMobile!=='function')return false;
-    if(!_isMobile())return false;
-    if(typeof _DRAG!=='undefined'&&(_DRAG.suppressClick||Date.now()-(_DRAG.lastDragAt||0)<250))return false; // a panel drag is not a swipe
-    const absDx=Math.abs(dx),absDy=Math.abs(dy);
-    if(absDx<SWIPE_MIN&&absDy<SWIPE_MIN)return false;
-    const raidEl=document.getElementById('raid');
-    if(raidEl&&raidEl.classList.contains('active'))return false;
-    const panel=_getActivePanel();
-    if(!panel)return false;
-    if(absDy>absDx&&dy>SWIPE_MIN){
-      if(typeof window[panel.close]==='function'){window[panel.close]();haptic('uiTap');return true;}
-    }
-    if(absDx>absDy){
-      const dir=dx>0?-1:1;
-      let nextIdx=panel.idx+dir;
-      if(nextIdx<0)nextIdx=_openPanelFuncs.length-1;
-      if(nextIdx>=_openPanelFuncs.length)nextIdx=0;
-      if(typeof window[panel.close]==='function')window[panel.close]();
-      const nextFn=_openPanelFuncs[nextIdx];
-      if(typeof window[nextFn]==='function'){window[nextFn]();haptic('uiTap');return true;}
-    }
-    return false;
-  }
-
-  document.addEventListener('touchstart',function(e){
-    if(e.target.tagName==='CANVAS')return;
-    const t=e.touches[0];
-    _swipeStartX=t.clientX;_swipeStartY=t.clientY;
-    _swipeStartTime=Date.now();_swipeTouchId=t.identifier;
-  },{passive:true});
-
-  document.addEventListener('touchend',function(e){
-    if(Date.now()-_swipeStartTime>SWIPE_MAX_TIME)return;
-    for(let i=0;i<e.changedTouches.length;i++){
-      const t=e.changedTouches[i];
-      if(t.identifier!==_swipeTouchId)continue;
-      const dx=t.clientX-_swipeStartX,dy=t.clientY-_swipeStartY;
-      _handleSwipe(dx,dy);
-    }
-  },{passive:true});
+  // (Swipe-to-close / swipe-between-panels was removed on 2026-10-08: it had never run, and José chose to drop it.)
 
   // ── Long-Press Context Menu ──
   let _longPressTimer=null,_longPressX=0,_longPressY=0;
@@ -18939,12 +18889,12 @@ function _dgArena(g,cx,cy,style){
   return {x:cx-R,y:cy-R,w:R*2+1,h:R*2+1,cx,cy,shape:'arena',arena:true};
 }
 function _dgPlanCrypt(g,final){
-  // 4×4 lattice of 13-tile cells; walk a snake path through 8–11 of them
-  const N=4,cell=13,off=2,order=[];
+  // 5×5 lattice of 13-tile cells; walk a snake path through 10–13 of them
+  const N=5,cell=13,off=3,order=[];
   const startCol=Math.random()<.5?0:N-1;
   for(let r=0;r<N;r++){const cols=[...Array(N).keys()];if((r%2===0)!==(startCol===0))cols.reverse();cols.forEach(c=>order.push([c,r]));}
-  const keep=order.filter((_,i)=>i===0||i===order.length-1||Math.random()<.62);
-  while(keep.length<(final?6:8))keep.splice(ri(1,keep.length-1),0,order[ri(1,order.length-2)]);
+  const keep=order.filter((_,i)=>i===0||i===order.length-1||Math.random()<.44);
+  while(keep.length<(final?8:10))keep.splice(ri(1,keep.length-1),0,order[ri(1,order.length-2)]);
   const seen=new Set(),cells=keep.filter(([c,r])=>{const k=c+','+r;if(seen.has(k))return false;seen.add(k);return true;});
   cells.sort((a,b)=>order.findIndex(o=>o[0]===a[0]&&o[1]===a[1])-order.findIndex(o=>o[0]===b[0]&&o[1]===b[1]));
   const shapes=['rect','cross','oct','hall','L','rect','oct'],rooms=[];
@@ -18952,15 +18902,15 @@ function _dgPlanCrypt(g,final){
     const cx=off+c*cell+(cell>>1)+ri(-1,1),cy=off+r*cell+(cell>>1)+ri(-1,1);
     if(i===0)rooms.push(_dgRoom(g,cx,cy,11,11,'rect'));
     else if(final&&i===cells.length-1)rooms.push(null);
-    else{const sh=shapes[ri(0,shapes.length-1)];const w=sh==='hall'?11:ri(7,11)|1,h=sh==='hall'?9:ri(7,9)|1;rooms.push(_dgRoom(g,cx,cy,w,h,sh));}
+    else{const sh=shapes[ri(0,shapes.length-1)];const w=sh==='hall'?11:ri(9,11)|1,h=sh==='hall'?11:ri(7,11)|1;rooms.push(_dgRoom(g,cx,cy,w,h,sh));}
   });
   if(final){const [c,r]=cells[cells.length-1];const cx=clamp(off+c*cell+(cell>>1),13,COLS-14),cy=clamp(off+r*cell+(cell>>1),13,ROWS-14);rooms[rooms.length-1]=_dgArena(g,cx,cy,'crypt');}
-  for(let i=1;i<rooms.length;i++)_dgHall(g,rooms[i-1].cx,rooms[i-1].cy,rooms[i].cx,rooms[i].cy,i===rooms.length-1&&final?5:3,true);
+  for(let i=1;i<rooms.length;i++)_dgHall(g,rooms[i-1].cx,rooms[i-1].cy,rooms[i].cx,rooms[i].cy,i===rooms.length-1&&final?5:4,true);
   for(let k=0;k<2;k++){const a=rooms[ri(0,rooms.length-2)],b=rooms[ri(0,rooms.length-2)];if(a!==b&&Math.abs(a.cx-b.cx)+Math.abs(a.cy-b.cy)<30)_dgHall(g,a.cx,a.cy,b.cx,b.cy,3,false);}
   return rooms;
 }
 function _dgPlanGrove(g,final){
-  const pts=[],want=final?6:ri(8,10);let guard=0;
+  const pts=[],want=final?8:ri(11,13);let guard=0;
   const sx=ri(8,14),sy=ri(8,14);pts.push([sx,sy]);
   while(pts.length<want&&guard++<600){const x=ri(8,COLS-9),y=ri(8,ROWS-9);if(pts.every(p=>Math.hypot(p[0]-x,p[1]-y)>12))pts.push([x,y]);}
   // order by nearest-neighbour chain so trails read as one journey; end far from the start
@@ -18968,10 +18918,10 @@ function _dgPlanGrove(g,final){
   const rooms=chain.map(([x,y],i)=>{
     if(i===0){_dgDisc(g,x,y,5);_dgRect(g,x-4,y-4,9,9);return {x:x-5,y:y-5,w:11,h:11,cx:x,cy:y,shape:'glade'};}
     if(final&&i===chain.length-1){const cx=clamp(x,13,COLS-14),cy=clamp(y,13,ROWS-14);return _dgArena(g,cx,cy,'grove');}
-    const r=ri(3,6);_dgDisc(g,x,y,r,{n:ri(3,6),p:Math.random()*6,a:1.1});
+    const r=ri(4,7);_dgDisc(g,x,y,r,{n:ri(3,6),p:Math.random()*6,a:1.1});
     if(Math.random()<.45){const a=Math.random()*6.28;_dgDisc(g,Math.round(x+Math.cos(a)*r),Math.round(y+Math.sin(a)*r),Math.max(2,r-2));}
     return {x:x-r,y:y-r,w:r*2+1,h:r*2+1,cx:x,cy:y,shape:'glade'};});
-  for(let i=1;i<rooms.length;i++)_dgTrail(g,rooms[i-1].cx,rooms[i-1].cy,rooms[i].cx,rooms[i].cy,i%3===0?2:3);
+  for(let i=1;i<rooms.length;i++)_dgTrail(g,rooms[i-1].cx,rooms[i-1].cy,rooms[i].cx,rooms[i].cy,i%3===0?3:4);
   for(let k=0;k<2;k++){const a=rooms[ri(0,rooms.length-2)],b=rooms[ri(0,rooms.length-2)];if(a!==b)_dgTrail(g,a.cx,a.cy,b.cx,b.cy,2);}
   // soften: fill single-tile wall specks so clearings read as organic shapes
   for(let y=2;y<ROWS-2;y++)for(let x=2;x<COLS-2;x++)if(g[y][x]===T_WALL){let f=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if(g[y+j][x+i]===T_FLOOR)f++;if(f>=7)g[y][x]=T_FLOOR;}
@@ -18984,12 +18934,12 @@ function _dgPlanCathedral(g,final){
   const R=(cx,cy,w,h,sh)=>_dgRoom(g,cx,Y(cy),w,h,sh);
   rooms.push(R(mx,ROWS-9,11,11,'rect'));                         // narthex (start)
   const naveTop=20,naveBot=ROWS-15;
-  _dgRect(g,mx-3,Math.min(Y(naveTop),Y(naveBot)),7,naveBot-naveTop+1);  // nave
-  for(let y=naveTop+2;y<naveBot;y+=4){_dgWall(g,mx-3,Y(y));_dgWall(g,mx+3,Y(y));}   // colonnade
-  const bays=[naveBot-4,naveBot-14];
-  bays.forEach(by=>{[-1,1].forEach(s=>{const cx=mx+s*14;rooms.push(R(cx,by,ri(7,9)|1,7,Math.random()<.5?'round':'oct'));_dgHall(g,mx+s*3,Y(by),cx,Y(by),3,false);});});
+  _dgRect(g,mx-4,Math.min(Y(naveTop),Y(naveBot)),9,naveBot-naveTop+1);  // nave
+  for(let y=naveTop+2;y<naveBot;y+=4){_dgWall(g,mx-3,Y(y));_dgWall(g,mx+3,Y(y));}   // colonnade (one tile in from the nave walls)
+  const bays=ROWS>=70?[naveBot-4,naveBot-15,naveBot-26]:[naveBot-4,naveBot-14];
+  bays.forEach(by=>{[-1,1].forEach(s=>{const cx=mx+s*14;rooms.push(R(cx,by,ri(9,11)|1,9,Math.random()<.5?'round':'oct'));_dgHall(g,mx+s*4,Y(by),cx,Y(by),3,false);});});
   rooms.push(R(mx,naveTop,13,9,'cross'));                        // crossing
-  [-1,1].forEach(s=>{const cx=mx+s*18;rooms.push(R(cx,naveTop,9,9,'hall'));_dgHall(g,mx+s*6,Y(naveTop),cx,Y(naveTop),3,false);
+  [-1,1].forEach(s=>{const cx=mx+s*(COLS>=70?22:18);rooms.push(R(cx,naveTop,11,9,'hall'));_dgHall(g,mx+s*6,Y(naveTop),cx,Y(naveTop),3,false);
     const ch=R(cx,naveTop-10,7,7,'round');rooms.push(ch);_dgHall(g,cx,Y(naveTop),cx,Y(naveTop-10),3,false);});
   let apse;
   if(final){apse=_dgArena(g,mx,Y(12),'cathedral');_dgRect(g,mx-2,Math.min(Y(12),Y(naveTop)),5,Math.abs(Y(naveTop)-Y(12))+1);}
@@ -27720,7 +27670,7 @@ function openCollectorTap(){
 // Returns the interactive thing under a world point, or null (= walk there).
 // Circles are sized to the sprite they belong to (they used to be 60px, which caught
 // clicks well outside the object); buildings and fenced plots use their drawn rectangle.
-const VIL_R={storage:26,npc:20,hero:18,workshop:30,collector:24,stall:30,hobbit:24};
+const VIL_R={storage:26,npc:20,hero:18,workshop:30,collector:24,stall:30,hobbit:24,sign:15};
 function _vilHitTest(tx,ty,W,H){
   const s=_vilWalkState;if(!s)return null;
   const circ=(p,r,label,act)=>(p&&Math.hypot(tx-p.x,ty-p.y)<r)?{shape:'c',x:p.x,y:p.y,r,label,act}:null;
@@ -27750,7 +27700,7 @@ function _vilHitTest(tx,ty,W,H){
       if(rm.id==='merchant'){
         if((h=circ(SP.boneMerchant,VIL_R.npc,'Rattlejaw the Bone Merchant',openBoneMerchantTap)))return h;
         if(GS.quests?.gandalf_quest?.completed&&(h=circ(SP.shopGandalf,VIL_R.npc,'Gandalf',_openGandalfShopDialogue)))return h;
-        return rect("Merchant's Shop",()=>{if(Date.now()>_vilAssignCooldown)openShop();});
+        break;
       }
       if(rm.id==='pub'){
         if((h=circ(SP.tavernKeeper,VIL_R.npc,'Morwen the Tavern Keeper',openTavernKeeperTap)))return h;
@@ -27762,17 +27712,38 @@ function _vilHitTest(tx,ty,W,H){
             if(ph&&(h=circ(ph,VIL_R.hero,(typeof HERO_DEFS!=='undefined'&&HERO_DEFS[ph.id]&&HERO_DEFS[ph.id].name)||'Hero',()=>openHeroDetailModal(ph.id))))return h;
           }
         }
-        return rect('The Bone Flagon',()=>{
-          if(Date.now()<=_vilAssignCooldown)return;
-          const uh=[...(GS.heroes?.unlocked||[])];
-          if(uh.length){openHeroDetailModal(uh[0]);}
-          else{showToast('🍺 The pub awaits heroes… Exchange Dev Codes to recruit!');}
-        });
+        break;
       }
-      return rect(rm.name+' · assign workers',()=>{if(Date.now()>_vilAssignCooldown)openAssign(rm.id);});
+      break;
     }
   }
+  // Signposts: the click target for a building or a plot is its sign, never the whole building
+  for(const sg of _vilSigns()){if((h=circ(sg,VIL_R.sign,sg.label,sg.act)))return h;}
   return null;
+}
+// One signpost per plot (assign workers) and one at the shop door (open the shop)
+function _vilSigns(){
+  const s=_vilWalkState,out=[];if(!s||!s._roomsPos)return out;
+  for(const rm of s._roomsPos){
+    if(rm.id==='pub')continue;
+    if(rm.id==='merchant')out.push({x:rm.x+rm.w*.5,y:rm.y+rm.h-30,ico:'coin',label:"Merchant's Shop",act:()=>{if(Date.now()>_vilAssignCooldown)openShop();}});
+    else out.push({x:rm.x+rm.w-24,y:rm.y+rm.h-34,ico:'scroll',label:(rm.name||'Plot')+' \u00B7 assign workers',act:()=>{if(Date.now()>_vilAssignCooldown)openAssign(rm.id);}});
+  }
+  return out;
+}
+function _vilDrawSigns(c){
+  const sm=c.imageSmoothingEnabled;c.imageSmoothingEnabled=false;
+  for(const g of _vilSigns()){
+    const x=Math.round(g.x),y=Math.round(g.y);
+    c.fillStyle='rgba(0,0,0,.35)';c.beginPath();c.ellipse(x,y+13,8,2.5,0,0,Math.PI*2);c.fill();
+    c.fillStyle='#3b2a18';c.fillRect(x-1,y-2,3,15);                       // post
+    c.fillStyle='#1c130a';c.fillRect(x-11,y-13,22,15);                    // board outline
+    c.fillStyle='#8a6a3c';c.fillRect(x-10,y-12,20,13);
+    c.fillStyle='#a8854e';c.fillRect(x-10,y-12,20,2);
+    c.fillStyle='#6d5230';c.fillRect(x-10,y-1,20,2);
+    try{if(typeof PxIcon!=='undefined')c.drawImage(PxIcon.canvas(g.ico),x-5,y-11,10,10);}catch(e){}
+  }
+  c.imageSmoothingEnabled=sm;
 }
 let _vilHover=null;
 function _vilHoverMove(e){
@@ -27796,7 +27767,7 @@ function _vilDrawHover(c){
   if(h.shape==='c'){c.beginPath();c.arc(h.x,h.y,h.r,0,Math.PI*2);c.stroke();lx=h.x;ly=h.y-h.r-5;}
   else{c.strokeRect(h.x+1,h.y+1,h.w-2,h.h-2);lx=h.x+h.w/2;ly=h.y+12;}
   c.shadowBlur=0;
-  c.font='bold 8px "Almendra","Cinzel",serif';c.textAlign='center';c.textBaseline='alphabetic';
+  c.font='bold 11px "Almendra","Cinzel",serif';c.textAlign='center';c.textBaseline='alphabetic';
   const tw=c.measureText(h.label).width+10;
   c.fillStyle='rgba(8,4,16,.88)';c.fillRect(Math.round(lx-tw/2),Math.round(ly-9),Math.round(tw),12);
   c.strokeStyle='rgba(253,230,138,.7)';c.lineWidth=.5;c.strokeRect(Math.round(lx-tw/2)+.25,Math.round(ly-9)+.25,Math.round(tw)-.5,11.5);
@@ -28116,7 +28087,7 @@ function drawVilCanvas(){
   fin.y=pathCY+Math.sin(fin.x*.015)*10;
   const finSpr=_getVilNpc('finrod',[212,165,116],[139,122,96],[26,58,26],[42,38,30]);
   _drawVilNpc(c,finSpr,fin.x,fin.y,fin.facing,Math.floor(_vilFrame/10),1.8);
-  c.fillStyle='#22c55e';c.font=`bold ${Math.round(Math.max(4,5*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+  c.fillStyle='#22c55e';c.font=`bold ${Math.round(Math.max(8,8*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
   c.fillText('Finrod',fin.x,fin.y+22);
   // Store position for tap detection
   _vilStoragePos.collector={x:fin.x,y:fin.y};
@@ -28124,7 +28095,7 @@ function drawVilCanvas(){
   const finDist=_vws?Math.hypot(_vws.px-fin.x,_vws.py-fin.y):999;
   if(finDist<80){
     // Finrod proximity glow removed
-    c.fillStyle='#22c55e';c.font=`bold ${Math.round(Math.max(5,7*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+    c.fillStyle='#22c55e';c.font=`bold ${Math.round(Math.max(9,9*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
     icoD(c,'🎒',fin.x,fin.y-16,12);
   }
 
@@ -28174,7 +28145,7 @@ function drawVilCanvas(){
           const numItems=Math.min(shelfItems.length,Math.floor(bw/12));
           for(let si=0;si<numItems;si++){
             const sx=bx+bw*(.12+si*(.76/numItems));
-            c.font=`${Math.round(Math.max(5,7*fs))}px serif`;c.textAlign='center';
+            c.font=`${Math.round(Math.max(9,9*fs))}px serif`;c.textAlign='center';
             c.fillText(shelfItems[si],sx,sy-2);
           }
         }
@@ -28194,7 +28165,7 @@ function drawVilCanvas(){
         const dispItems=['🧪','💎','📜'];
         dispItems.forEach((di,dii)=>{
           const dx=bx+bw*(.22+dii*.28);
-          c.font=`${Math.round(Math.max(6,8*fs))}px serif`;c.textAlign='center';
+          c.font=`${Math.round(Math.max(10,10*fs))}px serif`;c.textAlign='center';
           c.fillText(di,dx,ctrY-3);
         });
 
@@ -28239,12 +28210,12 @@ function drawVilCanvas(){
         c.beginPath();c.moveTo(-5,2);c.lineTo(-8,8);c.stroke();
         c.beginPath();c.moveTo(5,2);c.lineTo(8,6);c.stroke();
         // Held item (random potion/bone)
-        c.font=`${Math.round(Math.max(5,6*fs))}px serif`;c.textAlign='center';
+        c.font=`${Math.round(Math.max(9,8*fs))}px serif`;c.textAlign='center';
         const bmHeldItems=['🧪','🦴','💎','📜'];
         c.fillText(bmHeldItems[Math.floor(_vilFrame/120)%bmHeldItems.length],8,5);
         c.restore();
         // Name label
-        c.fillStyle='#f59e0b';c.font=`bold ${Math.round(Math.max(3,4*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+        c.fillStyle='#f59e0b';c.font=`bold ${Math.round(Math.max(8,7*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
         c.fillText('Rattlejaw',bmNpcX,bmNpcY+18);
         // Store position for tap detection
         _vilStoragePos.boneMerchant={x:bmNpcX,y:bmNpcY};
@@ -28253,7 +28224,7 @@ function drawVilCanvas(){
         if(bmDist<120){
           const bmPulse=Math.sin(_vilFrame*.08)*.3+.7;
           c.fillStyle=`rgba(245,158,11,${bmPulse*.4})`;c.beginPath();c.arc(bmNpcX,bmNpcY-12,8,0,Math.PI*2);c.fill();
-          c.fillStyle='#f59e0b';c.font=`bold ${Math.round(Math.max(5,7*fs))}px "Almendra","Cinzel",monospace`;
+          c.fillStyle='#f59e0b';c.font=`bold ${Math.round(Math.max(9,9*fs))}px "Almendra","Cinzel",monospace`;
           icoD(c,'💰',bmNpcX,bmNpcY-15,12);
         }
 
@@ -28279,7 +28250,7 @@ function drawVilCanvas(){
 
         // ── "OPEN" sign
         c.fillStyle='rgba(0,0,0,.7)';c.fillRect(bx+bw*.35,wallTop+wallH-12,bw*.3,9);
-        c.fillStyle='#fbbf24';c.font=`bold ${Math.round(Math.max(4,5*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+        c.fillStyle='#fbbf24';c.font=`bold ${Math.round(Math.max(8,8*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
         c.fillText('OPEN',cxR,wallTop+wallH-5);
 
         // ── Gandalf NPC inside shop (after quest completed)
@@ -28294,13 +28265,13 @@ function drawVilCanvas(){
           const gdGl=Math.sin(_vilFrame*.05)*.15+.25;
           c.fillStyle=`rgba(99,102,241,${gdGl})`;c.beginPath();c.arc(gdShopX+4,gdShopY-6,5,0,Math.PI*2);c.fill();
           // Name label
-          c.fillStyle='#6366f1';c.font=`bold ${Math.round(Math.max(3,4*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+          c.fillStyle='#6366f1';c.font=`bold ${Math.round(Math.max(8,7*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
           c.fillText('Gandalf',gdShopX,gdShopY+12);
           // Quest ! if player has fireworks to trade
           const fwCount=GS.inv.consumables['dragon_fireworks']||0;
           if(fwCount>0){
             const bangB=Math.sin(_vilFrame*4)*1.5;
-            c.fillStyle='#fbbf24';c.font=`bold ${Math.round(Math.max(6,8*fs))}px "Almendra","Cinzel",monospace`;
+            c.fillStyle='#fbbf24';c.font=`bold ${Math.round(Math.max(10,10*fs))}px "Almendra","Cinzel",monospace`;
             c.fillText('!',gdShopX,gdShopY-14+bangB);
           }
           // Store position for tap detection
@@ -28395,7 +28366,7 @@ function drawVilCanvas(){
         const numDrinks=Math.min(5,Math.floor(bw/16));
         for(let di=0;di<numDrinks;di++){
           const dx2=bx+bw*(0.15+di*(0.7/numDrinks));
-          c.font=`${Math.round(Math.max(6,8*fs))}px serif`;c.textAlign='center';
+          c.font=`${Math.round(Math.max(10,10*fs))}px serif`;c.textAlign='center';
           c.fillText(drinkIcos[di%drinkIcos.length],dx2,barY-2);
         }
 
@@ -28456,7 +28427,7 @@ function drawVilCanvas(){
         const wpX=bx+bw*.5, wpY=wallTop+wallH*.15;
         c.fillStyle='#d4c8a0';c.fillRect(wpX-7,wpY-5,14,12);
         c.strokeStyle='#8b7a50';c.lineWidth=.5;c.strokeRect(wpX-7,wpY-5,14,12);
-        c.fillStyle='#3a2010';c.font=`bold ${Math.round(Math.max(3,3.5*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+        c.fillStyle='#3a2010';c.font=`bold ${Math.round(Math.max(8,7*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
         c.fillText('WANTED',wpX,wpY);
         c.fillStyle='#5a3a10';c.fillRect(wpX-3,wpY+1,6,4);
 
@@ -28524,14 +28495,14 @@ function drawVilCanvas(){
             else if(drinkCycle<50){mugOffX=5;mugOffY=-18+Math.sin(_vilFrame*.15)*0.5;}
             else if(drinkCycle<80){const t2=(drinkCycle-50)/30;mugOffX=5+t2*4;mugOffY=-18+t2*10;}
             const idleBob=Math.sin(_vilFrame*0.06+hi2*1.8)*1.2;
-            c.font=`${Math.round(Math.max(6,7*fs))}px serif`;c.textAlign='center';
+            c.font=`${Math.round(Math.max(9,9*fs))}px serif`;c.textAlign='center';
             icoD(c,'🍺',hx2+mugOffX,hy2+mugOffY+idleBob,12);
             if(drinkCycle>=30&&drinkCycle<50){c.fillStyle='rgba(251,191,36,.15)';c.beginPath();c.arc(hx2,hy2-6,6,0,Math.PI*2);c.fill();}
           }
 
           // Name
           c.fillStyle=hdef2.color||'#fb923c';
-          c.font=`bold ${Math.round(Math.max(4,5*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+          c.font=`bold ${Math.round(Math.max(8,8*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
           c.fillText(hdef2.name,hx2,hy2+14);
           // Store position for click detection in vilTap
           _vilStoragePos.pubHeroes[hi2]={x:hx2,y:hy2,id:hId};
@@ -28545,7 +28516,7 @@ function drawVilCanvas(){
           }
           if(hdef2._vilDialogue&&_vilFrame<hdef2._vilDialogueEnd){
             const dt2=hdef2._vilDialogue.substring(0,24);
-            c.font=`${Math.round(Math.max(4,5*fs))}px "IM Fell English",serif`;c.textAlign='center';
+            c.font=`${Math.round(Math.max(8,8*fs))}px "IM Fell English",serif`;c.textAlign='center';
             const dtw2=c.measureText(dt2).width+8;
             const bubY=hy2-26;
             c.fillStyle='rgba(0,0,0,.92)';c.fillRect(hx2-dtw2/2,bubY,dtw2,11);
@@ -28583,7 +28554,7 @@ function drawVilCanvas(){
           c.fillStyle='#a07818';c.fillRect(btX+9,holdY-2,1.5,3);
         }
         // Bartender name
-        c.fillStyle='#9ca3af';c.font=`bold ${Math.round(Math.max(3,4*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+        c.fillStyle='#9ca3af';c.font=`bold ${Math.round(Math.max(8,7*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
         c.fillText('Bartender',btX,btY+14);
         // Store bartender pos for click detection
         _vilStoragePos.bartender={x:btX,y:btY};
@@ -28611,11 +28582,11 @@ function drawVilCanvas(){
         // Holding tray
         c.fillStyle='#5a4020';c.fillRect(5,0,8,1.5);
         // Mug on tray
-        c.font=`${Math.round(Math.max(4,5*fs))}px serif`;c.textAlign='center';
+        c.font=`${Math.round(Math.max(8,8*fs))}px serif`;c.textAlign='center';
         icoD(c,'🍷',9,-2,12);
         c.restore();
         // Name label
-        c.fillStyle='#fb923c';c.font=`bold ${Math.round(Math.max(3,4*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+        c.fillStyle='#fb923c';c.font=`bold ${Math.round(Math.max(8,7*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
         c.fillText('Morwen',mkX,mkY+18);
         // Store position for tap detection
         _vilStoragePos.tavernKeeper={x:mkX,y:mkY};
@@ -28623,7 +28594,7 @@ function drawVilCanvas(){
         if(GS.tavernBuff&&GS.tavernBuff.id&&GS.tavernBuff.raidsLeft>0){
           const tbPulse=Math.sin(_vilFrame*.06)*.2+.8;
           c.fillStyle=`rgba(251,146,60,${tbPulse*.3})`;c.beginPath();c.arc(mkX,mkY-10,6,0,Math.PI*2);c.fill();
-          c.fillStyle='#fb923c';c.font=`${Math.round(Math.max(4,5*fs))}px serif`;c.textAlign='center';
+          c.fillStyle='#fb923c';c.font=`${Math.round(Math.max(8,8*fs))}px serif`;c.textAlign='center';
           icoD(c,'✨',mkX,mkY-14,12);
         }
         // Interaction glow on proximity
@@ -28644,7 +28615,7 @@ function drawVilCanvas(){
         }
         if(bkp.text&&_vilFrame<bkp.end){
           const bdt=bkp.text.substring(0,30);
-          c.font=`${Math.round(Math.max(4,4.5*fs))}px "IM Fell English",serif`;c.textAlign='center';
+          c.font=`${Math.round(Math.max(8,7.5*fs))}px "IM Fell English",serif`;c.textAlign='center';
           const bdw=c.measureText(bdt).width+8;
           c.fillStyle='rgba(0,0,0,.9)';c.fillRect(btX-bdw/2,btY-22,bdw,11);
           c.strokeStyle='rgba(156,163,175,.3)';c.lineWidth=0.5;c.strokeRect(btX-bdw/2,btY-22,bdw,11);
@@ -28653,7 +28624,7 @@ function drawVilCanvas(){
 
         // Empty pub atmosphere if no heroes
         if(!pubHeroes.length){
-          c.fillStyle='rgba(251,146,60,.2)';c.font=`italic ${Math.round(Math.max(4,5.5*fs))}px "IM Fell English",serif`;c.textAlign='center';
+          c.fillStyle='rgba(251,146,60,.2)';c.font=`italic ${Math.round(Math.max(9,8.5*fs))}px "IM Fell English",serif`;c.textAlign='center';
           c.fillText('The pub awaits heroes...',cxR,stoolY+8);
         }
 
@@ -28704,7 +28675,7 @@ function drawVilCanvas(){
               c.fillRect(gx-6,gy-8,12,3);
               c.strokeStyle='#4a4a6a';c.lineWidth=.5;c.strokeRect(gx-3,gy-12,6,16);
             }
-            c.font=`${Math.round(4.5*fs)}px serif`;c.fillStyle='#5b6270';c.textAlign='center';
+            c.font=`${Math.max(8,Math.round(7.5*fs))}px serif`;c.fillStyle='#5b6270';c.textAlign='center';
             c.fillText('RIP',gx,gy);
           });
           // Iron lantern
@@ -28736,7 +28707,7 @@ function drawVilCanvas(){
           c.restore();
           if(gbNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(gbx-32,gby-22,64,12);
-            c.fillStyle='#d1d5db';c.font='bold 6px "Almendra","Cinzel",monospace';c.textAlign='center';
+            c.fillStyle='#d1d5db';c.font='bold 9px "Almendra","Cinzel",monospace';c.textAlign='center';
             c.fillText(`🦴 Vault: ${(GS.bank?.bones||0)}`,gbx,gby-13);
           }
           _vilStoragePos.graveyard={x:gbx,y:gby};
@@ -28805,7 +28776,7 @@ function drawVilCanvas(){
           c.beginPath();c.moveTo(wkx-wkw/2-3,wky-wkh/2);c.lineTo(wkx,wky-wkh/2-wkh*.5);c.lineTo(wkx+wkw/2+3,wky-wkh/2);c.closePath();c.fill();
           c.strokeStyle='#6b4a20';c.lineWidth=0.7;c.stroke();
           // Anvil icon
-          c.font=`${Math.round(Math.max(6,8*fs))}px serif`;c.textAlign='center';
+          c.font=`${Math.round(Math.max(10,10*fs))}px serif`;c.textAlign='center';
           icoD(c,'⚒',wkx,wky+2,12);
           // Smoke from chimney
           const wkSmk=Math.sin(_vilFrame*.04)*.12+.18;
@@ -28820,7 +28791,7 @@ function drawVilCanvas(){
           // Workshop proximity glow removed
           if(wkNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(wkx-28,wky-wkh/2-wkh*.5-16,56,11);
-            c.fillStyle='#fbbf24';c.font=`bold ${Math.round(Math.max(4,5.5*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
+            c.fillStyle='#fbbf24';c.font=`bold ${Math.round(Math.max(9,8.5*fs))}px "Almendra","Cinzel",monospace`;c.textAlign='center';
             c.fillText('⚒ Workshop',wkx,wky-wkh/2-wkh*.5-8);
           }
           // Store workshop position for overlay button
@@ -28836,7 +28807,7 @@ function drawVilCanvas(){
           // Wood pile proximity glow removed
           if(wpNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(wpx-32,wpy-30,64,12);
-            c.fillStyle='#fbbf24';c.font='bold 6px "Almendra","Cinzel",monospace';c.textAlign='center';
+            c.fillStyle='#fbbf24';c.font='bold 9px "Almendra","Cinzel",monospace';c.textAlign='center';
             c.fillText(`🪵 Pile: ${(GS.bank?.wood||0)}`,wpx,wpy-21);
           }
           _vilStoragePos.forest={x:wpx,y:wpy};
@@ -28908,7 +28879,7 @@ function drawVilCanvas(){
           // Greenhouse proximity glow removed
           if(ghNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(ghx-32,ghy-30,64,12);
-            c.fillStyle='#86efac';c.font='bold 6px "Almendra","Cinzel",monospace';c.textAlign='center';
+            c.fillStyle='#86efac';c.font='bold 9px "Almendra","Cinzel",monospace';c.textAlign='center';
             c.fillText(`🌿 Greenhouse: ${(GS.bank?.herbs||0)}`,ghx,ghy-21);
           }
           _vilStoragePos.orchard={x:ghx,y:ghy};
@@ -28933,7 +28904,7 @@ function drawVilCanvas(){
             // Pumpkin merchant proximity glow removed
             if(pmNear){
               c.fillStyle='rgba(0,0,0,.88)';c.fillRect(pmx-48,pmy-30,96,12);
-              c.fillStyle='#f97316';c.font='bold 5px "Almendra","Cinzel",monospace';c.textAlign='center';
+              c.fillStyle='#f97316';c.font='bold 8px "Almendra","Cinzel",monospace';c.textAlign='center';
               c.fillText('🎃 Pumpkin Merchant',pmx,pmy-21);
             }
           }
@@ -29003,7 +28974,7 @@ function drawVilCanvas(){
           // Mining camp proximity glow removed
           if(mcNear){
             c.fillStyle='rgba(0,0,0,.88)';c.fillRect(mcx-32,mcy-22,64,12);
-            c.fillStyle='#fcd34d';c.font='bold 6px "Almendra","Cinzel",monospace';c.textAlign='center';
+            c.fillStyle='#fcd34d';c.font='bold 9px "Almendra","Cinzel",monospace';c.textAlign='center';
             c.fillText(`💰 Coffer: ${(GS.bank?.gold?.gp||0)}gp`,mcx,mcy-13);
           }
           _vilStoragePos.mining={x:mcx,y:mcy};
@@ -29014,7 +28985,7 @@ function drawVilCanvas(){
     // ── Room label (for outdoor areas only — buildings have signs)
     if(!rm.isBuilding){
       const maxLabelW=rm.w-12;
-      let labelFontPx=Math.max(4,Math.min(8,Math.floor(rm.h*.055*fs)));
+      let labelFontPx=Math.max(10,Math.min(13,Math.floor(rm.h*.055*fs)));
       c.font=`bold ${labelFontPx}px "Almendra","Cinzel",monospace`;
       while(labelFontPx>4&&c.measureText(rm.name).width>maxLabelW){
         labelFontPx--;c.font=`bold ${labelFontPx}px "Almendra","Cinzel",monospace`;
@@ -29025,7 +28996,7 @@ function drawVilCanvas(){
       c.fillText(rm.ico+' '+rm.name, cxR, lblY+labelFontPx+1);
       if(nd){
         const countTxt=workers.length+'/'+nd.cap;
-        let cFp=Math.max(4,Math.min(7,Math.floor(rm.h*.045*fs)));
+        let cFp=Math.max(9,Math.min(11,Math.floor(rm.h*.045*fs)));
         c.font=`${cFp}px "Almendra","Cinzel",monospace`;
         c.fillStyle=workers.length?'#86efac':'#4b5563';
         c.fillText(countTxt, rm.x+rm.w-14, lblY+cFp+1);
@@ -29107,6 +29078,7 @@ function drawVilCanvas(){
     else _vws.nearGate=null;
   }
 
+  try{_vilDrawSigns(c);}catch(e){}
   try{_vilDrawHover(c);}catch(e){}
   // ── Draw player necromancer
   if(_vilWalkState){
@@ -36732,11 +36704,16 @@ function bfsPath(sx,sy,tx,ty){
   const sc=worldToTile(sx,sy),tc=worldToTile(tx,ty);
   if(sc.col===tc.col&&sc.row===tc.row)return [];
   if(!isWalkableTile(tc.col,tc.row)){
-    // Find nearest walkable tile to target
+    // Target is inside a wall, a pillar or solid rock: walk to the nearest open tile instead.
+    // Search outward ring by ring (up to 14 tiles) so a click deep in the rock still gives a
+    // real path around obstacles, rather than a straight line that stops at the first wall.
     let best=tc,bd=Infinity;
-    for(let dr=-2;dr<=2;dr++)for(let dc=-2;dc<=2;dc++){
-      const c=tc.col+dc,r=tc.row+dr;
-      if(isWalkableTile(c,r)){const d=Math.hypot(dc,dr);if(d<bd){bd=d;best={col:c,row:r};}}
+    for(let rad=1;rad<=14&&bd===Infinity;rad++){
+      for(let dr=-rad;dr<=rad;dr++)for(let dc=-rad;dc<=rad;dc++){
+        if(Math.max(Math.abs(dr),Math.abs(dc))!==rad)continue;
+        const c=tc.col+dc,r=tc.row+dr;
+        if(isWalkableTile(c,r)){const d=Math.hypot(dc,dr);if(d<bd){bd=d;best={col:c,row:r};}}
+      }
     }
     if(bd===Infinity)return null;
     return bfsPath(sx,sy,best.col*TILE_SIZE+TILE_SIZE/2,best.row*TILE_SIZE+TILE_SIZE/2);
@@ -45313,11 +45290,15 @@ var Grimoire=(function(){
       '<div class="grm-sub">'+esc(sub||'')+'</div><div class="grm-badges">'+(badges||'')+'</div><div class="grm-act" id="grmAct"></div></div></div>';
   }
   function unknownPage(e){return head(e,'Undiscovered','<span class="grm-badge">Unknown</span>',!e.spr)+box('lore','How to discover','<div class="grm-txt"><i>'+esc(e.hint)+'.</i></div>');}
+  // Written lore, in the voice of the necromancer's own book (José approved the voice and the staged reveal, 2026-10-08).
+  // Creatures: the name is known on sight; the entry is written after ten kills (one for a dungeon lord).
+  var LORE={"cultist": "They came to the cemetery to worship what lies in it. None of them asked what it wanted in return. Thin robes, borrowed knives, and a hymn that stops when the first one falls.", "skeleton_e": "Somebody else's work, and careless work: the binding is loose at the hips and it favours its left side. It will still kill a tired minion.", "zombie_e": "Slow because the flesh remembers being heavy. It does not turn aside, does not flank and does not stop. Let it come and take it apart on the way.", "ghoul_e": "A ghoul is hunger with a spine. It goes for whatever is already wounded, which makes it easy to bait and expensive to ignore.", "wight_e": "A soldier who kept his oath past the point where it meant anything. The cold around it is not weather. Strong enough to be worth raising, if it can be put down first.", "gravedigger": "He buried half the town and resents every hole reopened. The shovel has an edge on it now. He knows the ground better than anyone living or dead.", "forest_wolf": "Grey, lean and never alone. The pack tests the edge of the army first and commits only when something limps.", "forest_witch": "She keeps to the trees and lets the hex do the walking. Close the distance and she is an old woman with a stick; fail to and half the army forgets how to hit.", "treant": "Older than the cemetery wall. It moves like a decision being made. Fire annoys it, axes insult it, and patience is the only thing it truly respects.", "banshee": "The scream arrives before she does. Minions bound loosely come apart at the sound; the well-made ones only flinch. She is grieving someone and it is not the necromancer.", "death_knight": "Plate armour with a grudge inside. It fights by the drill book of an army that no longer exists and has had centuries to practise.", "lich_acolyte": "A student of the same art, further along in obedience and further behind in talent. They raise poorly, but they raise often.", "shadow_demon": "It is not in the room so much as the room is slightly inside it. Lanterns help. So does not standing still.", "wraith_e": "What is left when the body is taken away and the anger is not. Blades pass through on the first swing and connect on the second, once it has decided to be there.", "orc_scout": "Travels light, sees first and runs to tell the others. Kill it quickly or fight everyone it knows.", "orc_warrior": "The main line. No finesse, no fear, and a shield it uses as a second weapon.", "orc_archer": "Stays behind the warriors and aims at whatever is casting. It considers this a fair fight.", "wight_lord": "Lord of the Cemetery of the Damned. Every wight in the yard was once in his company and still answers the horn. He gets worse when he is losing.", "forest_hag": "The forest's oldest tenant. The wolves are hers, the witches are her daughters or say they are, and the trees lean away from her hut.", "lich": "The one who did it first and did it properly. The crown is real, the eyes are not, and the phylactery is the only thing in the Sanctum he looks at twice.", "skel_rat": "The first thing most necromancers raise and the last thing they are proud of. Cheap, fast, and gone in one hit.", "skel_bat": "It has no wings left to speak of and flies anyway. Nobody has explained this to it.", "bone_crawler": "Assembled from whatever was nearest. Eight legs is an estimate.", "skeleton": "Obedient, tireless and entirely without initiative. The backbone of every army, in the literal sense.", "zombie": "Holds a doorway better than a door does. Do not ask it to hurry.", "skel_warrior": "Someone who knew how to use a sword, raised by someone who knew to leave that part alone.", "skel_archer": "Perfect patience and no breath to steady. The aim has only improved.", "skel_wolf": "Still hunts in a pack if given one. Still goes for the weakest.", "shadow": "A servant made from what a body casts. It saps the strength of whatever it touches and cannot be made to carry anything.", "will_o_wisp": "A light that leads the living off the path. Small, fragile and oddly cheerful about its work."};
+  var LORE_KILLS=10;
   function pageSummon(e){
     var m=MINIONS[e.k],cost=GS.effectiveCost(e.k),own=GS.skeletons.filter(function(s){return s.type===e.k&&s.hp>0;}).length;
     var h=head(e,(CAT_LABELS[m.cat]||m.cat).replace(/^\S+\s/,'')+' undead','<span class="grm-badge p">CR '+m.cr+'</span><span class="grm-badge">Unlock Lv '+m.unlockLv+'</span>'+(own?'<span class="grm-badge g">'+own+' raised</span>':''));
     h+=box('stats','Vital statistics','<div class="grm-stats">'+stat('Health',m.hp,m.hp/260)+stat('Damage',m.dmg,m.dmg/60)+stat('Speed',m.spd.toFixed(1),m.spd/3.2)+stat('Reach',m.rng>60?'Ranged':'Melee')+stat('Attack every',m.cd+'s')+stat('Bone cost',cost+(cost!==m.cost?' (was '+m.cost+')':''))+'</div>');
-    h+=box('lore','Field notes','<div class="grm-txt">'+esc(m.flavor||'')+(m.raidSlots==='all'?' <i>Takes every raid slot.</i>':'')+'</div>');
+    h+=box('lore','Field notes','<div class="grm-txt">'+esc(LORE[e.k]||m.flavor||'')+(m.raidSlots==='all'?' <i>Takes every raid slot.</i>':'')+'</div>');
     return h;
   }
   function pageSpell(e){
@@ -45351,6 +45332,8 @@ var Grimoire=(function(){
     var rew=[];if(d.bones)rew.push((Array.isArray(d.bones)?d.bones.join('-'):d.bones)+' bones');if(d.gp)rew.push(d.gp.join('-')+' gold');else if(d.sp)rew.push(d.sp.join('-')+' silver');else if(d.cp)rew.push(d.cp.join('-')+' copper');
     h+=box('stats','Vital statistics','<div class="grm-stats">'+stat('Health',d.hp,d.hp/(isB?900:120))+stat('Damage',d.dmg,d.dmg/(isB?60:30))+stat('Speed',(+d.spd).toFixed(2),d.spd/2.6)+stat('Reach',d.rng>60?'Ranged':'Melee')+stat('Attack every',d.cd+'s')+stat('Experience',d.xp||0)+(isB&&d.phase2HP?stat('Enrages below',d.phase2HP+' HP'):'')+'</div>');
     h+=box('lore','Field notes','<div class="grm-txt">'+(isB?'A dungeon lord':'A '+role(d)+' foe')+(hab.length?' found in <b>'+esc(hab.slice(0,3).join(', '))+'</b>'+(hab.length>3?' and '+(hab.length-3)+' other places':''):'')+'.'+(rew.length?' Leaves '+esc(rew.join(', '))+'.':'')+(d.special?' <i>Special: '+esc(d.special)+'.</i>':'')+'</div>');
+    if(LORE[e.k]){var need=isB?1:LORE_KILLS;
+      h+=box('lore',"From the necromancer's book",kills>=need?'<div class="grm-txt">'+esc(LORE[e.k])+'</div>':'<div class="grm-txt"><i>The page is still blank. '+(isB?'Defeat this lord once':'Slay '+(need-kills)+' more')+' and the entry writes itself.</i></div>');}
     return h;
   }
   function pageLore(e){
@@ -45532,16 +45515,32 @@ openCastleSBOverlay=function(){openGrimoire('summons');};
 /* keep toasts clear of the target frame during combat */
 #raid.active~#toast{top:84px}
 /* Combat log */
-#gwLog{display:none;position:fixed;left:8px;bottom:8px;z-index:21;width:300px;max-width:42vw;max-height:132px;overflow:hidden;flex-direction:column;justify-content:flex-end;font-family:'Almendra','Cinzel',serif;font-size:13px;line-height:1.35;color:#e8dcc8;background:linear-gradient(180deg,rgba(10,8,14,.0),rgba(10,8,14,.62) 22%);border-radius:6px;padding:6px 9px;pointer-events:auto;text-shadow:0 1px 2px #000}
-#gwLog:hover{overflow-y:auto;background:rgba(10,8,14,.82);max-height:240px;justify-content:flex-start}
+#gwLog{display:none;position:fixed;left:8px;bottom:8px;z-index:21;width:300px;max-width:42vw;flex-direction:column;align-items:flex-start;gap:2px;font-family:'Almendra','Cinzel',serif;font-size:13px;line-height:1.35;color:#e8dcc8;pointer-events:none;text-shadow:0 1px 2px #000}
+#gwLogHd{-webkit-appearance:none;pointer-events:auto;cursor:pointer;font-family:inherit;font-size:11px;line-height:1;padding:3px 8px;border-radius:4px;color:#cbb994;border:1px solid #0a0705;background:linear-gradient(180deg,rgba(38,30,22,.95),rgba(14,10,8,.96));box-shadow:inset 0 0 0 1px #6f5a36}
+#gwLogHd:hover{box-shadow:inset 0 0 0 1px #fde68a}
+#gwLogBody{align-self:stretch;max-height:132px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(180deg,rgba(10,8,14,.0),rgba(10,8,14,.62) 22%);border-radius:6px;padding:6px 9px;pointer-events:auto}
+#gwLogBody:hover{overflow-y:auto;background:rgba(10,8,14,.82);max-height:240px;justify-content:flex-start}
+#gwLog.collapsed #gwLogBody{display:none}
 #gwLog .ln{opacity:.95}#gwLog .ln.kill{color:#fca5a5}#gwLog .ln.sys{color:#c4b5fd}#gwLog .ln.old{opacity:.55}
 /* Shortcut key badges on HUD buttons */
 .gw-key{position:absolute;top:1px;right:2px;font-family:'Almendra','Cinzel',serif;font-size:9px;line-height:11px;color:#fde68a;background:rgba(0,0,0,.72);border-radius:2px;padding:0 3px;pointer-events:none}
 #autoToggle button,#bottomRight button,#hudSkelBtn{position:relative}
-/* Guild Wars layout preset: compass top-right, menu top-left */
-body.hud-gw #minimapCluster{left:auto;right:8px}
-body.hud-gw #autoToggle{right:auto;left:8px}
-body.hud-gw #bottomRight{right:auto;left:8px;align-items:flex-start}
+/* Minimap stays top-left and the menu buttons top-right in every preset (José, 2026-10-08) */
+/* Summon command buttons: left of the health bar, which stays centered */
+#gwCmd{position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);display:flex;gap:3px;pointer-events:auto}
+#gwCmd button{position:relative;-webkit-appearance:none;font-family:'Almendra','Cinzel',serif;font-size:11px;line-height:1;min-width:46px;height:24px;padding:0 6px;border-radius:4px;cursor:pointer;color:#cbb994;border:1px solid #0a0705;background:linear-gradient(180deg,rgba(38,30,22,.95),rgba(14,10,8,.96));box-shadow:inset 0 0 0 1px #6f5a36}
+#gwCmd button.on{color:#1a1208;background:linear-gradient(180deg,#fde68a,#d9b76a);box-shadow:inset 0 0 0 1px #fff3c4}
+#gwCmd button:hover{box-shadow:inset 0 0 0 1px #fde68a}
+#gwCmd .gw-key{top:-7px;right:-3px}
+/* Party frames: under the minimap */
+#gwParty{display:none;position:fixed;left:8px;top:170px;z-index:21;width:150px;flex-direction:column;gap:3px;font-family:'Almendra','Cinzel',serif;pointer-events:auto;cursor:pointer}
+#gwParty .pf{position:relative;height:22px;border-radius:3px;border:1px solid #0a0705;background:#120a0a;box-shadow:0 0 0 1px #6f5a36;overflow:hidden}
+#gwParty .pf i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(180deg,#4f9a5a,#2f6b3a 60%,#1d4526);transition:width .2s}
+#gwParty .pf.low i{background:linear-gradient(180deg,#f0564e,#8f1010)}
+#gwParty .pf.dead i{width:0!important}#gwParty .pf.dead{opacity:.55}
+#gwParty .pf b{position:absolute;left:6px;right:6px;top:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;font-weight:normal;color:#f3ead8;text-shadow:0 1px 2px #000;white-space:nowrap;overflow:hidden}
+#gwParty .pf b span:first-child{overflow:hidden;text-overflow:ellipsis}
+#gwParty .pf b span:last-child{font-size:11px;color:#e8dcc8;flex:0 0 auto}
 /* HUD edit mode */
 body.hud-edit .gw-hud-el{outline:2px dashed #fde68a;outline-offset:3px;cursor:move!important}
 body.hud-edit .gw-hud-el *{pointer-events:none!important}
@@ -45556,9 +45555,10 @@ body.hud-edit .gw-hud-el{pointer-events:auto!important}
 #gwLayout .gb{font-family:inherit;font-size:13px;padding:6px 12px;border-radius:4px;cursor:pointer;-webkit-appearance:none;border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.12);color:#fcd34d}
 #gwLayout .gb.on{background:#fcd34d;color:#1a1208}
 #gwLayout .sub{font-size:12px;color:var(--dim)}
-@media (max-width:700px){#gwLog{width:200px;font-size:12px;max-height:84px;bottom:74px}.asp-btn{width:46px;height:46px;min-width:46px}#hudHPBar{width:190px}}
+@media (max-width:700px){#gwLog{width:200px;font-size:12px;bottom:74px}#gwLogBody{max-height:84px}#gwCmd{position:static;transform:none;margin:0 0 3px;justify-content:center}#gwParty{width:120px}.asp-btn{width:46px;height:46px;min-width:46px}#hudHPBar{width:190px}}
 </style>
-<div id="gwLog" class="gw-hud-el"></div>
+<div id="gwLog" class="gw-hud-el"><button id="gwLogHd" onclick="GWHud.toggleLog()">Log</button><div id="gwLogBody"></div></div>
+<div id="gwParty" class="gw-hud-el" onclick="togglePartyPopup()" title="Party"></div>
 <div id="gwLayout">
   <div class="hd"><b>HUD Layout</b><button class="gb" onclick="GWHud.closeLayout()">Close</button></div>
   <div class="bd">
@@ -45577,16 +45577,17 @@ body.hud-edit .gw-hud-el{pointer-events:auto!important}
 //   1-4 skills · Space "do it" · Tab / Shift+Tab next / previous target · C nearest target
 //   I inventory · P party · L quest log · M map · H hero · K skills · F11 options (GW2)
 //   F1-F3 summon stance (auto / attack / defend) · F4 stance panel · R toggle auto-play
+//   The same four commands have buttons left of the health bar. Party frames sit under the minimap.
 //  Also: skill queuing, target frame with portrait, combat log, movable/toggleable HUD.
 // ═══════════════════════════════════════════════════════════════════════
 var GWHud=(function(){
   var $=function(id){return document.getElementById(id);};
-  var LS='necro_hud_layout',ST={preset:null,hidden:{},pos:{},edit:false,shift:false,hideAll:false};
-  var EL=[['spellArea','Skill bar & health'],['minimapCluster','Compass / minimap'],['autoToggle','Menu buttons'],['bottomRight','Inventory / party buttons'],['kbTargetHUD','Target frame'],['gwLog','Combat log']];
-  function load(){try{var d=JSON.parse(localStorage.getItem(LS)||'{}');ST.preset=d.preset||null;ST.hidden=d.hidden||{};ST.pos=d.pos||{};}catch(e){}
-    if(!ST.preset){var touch=('ontouchstart' in window)||window.innerWidth<900;ST.preset=touch?'classic':'gw';if(touch)ST.hidden.gwLog=1;} // phones keep the classic layout and no log by default
+  var LS='necro_hud_layout',ST={preset:null,hidden:{},pos:{},edit:false,shift:false,hideAll:false,logClosed:false};
+  var EL=[['spellArea','Skill bar & health'],['minimapCluster','Compass / minimap'],['autoToggle','Menu buttons'],['bottomRight','Inventory / party buttons'],['kbTargetHUD','Target frame'],['gwLog','Combat log'],['gwParty','Party frames']];
+  function load(){try{var d=JSON.parse(localStorage.getItem(LS)||'{}');ST.preset=d.preset||null;ST.hidden=d.hidden||{};ST.pos=d.pos||{};ST.logClosed=!!d.logClosed;}catch(e){}
+    if(!ST.preset){var touch=('ontouchstart' in window)||window.innerWidth<900;ST.preset=touch?'classic':'gw';if(touch){ST.hidden.gwLog=1;ST.hidden.gwParty=1;}} // phones keep the classic layout and no log by default
   }
-  function save(){try{localStorage.setItem(LS,JSON.stringify({preset:ST.preset,hidden:ST.hidden,pos:ST.pos}));}catch(e){}}
+  function save(){try{localStorage.setItem(LS,JSON.stringify({preset:ST.preset,hidden:ST.hidden,pos:ST.pos,logClosed:ST.logClosed}));}catch(e){}}
   function inCombat(){var r=$('raid');return !!(r&&r.classList.contains('active'));}
 
   // ── New key actions ────────────────────────────────────────────────
@@ -45705,7 +45706,7 @@ var GWHud=(function(){
   // ── Combat log ─────────────────────────────────────────────────────
   var _lines=0;
   function log(txt,cls){
-    var L=$('gwLog');if(!L||!txt)return;
+    var L=$('gwLogBody');if(!L||!txt)return;
     var d=document.createElement('div');d.className='ln'+(cls?' '+cls:'');d.textContent=String(txt).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
     if(!d.textContent)return;
     var last=L.lastElementChild;if(last&&last.textContent===d.textContent&&Date.now()-(last._at||0)<1500)return;
@@ -45727,16 +45728,18 @@ var GWHud=(function(){
     var a=$('gwPreGw'),b=$('gwPreClassic');if(a)a.classList.toggle('on',ST.preset==='gw');if(b)b.classList.toggle('on',ST.preset==='classic');
   }
   function applyVisibility(){
-    EL.forEach(function(p){var el=$(p[0]);if(!el)return;var hide=ST.hideAll||!!ST.hidden[p[0]];el.style.visibility=hide?'hidden':'';if(p[0]==='gwLog')el.style.display=(inCombat()&&!hide)?'flex':'none';});
+    EL.forEach(function(p){var el=$(p[0]);if(!el)return;var hide=ST.hideAll||!!ST.hidden[p[0]];el.style.visibility=hide?'hidden':'';if(p[0]==='gwLog'||p[0]==='gwParty')el.style.display=(inCombat()&&!hide)?'flex':'none';});
+    var L=$('gwLog');if(L){L.classList.toggle('collapsed',!!ST.logClosed);var h=$('gwLogHd');if(h)h.textContent=ST.logClosed?'Log \u25B8':'Log \u25BE';}
   }
   function restorePos(id){var p=ST.pos[id],el=$(id);if(!el||!p||typeof _dragApply!=='function')return;_dragApply(el,p[0],p[1]);}
   function installScale(){
     var os=_applyHudScale;
     _applyHudScale=function(){os();
-      var gw=ST.preset==='gw',m=$('minimapCluster'),a=$('autoToggle'),b=$('bottomRight');
+      var gw=false,m=$('minimapCluster'),a=$('autoToggle'),b=$('bottomRight');
       if(m)m.style.transformOrigin=gw?'top right':'top left';if(a)a.style.transformOrigin=gw?'top left':'top right';if(b)b.style.transformOrigin=gw?'top left':'top right';
       var s=(SETTINGS.hudScale||100)/100,L=$('gwLog'),T=$('kbTargetHUD');
       if(L){L.style.transform=s===1?'':'scale('+s+')';L.style.transformOrigin='bottom left';}
+      var P=$('gwParty');if(P){P.style.transform=s===1?'':'scale('+s+')';P.style.transformOrigin='top left';}
       if(T){T.style.transform=s===1?'translateX(-50%)':'translateX(-50%) scale('+s+')';T.style.transformOrigin='top center';}
     };
   }
@@ -45753,6 +45756,46 @@ var GWHud=(function(){
       c.onchange=function(){if(c.checked)delete ST.hidden[e[0]];else ST.hidden[e[0]]=1;save();applyVisibility();};l.appendChild(c);l.appendChild(document.createTextNode(e[1]));sh.appendChild(l);});
     applyPreset();p.style.display='block';
   }
+  // ── Summon command buttons (F1-F4) ─────────────────────────────────
+  var CMD=[['aiAuto','Auto','auto'],['aiAttack','Attack','offense'],['aiDefend','Defend','defense'],['aiPanel','Stance',null]];
+  function buildCmd(){
+    var row=$('hudHPBar')&&$('hudHPBar').parentNode;if(!row||$('gwCmd'))return;
+    var d=document.createElement('div');d.id='gwCmd';
+    CMD.forEach(function(c){var b=document.createElement('button');b.type='button';b.textContent=c[1];b.setAttribute('data-a',c[0]);
+      b.addEventListener('click',function(ev){ev.stopPropagation();act(c[0]);syncCmd();});d.appendChild(b);});
+    row.insertBefore(d,row.firstChild);
+  }
+  function syncCmd(){
+    var d=$('gwCmd');if(!d)return;var mode=(typeof RS!=='undefined'&&RS&&RS.aiMode)||'auto';
+    for(var i=0;i<d.children.length;i++){var b=d.children[i],c=CMD[i];b.classList.toggle('on',!!c[2]&&c[2]===mode);
+      var k=KB_MAP[c[0]],kb=b.querySelector('.gw-key');
+      if(!k){if(kb)kb.remove();b.title='Summons: '+c[1];continue;}
+      if(!kb){kb=document.createElement('span');kb.className='gw-key';b.appendChild(kb);}
+      var t=_kbKeyLabel(k);if(kb.textContent!==t)kb.textContent=t;b.title='Summons: '+c[1]+' ('+t+')';}
+  }
+  // ── Party frames ───────────────────────────────────────────────────
+  function nice(k){return String(k||'').replace(/_e$/,'').replace(/_\d+$/,'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});}
+  function partyRows(){
+    var rows=[];if(typeof RS==='undefined'||!RS)return rows;
+    try{if(typeof MP!=='undefined'&&MP&&MP.started&&MP._remoteNecros)Object.values(MP._remoteNecros).forEach(function(rn){if(!rn||rn.playerIdx===(MP.playerIdx||0))return;rows.push([rn.necroName||('Player '+((rn.playerIdx||0)+1)),rn.hp||0,rn.maxHP||1,!!rn.dead]);});}catch(e){}
+    (RS._activeHeroes||[]).forEach(function(h){var d=(typeof HERO_DEFS!=='undefined'&&HERO_DEFS[h.heroId])||{};rows.push([d.name||nice(h.heroId),h.hp||0,h.maxHP||1,!!h.dead]);});
+    if(RS.activePet&&RS.activePet.maxHP)rows.push([nice(RS.activePet.type),RS.activePet.hp||0,RS.activePet.maxHP,(RS.activePet.hp||0)<=0]);
+    var M=(RS.minions||[]).filter(function(m){return m&&!m.dead&&(m.hp||0)>0;});
+    if(M.length){var hp=0,mx=0;M.forEach(function(m){hp+=Math.max(0,m.hp||0);mx+=(m.maxHP||m.hp||1);});rows.push(['Minions \u00D7'+M.length,hp,mx,false,true]);}
+    return rows;
+  }
+  function renderParty(){
+    var P=$('gwParty');if(!P||P.style.display==='none')return;
+    var mc=$('minimapCluster');if(mc&&!ST.pos.gwParty){var r=mc.getBoundingClientRect();if(r.height)P.style.top=Math.round(r.bottom+8)+'px';}
+    var rows=partyRows(),key=rows.map(function(r){return r[0]+'|'+Math.round(100*r[1]/r[2])+'|'+r[3];}).join(';');
+    if(P._k===key)return;P._k=key;
+    while(P.children.length>rows.length)P.removeChild(P.lastChild);
+    rows.forEach(function(r,i){var f=P.children[i];
+      if(!f){f=document.createElement('div');f.className='pf';f.innerHTML='<i></i><b><span></span><span></span></b>';P.appendChild(f);}
+      var pct=Math.max(0,Math.min(100,100*r[1]/r[2]));f.className='pf'+(r[3]?' dead':(pct<35?' low':''));
+      f.firstChild.style.width=pct+'%';var sp=f.lastChild.children;if(sp[0].textContent!==r[0])sp[0].textContent=r[0];
+      var t=r[3]?'down':Math.round(pct)+'%';if(sp[1].textContent!==t)sp[1].textContent=t;});
+  }
   function decorate(){
     // Shortcut badges + tooltips on HUD buttons, read from the live key map
     var set=function(el,actn,label){if(!el)return;var k=KB_MAP[actn];var b=el.querySelector('.gw-key');
@@ -45763,10 +45806,12 @@ var GWHud=(function(){
     var at=$('autoToggle');if(at){var bs=at.querySelectorAll('button');if(bs[2])set(bs[2],'options','Settings');}
     var br=$('bottomRight');if(br){var q=br.querySelectorAll('button');if(q[0])set(q[0],'inventory','Inventory');if(q[1])set(q[1],'party','Party');if(q[2])set(q[2],'quests','Quest log');}
     set($('hudSkelBtn'),'aiPanel','Summons');
+    buildCmd();syncCmd();
   }
   function init(){
     load();installKeys();installQueue();installTarget();installLog();installScale();
     document.addEventListener('keydown',onKey,true);
+    setInterval(function(){if(inCombat()){try{syncCmd();renderParty();}catch(e){}}},250);
     document.addEventListener('keyup',function(e){ST.shift=!!e.shiftKey;},true);
     EL.forEach(function(p){var el=$(p[0]);if(el)el.classList.add('gw-hud-el');restorePos(p[0]);});
     applyPreset();applyVisibility();decorate();
@@ -45774,7 +45819,7 @@ var GWHud=(function(){
     // refresh badges after the skill bar is rebuilt or keys are rebound; toggle the log with combat
     var ob=buildSpellBar;buildSpellBar=function(){var r=ob.apply(this,arguments);try{decorate();}catch(e){}return r;};
     var oc=closeKeyBindings;closeKeyBindings=function(){var r=oc.apply(this,arguments);try{decorate();}catch(e){}return r;};
-    var was=false;setInterval(function(){var c=inCombat();if(c!==was){was=c;applyVisibility();if(c){var L=$('gwLog');if(L)L.innerHTML='';EL.forEach(function(p){restorePos(p[0]);});decorate();}else clearQ();}},300);
+    var was=false;setInterval(function(){var c=inCombat();if(c!==was){was=c;applyVisibility();if(c){var L=$('gwLogBody');if(L)L.innerHTML='';EL.forEach(function(p){restorePos(p[0]);});decorate();}else clearQ();}},300);
     // Settings row
     try{var kbBtn=$('openKeyBindingsBtn'),row=kbBtn&&kbBtn.closest('.set-row');
       if(row){var r2=row.cloneNode(true);r2.querySelector('.set-label').textContent='HUD Layout';r2.querySelector('.set-desc').textContent='Presets, show or hide pieces, move them';
@@ -45783,7 +45828,7 @@ var GWHud=(function(){
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
   return {openLayout:openLayout,closeLayout:function(){$('gwLayout').style.display='none';if(ST.edit)setEdit(false);},preset:function(p){ST.preset=p;save();applyPreset();},edit:function(){setEdit(!ST.edit);},
-    reset:function(){ST.pos={};save();EL.forEach(function(p){var el=$(p[0]);if(el&&typeof _dragApply==='function')_dragApply(el,0,0);});},log:log,_st:ST,remaining:remaining};
+    toggleLog:function(){ST.logClosed=!ST.logClosed;save();applyVisibility();},reset:function(){ST.pos={};save();EL.forEach(function(p){var el=$(p[0]);if(el&&typeof _dragApply==='function')_dragApply(el,0,0);});},log:log,_st:ST,remaining:remaining};
 })();
 </script>
 </body>
