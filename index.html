@@ -18875,7 +18875,186 @@ function toggleAuto(){
 // ═══════════════════════════════════════════════════════
 //  PMD DUNGEON GENERATOR (BSP)
 // ═══════════════════════════════════════════════════════
-function genFloor(floorNum){
+// ═══════════════════════════════════════════════════════════════════════
+//  DESIGNED DUNGEON GENERATOR
+//  Each biome has its own plan instead of one "boxes and fat corridors" recipe:
+//    cemetery → crypt:     chambers on a lattice, 3-wide passages with burial alcoves
+//    forest   → grove:     irregular clearings joined by winding trails
+//    sanctum  → cathedral: mirrored nave, transept, round side chapels, apse
+//  Room shapes vary (rectangle, cross, L, octagon, round, pillared hall) and the final
+//  floor ends in a boss arena: a large round hall with a ring of pillars and an antechamber.
+//  Every floor is validated (start reaches stairs and every room); if a plan fails the
+//  original generator is used, so a raid can never start on a broken map.
+// ═══════════════════════════════════════════════════════════════════════
+function _dgBiomeStyle(biome,key){
+  if(biome==='cemetery')return 'crypt';
+  if(biome==='forest')return 'grove';
+  if(biome==='sanctum')return 'cathedral';
+  let h=0;const s=String(key||biome||'x');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;
+  return ['crypt','grove','cathedral'][Math.abs(h)%3];
+}
+function _dgNew(){return Array.from({length:ROWS},()=>new Uint8Array(COLS));}
+function _dgSet(g,x,y){if(x>0&&y>0&&x<COLS-1&&y<ROWS-1)g[y][x]=T_FLOOR;}
+function _dgWall(g,x,y){if(x>0&&y>0&&x<COLS-1&&y<ROWS-1)g[y][x]=T_WALL;}
+function _dgRect(g,x,y,w,h){for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)_dgSet(g,i,j);}
+function _dgDisc(g,cx,cy,r,wob){for(let j=-r-1;j<=r+1;j++)for(let i=-r-1;i<=r+1;i++){const rr=r+(wob?Math.sin(Math.atan2(j,i)*wob.n+wob.p)*wob.a:0);if(i*i+j*j<=rr*rr+0.5)_dgSet(g,cx+i,cy+j);}}
+function _dgRoom(g,cx,cy,w,h,shape){
+  const x=cx-(w>>1),y=cy-(h>>1);
+  if(shape==='round'){_dgDisc(g,cx,cy,Math.min(w,h)>>1);}
+  else if(shape==='cross'){const aw=Math.max(3,(w/3)|0)|1,ah=Math.max(3,(h/3)|0)|1;_dgRect(g,cx-(aw>>1),y,aw,h);_dgRect(g,x,cy-(ah>>1),w,ah);_dgRect(g,cx-(aw>>1)-1,cy-(ah>>1)-1,aw+2,ah+2);}
+  else if(shape==='L'){const q=ri(0,3),hw=(w>>1)+1,hh=(h>>1)+1;_dgRect(g,x,y,w,h);
+    const bx=(q&1)?x+w-hw+1:x,by=(q&2)?y+h-hh+1:y;for(let j=by;j<by+hh-1;j++)for(let i=bx;i<bx+hw-1;i++)if(!(Math.abs(i-cx)<=1&&Math.abs(j-cy)<=1))_dgWall(g,i,j);}
+  else if(shape==='oct'){_dgRect(g,x,y,w,h);const c=Math.max(1,(Math.min(w,h)/4)|0);for(let k=0;k<c;k++)for(let m=0;m<c-k;m++){_dgWall(g,x+m,y+k);_dgWall(g,x+w-1-m,y+k);_dgWall(g,x+m,y+h-1-k);_dgWall(g,x+w-1-m,y+h-1-k);}}
+  else if(shape==='hall'){_dgRect(g,x,y,w,h);for(let j=y+2;j<y+h-2;j+=3)for(let i=x+2;i<x+w-2;i+=3)if(Math.abs(i-cx)>1||Math.abs(j-cy)>1)_dgWall(g,i,j);}
+  else _dgRect(g,x,y,w,h);
+  return {x,y,w,h,cx,cy,shape};
+}
+function _dgHall(g,ax,ay,bx,by,wid,alcoves){
+  // L-shaped passage, `wid` tiles wide; optional burial alcoves along it
+  const o0=-((wid-1)>>1),o1=(wid>>1);let x=ax,y=ay,n=0;
+  const horizFirst=Math.random()<.5;
+  const stepX=()=>{while(x!==bx){for(let o=o0;o<=o1;o++)_dgSet(g,x,y+o);if(alcoves&&(++n%5===0)){const s=Math.random()<.5?-1:1;_dgSet(g,x,y+s*(o1+1));_dgSet(g,x,y+s*(o1+2));_dgSet(g,x+1,y+s*(o1+2));}x+=x<bx?1:-1;}};
+  const stepY=()=>{while(y!==by){for(let o=o0;o<=o1;o++)_dgSet(g,x+o,y);if(alcoves&&(++n%5===0)){const s=Math.random()<.5?-1:1;_dgSet(g,x+s*(o1+1),y);_dgSet(g,x+s*(o1+2),y);_dgSet(g,x+s*(o1+2),y+1);}y+=y<by?1:-1;}};
+  if(horizFirst){stepX();stepY();}else{stepY();stepX();}
+  for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)_dgSet(g,bx+i,by+j);
+}
+function _dgTrail(g,ax,ay,bx,by,wid){
+  // Winding forest trail: biased random walk
+  let x=ax,y=ay,guard=0;
+  while((x!==bx||y!==by)&&guard++<900){
+    for(let j=0;j<wid;j++)for(let i=0;i<wid;i++)_dgSet(g,x+i-(wid>>1),y+j-(wid>>1));
+    const dx=Math.sign(bx-x),dy=Math.sign(by-y);
+    const r=Math.random();
+    if(r<.42&&dx)x+=dx;else if(r<.84&&dy)y+=dy;else if(r<.92)x+=Math.random()<.5?1:-1;else y+=Math.random()<.5?1:-1;
+    x=clamp(x,3,COLS-4);y=clamp(y,3,ROWS-4);
+  }
+  _dgDisc(g,bx,by,2);
+}
+function _dgArena(g,cx,cy,style){
+  // Boss arena: big round hall, ring of pillars, clear centre
+  const R=style==='grove'?9:10;
+  _dgDisc(g,cx,cy,R,style==='grove'?{n:5,p:Math.random()*6,a:1.2}:null);
+  const n=style==='cathedral'?8:6,pr=R-3.5;
+  for(let k=0;k<n;k++){const a=k/n*Math.PI*2+Math.PI/n;const px=Math.round(cx+Math.cos(a)*pr),py=Math.round(cy+Math.sin(a)*pr);_dgWall(g,px,py);if(style!=='grove'){_dgWall(g,px+1,py);_dgWall(g,px,py+1);_dgWall(g,px+1,py+1);}}
+  return {x:cx-R,y:cy-R,w:R*2+1,h:R*2+1,cx,cy,shape:'arena',arena:true};
+}
+function _dgPlanCrypt(g,final){
+  // 4×4 lattice of 13-tile cells; walk a snake path through 8–11 of them
+  const N=4,cell=13,off=2,order=[];
+  const startCol=Math.random()<.5?0:N-1;
+  for(let r=0;r<N;r++){const cols=[...Array(N).keys()];if((r%2===0)!==(startCol===0))cols.reverse();cols.forEach(c=>order.push([c,r]));}
+  const keep=order.filter((_,i)=>i===0||i===order.length-1||Math.random()<.62);
+  while(keep.length<(final?6:8))keep.splice(ri(1,keep.length-1),0,order[ri(1,order.length-2)]);
+  const seen=new Set(),cells=keep.filter(([c,r])=>{const k=c+','+r;if(seen.has(k))return false;seen.add(k);return true;});
+  cells.sort((a,b)=>order.findIndex(o=>o[0]===a[0]&&o[1]===a[1])-order.findIndex(o=>o[0]===b[0]&&o[1]===b[1]));
+  const shapes=['rect','cross','oct','hall','L','rect','oct'],rooms=[];
+  cells.forEach(([c,r],i)=>{
+    const cx=off+c*cell+(cell>>1)+ri(-1,1),cy=off+r*cell+(cell>>1)+ri(-1,1);
+    if(i===0)rooms.push(_dgRoom(g,cx,cy,11,11,'rect'));
+    else if(final&&i===cells.length-1)rooms.push(null);
+    else{const sh=shapes[ri(0,shapes.length-1)];const w=sh==='hall'?11:ri(7,11)|1,h=sh==='hall'?9:ri(7,9)|1;rooms.push(_dgRoom(g,cx,cy,w,h,sh));}
+  });
+  if(final){const [c,r]=cells[cells.length-1];const cx=clamp(off+c*cell+(cell>>1),13,COLS-14),cy=clamp(off+r*cell+(cell>>1),13,ROWS-14);rooms[rooms.length-1]=_dgArena(g,cx,cy,'crypt');}
+  for(let i=1;i<rooms.length;i++)_dgHall(g,rooms[i-1].cx,rooms[i-1].cy,rooms[i].cx,rooms[i].cy,i===rooms.length-1&&final?5:3,true);
+  for(let k=0;k<2;k++){const a=rooms[ri(0,rooms.length-2)],b=rooms[ri(0,rooms.length-2)];if(a!==b&&Math.abs(a.cx-b.cx)+Math.abs(a.cy-b.cy)<30)_dgHall(g,a.cx,a.cy,b.cx,b.cy,3,false);}
+  return rooms;
+}
+function _dgPlanGrove(g,final){
+  const pts=[],want=final?6:ri(8,10);let guard=0;
+  const sx=ri(8,14),sy=ri(8,14);pts.push([sx,sy]);
+  while(pts.length<want&&guard++<600){const x=ri(8,COLS-9),y=ri(8,ROWS-9);if(pts.every(p=>Math.hypot(p[0]-x,p[1]-y)>12))pts.push([x,y]);}
+  // order by nearest-neighbour chain so trails read as one journey; end far from the start
+  const chain=[pts.shift()];while(pts.length){const l=chain[chain.length-1];let bi=0,bd=1e9;pts.forEach((p,i)=>{const d=Math.hypot(p[0]-l[0],p[1]-l[1]);if(d<bd){bd=d;bi=i;}});chain.push(pts.splice(bi,1)[0]);}
+  const rooms=chain.map(([x,y],i)=>{
+    if(i===0){_dgDisc(g,x,y,5);_dgRect(g,x-4,y-4,9,9);return {x:x-5,y:y-5,w:11,h:11,cx:x,cy:y,shape:'glade'};}
+    if(final&&i===chain.length-1){const cx=clamp(x,13,COLS-14),cy=clamp(y,13,ROWS-14);return _dgArena(g,cx,cy,'grove');}
+    const r=ri(3,6);_dgDisc(g,x,y,r,{n:ri(3,6),p:Math.random()*6,a:1.1});
+    if(Math.random()<.45){const a=Math.random()*6.28;_dgDisc(g,Math.round(x+Math.cos(a)*r),Math.round(y+Math.sin(a)*r),Math.max(2,r-2));}
+    return {x:x-r,y:y-r,w:r*2+1,h:r*2+1,cx:x,cy:y,shape:'glade'};});
+  for(let i=1;i<rooms.length;i++)_dgTrail(g,rooms[i-1].cx,rooms[i-1].cy,rooms[i].cx,rooms[i].cy,i%3===0?2:3);
+  for(let k=0;k<2;k++){const a=rooms[ri(0,rooms.length-2)],b=rooms[ri(0,rooms.length-2)];if(a!==b)_dgTrail(g,a.cx,a.cy,b.cx,b.cy,2);}
+  // soften: fill single-tile wall specks so clearings read as organic shapes
+  for(let y=2;y<ROWS-2;y++)for(let x=2;x<COLS-2;x++)if(g[y][x]===T_WALL){let f=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if(g[y+j][x+i]===T_FLOOR)f++;if(f>=7)g[y][x]=T_FLOOR;}
+  return rooms;
+}
+function _dgPlanCathedral(g,final){
+  // Mirrored about the vertical axis: narthex (south) → nave → crossing + transepts → apse (north)
+  const mx=COLS>>1,rooms=[],flip=Math.random()<.5;
+  const Y=v=>flip?ROWS-1-v:v;           // flip so the entrance is not always at the bottom
+  const R=(cx,cy,w,h,sh)=>_dgRoom(g,cx,Y(cy),w,h,sh);
+  rooms.push(R(mx,ROWS-9,11,11,'rect'));                         // narthex (start)
+  const naveTop=20,naveBot=ROWS-15;
+  _dgRect(g,mx-3,Math.min(Y(naveTop),Y(naveBot)),7,naveBot-naveTop+1);  // nave
+  for(let y=naveTop+2;y<naveBot;y+=4){_dgWall(g,mx-3,Y(y));_dgWall(g,mx+3,Y(y));}   // colonnade
+  const bays=[naveBot-4,naveBot-14];
+  bays.forEach(by=>{[-1,1].forEach(s=>{const cx=mx+s*14;rooms.push(R(cx,by,ri(7,9)|1,7,Math.random()<.5?'round':'oct'));_dgHall(g,mx+s*3,Y(by),cx,Y(by),3,false);});});
+  rooms.push(R(mx,naveTop,13,9,'cross'));                        // crossing
+  [-1,1].forEach(s=>{const cx=mx+s*18;rooms.push(R(cx,naveTop,9,9,'hall'));_dgHall(g,mx+s*6,Y(naveTop),cx,Y(naveTop),3,false);
+    const ch=R(cx,naveTop-10,7,7,'round');rooms.push(ch);_dgHall(g,cx,Y(naveTop),cx,Y(naveTop-10),3,false);});
+  let apse;
+  if(final){apse=_dgArena(g,mx,Y(12),'cathedral');_dgRect(g,mx-2,Math.min(Y(12),Y(naveTop)),5,Math.abs(Y(naveTop)-Y(12))+1);}
+  else{apse=R(mx,8,11,9,'round');_dgRect(g,mx-1,Math.min(Y(8),Y(naveTop)),3,Math.abs(Y(naveTop)-Y(8))+1);}
+  rooms.push(apse);
+  return rooms;
+}
+function _dgValid(g,rooms,sx,sy,ex,ey){
+  const seen=new Uint8Array(COLS*ROWS),q=[sy*COLS+sx];seen[q[0]]=1;let n=0;
+  while(q.length){const v=q.pop(),x=v%COLS,y=(v/COLS)|0;n++;
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{const nx=x+dx,ny=y+dy;if(nx<1||ny<1||nx>=COLS-1||ny>=ROWS-1)return;const k=ny*COLS+nx;if(seen[k]||g[ny][nx]===T_WALL)return;seen[k]=1;q.push(k);});}
+  if(!seen[ey*COLS+ex])return false;
+  for(const r of rooms){if(g[r.cy][r.cx]===T_WALL||!seen[r.cy*COLS+r.cx])return false;}
+  let floor=0;for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++)if(g[y][x]!==T_WALL)floor++;
+  const ratio=floor/((COLS-2)*(ROWS-2));
+  return n>=floor*0.98&&ratio>0.16&&ratio<0.8;
+}
+const _DG_PROPS={
+  crypt:{wall:['gravestone','candle','urn','coffin','web'],floor:['bone','skull','rock'],arena:['candle','skull','chains']},
+  grove:{wall:['mushroom','herb','oak','flower','wood'],floor:['herb','rock','leaf','mushroom'],arena:['mushroom','bone','rock']},
+  cathedral:{wall:['candle','book','urn','chains','scroll'],floor:['hex','rock','bone'],arena:['candle','crystal_ball','hex']}
+};
+function _dgProps(g,rooms,style){
+  // Decorative only. Props hug the walls (where furniture goes) with a few on open floor;
+  // arenas get a ring of candles between the pillars.
+  const P=[],set=_DG_PROPS[style]||_DG_PROPS.crypt,used=new Set();
+  const put=(tx,ty,k,sz)=>{const key=tx+','+ty;if(used.has(key)||g[ty][tx]!==T_FLOOR)return;used.add(key);P.push({x:tx*TILE_SIZE+TILE_SIZE/2,y:ty*TILE_SIZE+TILE_SIZE/2,k,s:sz||18});};
+  rooms.forEach((rm,ri2)=>{
+    if(rm.arena){const n=12,R=7.6;for(let k=0;k<n;k++){const a=k/n*6.283;put(Math.round(rm.cx+Math.cos(a)*R),Math.round(rm.cy+Math.sin(a)*R),set.arena[k%set.arena.length],20);}return;}
+    const edge=[],open=[];
+    for(let y=rm.y;y<rm.y+rm.h;y++)for(let x=rm.x;x<rm.x+rm.w;x++){
+      if(x<2||y<2||x>=COLS-2||y>=ROWS-2||g[y][x]!==T_FLOOR)continue;
+      if(Math.abs(x-rm.cx)<=1&&Math.abs(y-rm.cy)<=1)continue;
+      const wallN=(g[y-1][x]===T_WALL)+(g[y+1][x]===T_WALL)+(g[y][x-1]===T_WALL)+(g[y][x+1]===T_WALL);
+      (wallN>=1?edge:open).push([x,y]);}
+    const ne=ri2===0?2:Math.min(edge.length,ri(3,6)),no=ri2===0?0:Math.min(open.length,ri(1,2));
+    for(let k=0;k<ne&&edge.length;k++){const [x,y]=edge.splice(ri(0,edge.length-1),1)[0];put(x,y,set.wall[ri(0,set.wall.length-1)],20);}
+    for(let k=0;k<no&&open.length;k++){const [x,y]=open.splice(ri(0,open.length-1),1)[0];put(x,y,set.floor[ri(0,set.floor.length-1)],15);}
+  });
+  return P;
+}
+function _genFloorDesigned(floorNum,opts){
+  const style=_dgBiomeStyle(opts.biome,opts.key),final=!!opts.final;
+  for(let attempt=0;attempt<6;attempt++){
+    const g=_dgNew();
+    const rooms=style==='grove'?_dgPlanGrove(g,final):style==='cathedral'?_dgPlanCathedral(g,final):_dgPlanCrypt(g,final);
+    for(let c=0;c<COLS;c++){g[0][c]=T_WALL;g[ROWS-1][c]=T_WALL;}
+    for(let r=0;r<ROWS;r++){g[r][0]=T_WALL;g[r][COLS-1]=T_WALL;}
+    const s=rooms[0],e=rooms[rooms.length-1];
+    // the start room must be open enough for the army's formation
+    for(let j=-2;j<=3;j++)for(let i=-3;i<=3;i++)_dgSet(g,s.cx+i,s.cy+j);
+    for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)_dgSet(g,e.cx+i,e.cy+j);
+    if(!_dgValid(g,rooms,s.cx,s.cy,e.cx,e.cy))continue;
+    g[e.cy][e.cx]=T_STAIR;
+    rooms.props=_dgProps(g,rooms,style);rooms.style=style;
+    return {grid:g,rooms,startX:s.cx*TILE_SIZE+TILE_SIZE/2,startY:s.cy*TILE_SIZE+TILE_SIZE/2,stairX:e.cx*TILE_SIZE+TILE_SIZE/2,stairY:e.cy*TILE_SIZE+TILE_SIZE/2};
+  }
+  return null;
+}
+function genFloor(floorNum,opts){
+  try{const r=_genFloorDesigned(floorNum,opts||{});if(r)return r;}catch(e){console.warn('designed floor failed, using classic',e);}
+  return _genFloorClassic(floorNum);
+}
+// Original generator (BSP boxes + wide corridors) — kept as the safety net
+function _genFloorClassic(floorNum){
   const grid=Array.from({length:ROWS},()=>new Uint8Array(COLS));
 
   // ── Phase 1: BSP rooms ──
@@ -19022,7 +19201,7 @@ function initRaid(raidKey,floorNum,opts){
   const _floorTotal=(opts&&opts.floorTotal)||cfg.floors;
   // NG+ modifiers: carry from opts on floor 1, preserve from RS on subsequent floors
   const _ngMods=(floorNum===1&&opts&&opts.ngMods)?opts.ngMods:(floorNum>1&&RS&&RS._ngMods?RS._ngMods:null);
-  const {grid,rooms,startX,startY,stairX,stairY}=genFloor(floorNum);
+  const {grid,rooms,startX,startY,stairX,stairY}=genFloor(floorNum,{biome:cfg.biome,key:raidKey,final:floorNum===_floorTotal});
   const floorMult=(cfg.floorScale[floorNum-1]||1)*_enemyScale;
 
   // Apply pre-raid consumable buffs (only on floor 1) — must be before minion HP calc
@@ -23853,7 +24032,8 @@ function drawMap(t){
       grd.addColorStop(1,'rgba(0,0,0,0)');
       ctx.fillStyle=grd;ctx.beginPath();ctx.arc(rcx,rcy,glowR,0,Math.PI*2);ctx.fill();
 
-      // Scattered deco emojis (2-3 per room, deterministic positions)
+      // Scattered deco (2-3 per room) — only on classic floors; designed floors place props below
+      if(RS.rooms.props)return;
       const deco=cfg.deco;
       const numDeco=2+_tileHash(i,0,91)%2;
       ctx.font='12px serif';ctx.globalAlpha=0.3;
@@ -23865,6 +24045,17 @@ function drawMap(t){
       }
       ctx.globalAlpha=1;
     });
+  }
+  // Designed-floor props: furniture along the walls, candle ring in the arena
+  if(RS.rooms&&RS.rooms.props&&typeof PxIcon!=='undefined'){
+    const P=RS.rooms.props,sm=ctx.imageSmoothingEnabled;ctx.imageSmoothingEnabled=false;
+    for(let i=0;i<P.length;i++){const p=P[i];
+      if(p.x+24<RS.camX||p.x-24>RS.camX+RS.VW||p.y+24<RS.camY||p.y-24>RS.camY+RS.VH)continue;
+      ctx.globalAlpha=.28;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(p.x,p.y+p.s*.42,p.s*.42,p.s*.16,0,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=.92;ctx.drawImage(PxIcon.canvas(p.k),Math.round(p.x-p.s/2),Math.round(p.y-p.s/2),p.s,p.s);
+      if(p.k==='candle'){ctx.globalAlpha=.10+Math.sin(t*5+i)*.03;ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(p.x,p.y-4,22,0,Math.PI*2);ctx.fill();}
+    }
+    ctx.globalAlpha=1;ctx.imageSmoothingEnabled=sm;
   }
   // Boss lair indicator on final floor before boss spawns
   if(RS.isFinalFloor&&!RS.bossReady&&RS.rooms&&RS.rooms.length){
