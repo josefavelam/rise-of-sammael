@@ -5583,68 +5583,62 @@ const TilesetEngine=(()=>{
       // Base fill
       c.fillStyle=_rgb(...base);c.fillRect(0,0,TS,TS);
 
-      // Brick pattern — pixel art style
-      const brickH=5; // 5px tall bricks
-      const brickW=8; // 8px wide bricks
+      // Fine brick pattern — 3×5px bricks for sprite-resolution detail
+      const brickH=3;
+      const brickW=5;
       for(let by=0;by<TS;by+=brickH){
-        const rowOff=(Math.floor(by/brickH)%2)?brickW/2:0;
-        // Mortar horizontal line
+        const row=Math.floor(by/brickH);
+        const rowOff=(row%2)?brickW/2:0;
+        // Mortar horizontal line (1px)
         c.fillStyle=_rgb(...mortar);
         c.fillRect(0,by,TS,1);
         for(let bx=-brickW;bx<TS+brickW;bx+=brickW){
           const x2=bx+rowOff;
           // Mortar vertical
           c.fillRect(x2|0,by,1,brickH);
-          // Per-brick shade variation
-          const bv=((_h(by,x2,7)%5)-2)*4;
+          // Per-brick shade variation (wider range for visual interest)
+          const bv=((_h(by,x2+mask,7)%7)-3)*3;
           const bCol=_shade(base,bv);
           // Brick face
           c.fillStyle=_rgb(...bCol);
           c.fillRect((x2+1)|0,by+1,brickW-2,brickH-2);
-          // Brick highlight (top-left pixel)
-          c.fillStyle=_rgba(...light,0.4);
-          c.fillRect((x2+1)|0,by+1,brickW-2,1);
-          // Brick shadow (bottom-right)
-          c.fillStyle=_rgba(0,0,0,0.15);
-          c.fillRect((x2+1)|0,by+brickH-2,brickW-2,1);
+          // Top-edge highlight (1px)
+          c.fillStyle=_rgba(...light,0.35);
+          _px(c,(x2+1)|0,by+1,brickW-2,1);
+          // Bottom shadow (1px)
+          c.fillStyle=_rgba(0,0,0,0.18);
+          _px(c,(x2+1)|0,by+brickH-2,brickW-2,1);
+          // Per-pixel noise inside brick for texture
+          const nx=(x2+2)|0,ny=by+1;
+          if(brickW>3&&brickH>2){
+            const n=_h(by,x2,mask+90)%5;
+            if(n<2){c.fillStyle=_rgba(255,255,255,0.06);_px(c,nx,ny,1,1);}
+            else if(n===3){c.fillStyle=_rgba(0,0,0,0.06);_px(c,nx+1,ny,1,1);}
+          }
         }
       }
 
-      // Edge treatments based on connectivity
-      // Exposed edges (no neighbor) get highlight/shadow borders
+      // Edge treatments
       if(!hasN){
-        // Top edge exposed — capstone row
-        c.fillStyle=_rgb(..._shade(base,10));c.fillRect(0,0,TS,3);
+        c.fillStyle=_rgb(..._shade(base,10));c.fillRect(0,0,TS,2);
         c.fillStyle=_rgba(...light,0.5);c.fillRect(0,0,TS,1);
         c.fillStyle=_rgba(0,0,0,0.2);c.fillRect(0,2,TS,1);
       }
       if(!hasS){
-        // Bottom edge exposed — shadow
         c.fillStyle=_rgba(0,0,0,0.25);c.fillRect(0,TS-2,TS,2);
-        c.fillStyle=_rgba(0,0,0,0.15);c.fillRect(0,TS-3,TS,1);
+        c.fillStyle=_rgba(0,0,0,0.12);c.fillRect(0,TS-3,TS,1);
       }
       if(!hasW){
-        // Left edge exposed — light
         c.fillStyle=_rgba(...light,0.3);c.fillRect(0,0,2,TS);
       }
       if(!hasE){
-        // Right edge exposed — shadow
         c.fillStyle=_rgba(0,0,0,0.2);c.fillRect(TS-2,0,2,TS);
       }
-
-      // Corner shadows for L-shaped connections
-      if(!hasN&&!hasW){
-        c.fillStyle=_rgba(...light,0.35);c.fillRect(0,0,3,3);
-      }
-      if(!hasN&&!hasE){
-        c.fillStyle=_rgba(0,0,0,0.15);c.fillRect(TS-3,0,3,3);
-      }
-      if(!hasS&&!hasW){
-        c.fillStyle=_rgba(0,0,0,0.1);c.fillRect(0,TS-3,3,3);
-      }
-      if(!hasS&&!hasE){
-        c.fillStyle=_rgba(0,0,0,0.3);c.fillRect(TS-3,TS-3,3,3);
-      }
+      // Corner accents
+      if(!hasN&&!hasW){c.fillStyle=_rgba(...light,0.35);c.fillRect(0,0,3,3);}
+      if(!hasN&&!hasE){c.fillStyle=_rgba(0,0,0,0.15);c.fillRect(TS-3,0,3,3);}
+      if(!hasS&&!hasW){c.fillStyle=_rgba(0,0,0,0.1);c.fillRect(0,TS-3,3,3);}
+      if(!hasS&&!hasE){c.fillStyle=_rgba(0,0,0,0.3);c.fillRect(TS-3,TS-3,3,3);}
 
       tiles.push(cv);
     }
@@ -5710,9 +5704,8 @@ const TilesetEngine=(()=>{
   // Stone slab patterns with decoration
   // ═══════════════════════════════════════
   function _genFloorTiles(floorRgb,accentRgb){
-    // Fine cobble: four 8px courses per tile, stones 8-14px wide, each with its own shade,
-    // a 1px highlight and shadow. Courses 1 and 3 carry a stone across the tile edge, so
-    // any variant sits seamlessly next to any other and the 32px grid does not read.
+    // Fine cobble: eight 4px courses per tile, stones 4-8px wide, each with its own shade,
+    // a 1px highlight and shadow. Even/odd courses offset so the grid doesn't read.
     const tiles=[];
     const base=floorRgb;
     const jointC=_rgb(..._shade(base,-14));
@@ -5725,30 +5718,41 @@ const TilesetEngine=(()=>{
       const cv=_mkC(TS,TS);const c=cv.getContext('2d');
       c.imageSmoothingEnabled=false;
       c.fillStyle=jointC;c.fillRect(0,0,TS,TS);
-      for(let r=0;r<4;r++){
-        const y=r*8,hh=7;
+      for(let r=0;r<8;r++){
+        const y=r*4,hh=3;
         if(r%2===0){
-          // course starts on the tile edge: three stones
-          const a=9+_h(v,r,41)%4,b=20+_h(v,r,42)%4;
-          const cuts=[0,a,b,TS];
-          for(let k=0;k<3;k++)stone(c,cuts[k],y,cuts[k+1]-cuts[k]-1,hh,((_h(v,r*5+k,43)%7)-3)*2);
+          // 5-6 stones across, widths 4-7px
+          let x=0;
+          for(let k=0;x<TS;k++){
+            const w=4+_h(v,r*8+k,41)%4; // 4-7px wide
+            const sw=Math.min(w,TS-x-1);
+            if(sw<2)break;
+            stone(c,x,y,sw,hh,((_h(v,r*8+k,43)%7)-3)*2);
+            x+=sw+1; // 1px joint
+          }
         }else{
-          // edge stone (neutral shade, shared with the neighbour) + two inner stones
-          const m=14+_h(v,r,44)%5;
-          c.fillStyle=_rgb(...base);c.fillRect(0,y,6,hh);c.fillRect(TS-6,y,6,hh);
-          c.fillStyle=_rgba(255,255,255,0.07);c.fillRect(0,y,6,1);c.fillRect(TS-6,y,6,1);c.fillRect(TS-6,y,1,hh);
-          c.fillStyle=_rgba(0,0,0,0.16);c.fillRect(0,y+hh-1,6,1);c.fillRect(TS-6,y+hh-1,6,1);c.fillRect(5,y,1,hh);
-          stone(c,7,y,m-7-1,hh,((_h(v,r*5,45)%7)-3)*2);
-          stone(c,m,y,TS-7-m,hh,((_h(v,r*5+1,45)%7)-3)*2);
+          // offset: start with a half-stone at edge
+          const edgeW=2+_h(v,r,44)%3;
+          c.fillStyle=_rgb(...base);c.fillRect(0,y,edgeW,hh);
+          c.fillStyle=_rgba(255,255,255,0.07);c.fillRect(0,y,edgeW,1);
+          c.fillStyle=_rgba(0,0,0,0.16);c.fillRect(0,y+hh-1,edgeW,1);c.fillRect(edgeW-1,y,1,hh);
+          let x=edgeW+1;
+          for(let k=0;x<TS;k++){
+            const w=4+_h(v,r*8+k,45)%4;
+            const sw=Math.min(w,TS-x-1);
+            if(sw<2){c.fillStyle=_rgb(...base);c.fillRect(x,y,TS-x,hh);break;}
+            stone(c,x,y,sw,hh,((_h(v,r*8+k,46)%7)-3)*2);
+            x+=sw+1;
+          }
         }
       }
-      // Sparse detail, one kind per variant
-      if(v===1){c.fillStyle=_rgba(0,0,0,0.22);_px(c,11,10,1,1);_px(c,12,11,1,1);_px(c,12,12,1,2);_px(c,13,14,1,1);}          // hairline crack
-      if(v===2){c.fillStyle=_rgba(255,255,255,0.14);_px(c,6,13,2,1);_px(c,23,4,1,1);_px(c,15,27,2,1);}                         // grit
-      if(v===4){c.fillStyle=_rgba(...accentRgb,0.16);_px(c,2,6,3,1);_px(c,3,7,2,1);_px(c,19,22,3,1);_px(c,20,23,1,1);}          // moss in the joints
-      if(v===5){c.fillStyle=_rgba(214,204,182,0.34);_px(c,10,20,5,1);_px(c,10,19,1,1);_px(c,14,21,1,1);}                       // bone sliver
-      if(v===6){c.fillStyle=_rgba(90,12,12,0.20);_px(c,15,13,3,2);_px(c,14,14,5,1);_px(c,20,16,1,1);_px(c,12,11,1,1);}          // old stain
-      if(v===7){c.fillStyle=_rgba(0,0,0,0.20);_px(c,24,26,2,1);_px(c,25,27,2,1);_px(c,27,28,1,1);}                             // chipped corner
+      // Sparse detail per variant
+      if(v===1){c.fillStyle=_rgba(0,0,0,0.22);_px(c,11,10,1,1);_px(c,12,11,1,1);_px(c,12,12,1,2);_px(c,13,14,1,1);}
+      if(v===2){c.fillStyle=_rgba(255,255,255,0.14);_px(c,6,13,2,1);_px(c,23,4,1,1);_px(c,15,27,2,1);}
+      if(v===4){c.fillStyle=_rgba(...accentRgb,0.16);_px(c,2,6,3,1);_px(c,3,7,2,1);_px(c,19,22,3,1);_px(c,20,23,1,1);}
+      if(v===5){c.fillStyle=_rgba(214,204,182,0.34);_px(c,10,20,5,1);_px(c,10,19,1,1);_px(c,14,21,1,1);}
+      if(v===6){c.fillStyle=_rgba(90,12,12,0.20);_px(c,15,13,3,2);_px(c,14,14,5,1);_px(c,20,16,1,1);_px(c,12,11,1,1);}
+      if(v===7){c.fillStyle=_rgba(0,0,0,0.20);_px(c,24,26,2,1);_px(c,25,27,2,1);_px(c,27,28,1,1);}
       tiles.push(cv);
     }
     return tiles;
@@ -5763,7 +5767,7 @@ const TilesetEngine=(()=>{
   function _genShireWalls(wallRgb,accentRgb){
     const tiles=[];
     const base=wallRgb;
-    const light=_shade(base,12);
+    const light=_shade(base,14);
     const dark=_shade(base,-10);
     const wood=[Math.min(base[0]+40,180),Math.min(base[1]+20,120),Math.max(base[2]-10,20)];
     for(let mask=0;mask<16;mask++){
@@ -5771,22 +5775,29 @@ const TilesetEngine=(()=>{
       c.imageSmoothingEnabled=false;
       const hasN=mask&1,hasE=mask&2,hasS=mask&4,hasW=mask&8;
       c.fillStyle=_rgb(...base);c.fillRect(0,0,TS,TS);
-      // Horizontal wood plank pattern
-      const plankH=6;
+      // Fine horizontal wood plank pattern — 3px planks
+      const plankH=3;
       for(let py=0;py<TS;py+=plankH){
-        const pv=(_h(mask,py,500)%5-2)*3;
+        const pv=(_h(mask,py,500)%7-3)*3;
         c.fillStyle=_rgb(..._shade(wood,pv));
-        c.fillRect(1,py+1,TS-2,plankH-2);
-        c.fillStyle=_rgba(..._shade(wood,-15),0.15);
-        c.fillRect(2,py+2,TS-4,1);c.fillRect(3,py+plankH-3,TS-6,1);
+        c.fillRect(0,py+1,TS,plankH-1);
+        // Wood grain — 1px lines within each plank
+        c.fillStyle=_rgba(..._shade(wood,8),0.12);
+        c.fillRect(0,py+1,TS,1);
+        // Groove between planks
         c.fillStyle=_rgba(0,0,0,0.25);c.fillRect(0,py,TS,1);
+        // Per-pixel grain noise
+        for(let gx=0;gx<TS;gx+=3){
+          const n=_h(py,gx+mask,505)%6;
+          if(n<2){c.fillStyle=_rgba(0,0,0,0.06);_px(c,gx,py+1,1,1);}
+          else if(n===4){c.fillStyle=_rgba(255,255,255,0.05);_px(c,gx+1,py+1,1,1);}
+        }
       }
-      // Round wooden pegs
+      // Round wooden pegs (smaller, more frequent for fine detail)
       c.fillStyle=_rgba(..._shade(wood,20),0.6);
-      _px(c,4,3,2,2);_px(c,26,3,2,2);_px(c,4,15,2,2);_px(c,26,15,2,2);
-      _px(c,4,27,2,2);_px(c,26,27,2,2);
+      for(let py=2;py<TS;py+=9){_px(c,4,py,2,2);_px(c,26,py,2,2);}
       c.fillStyle=_rgba(255,255,255,0.12);
-      _px(c,4,3,1,1);_px(c,26,3,1,1);_px(c,4,15,1,1);_px(c,26,15,1,1);
+      for(let py=2;py<TS;py+=9){_px(c,4,py,1,1);_px(c,26,py,1,1);}
       // Edge treatments
       if(!hasN){
         c.fillStyle=_rgba(...accentRgb,0.15);c.fillRect(2,0,TS-4,3);
@@ -5813,42 +5824,50 @@ const TilesetEngine=(()=>{
   function _genRohanWalls(wallRgb,accentRgb){
     const tiles=[];
     const base=wallRgb;
-    const light=_shade(base,15);
+    const light=_shade(base,16);
     const dark=_shade(base,-12);
     for(let mask=0;mask<16;mask++){
       const cv=_mkC(TS,TS);const c=cv.getContext('2d');
       c.imageSmoothingEnabled=false;
       const hasN=mask&1,hasE=mask&2,hasS=mask&4,hasW=mask&8;
       c.fillStyle=_rgb(...base);c.fillRect(0,0,TS,TS);
-      // Vertical timber beams
-      const beamW=10;
+      // Fine vertical timber beams — 5px wide
+      const beamW=5;
       for(let bx=0;bx<TS;bx+=beamW){
-        const bv=(_h(mask,bx,510)%5-2)*4;
+        const bv=(_h(mask,bx,510)%7-3)*3;
         c.fillStyle=_rgb(..._shade(base,bv));c.fillRect(bx+1,0,beamW-2,TS);
-        c.fillStyle=_rgba(0,0,0,0.2);c.fillRect(bx,0,1,TS);
-        c.fillStyle=_rgba(0,0,0,0.06);c.fillRect(bx+3,0,1,TS);c.fillRect(bx+6,0,1,TS);
+        c.fillStyle=_rgba(0,0,0,0.22);c.fillRect(bx,0,1,TS);
+        // Wood grain per pixel
+        for(let gy=0;gy<TS;gy+=2){
+          const n=_h(bx,gy,mask+515)%7;
+          if(n<2){c.fillStyle=_rgba(0,0,0,0.05);_px(c,bx+1+(n),gy,1,1);}
+        }
       }
-      // Horizontal crossbeams
-      c.fillStyle=_rgb(..._shade(base,8));c.fillRect(0,10,TS,3);c.fillRect(0,22,TS,3);
-      c.fillStyle=_rgba(0,0,0,0.15);c.fillRect(0,13,TS,1);c.fillRect(0,25,TS,1);
-      c.fillStyle=_rgba(255,255,255,0.08);c.fillRect(0,10,TS,1);c.fillRect(0,22,TS,1);
-      // Iron nail heads
+      // Horizontal crossbeams — 2px thick, more frequent
+      for(let cy=5;cy<TS;cy+=8){
+        c.fillStyle=_rgb(..._shade(base,10));c.fillRect(0,cy,TS,2);
+        c.fillStyle=_rgba(0,0,0,0.15);c.fillRect(0,cy+2,TS,1);
+        c.fillStyle=_rgba(255,255,255,0.08);c.fillRect(0,cy,TS,1);
+      }
+      // Iron nail heads — small 1px dots
       c.fillStyle=_rgba(80,75,65,0.7);
-      for(let bx=0;bx<TS;bx+=beamW){_px(c,bx+4,11,2,1);_px(c,bx+4,23,2,1);}
-      // Horse motif
+      for(let bx=0;bx<TS;bx+=beamW){
+        for(let cy=5;cy<TS;cy+=8){_px(c,bx+2,cy,1,1);}
+      }
+      // Horse motif — finer
       if(mask===5||mask===10){
-        c.fillStyle=_rgba(...accentRgb,0.12);
-        _px(c,12,5,1,4);_px(c,19,5,1,4);_px(c,13,4,6,1);_px(c,14,8,4,1);
+        c.fillStyle=_rgba(...accentRgb,0.14);
+        _px(c,13,4,1,3);_px(c,18,4,1,3);_px(c,14,3,4,1);_px(c,14,7,4,1);_px(c,15,5,2,1);
       }
       // Edge treatments
       if(!hasN){
-        c.fillStyle=_rgba(...light,0.2);c.fillRect(0,0,TS,2);
+        c.fillStyle=_rgba(...light,0.2);c.fillRect(0,0,TS,1);
         c.fillStyle=_rgba(Math.min(base[0]+30,200),Math.min(base[1]+15,150),base[2],0.3);
-        for(let i=0;i<8;i++)_px(c,i*4+1,0,2,1);
+        for(let i=0;i<TS;i+=3)_px(c,i,0,1,1);
       }
-      if(!hasS){c.fillStyle=_rgba(0,0,0,0.15);c.fillRect(0,TS-2,TS,2);}
-      if(!hasE){c.fillStyle=_rgba(...dark,0.25);c.fillRect(TS-2,0,2,TS);}
-      if(!hasW){c.fillStyle=_rgba(...dark,0.25);c.fillRect(0,0,2,TS);}
+      if(!hasS){c.fillStyle=_rgba(0,0,0,0.15);c.fillRect(0,TS-1,TS,1);}
+      if(!hasE){c.fillStyle=_rgba(...dark,0.25);c.fillRect(TS-1,0,1,TS);}
+      if(!hasW){c.fillStyle=_rgba(...dark,0.25);c.fillRect(0,0,1,TS);}
       tiles.push(cv);
     }
     return tiles;
@@ -5865,48 +5884,57 @@ const TilesetEngine=(()=>{
       c.imageSmoothingEnabled=false;
       const hasN=mask&1,hasE=mask&2,hasS=mask&4,hasW=mask&8;
       c.fillStyle=_rgb(...base);c.fillRect(0,0,TS,TS);
-      // Marble veining
-      c.fillStyle=_rgba(...light,0.15);
-      _line(c,2,8,28,4,_rgba(...light,0.12));
-      _line(c,0,20,24,28,_rgba(...light,0.10));
-      _line(c,10,0,30,16,_rgba(...light,0.08));
-      // Large elegant blocks (16×16)
-      const blockW=16,blockH=16;
+      // Fine marble veining — more lines, thinner
+      _line(c,1,4,14,2,_rgba(...light,0.10));
+      _line(c,18,1,30,6,_rgba(...light,0.09));
+      _line(c,0,12,20,10,_rgba(...light,0.08));
+      _line(c,4,20,28,18,_rgba(...light,0.10));
+      _line(c,0,28,16,26,_rgba(...light,0.07));
+      _line(c,22,22,30,30,_rgba(...light,0.08));
+      // Fine elegant blocks (8×8)
+      const blockW=8,blockH=8;
       for(let by=0;by<TS;by+=blockH){
         const off=(Math.floor(by/blockH)%2)?blockW/2:0;
-        c.fillStyle=_rgba(...light,0.06);c.fillRect(0,by,TS,1);
-        for(let bx=-blockW;bx<TS+blockW;bx+=blockW){c.fillRect((bx+off)|0,by,1,blockH);}
+        c.fillStyle=_rgba(...light,0.05);c.fillRect(0,by,TS,1);
+        for(let bx=-blockW;bx<TS+blockW;bx+=blockW){
+          c.fillStyle=_rgba(...light,0.05);c.fillRect((bx+off)|0,by,1,blockH);
+          // Per-block subtle shade
+          const sv=(_h(by,bx+mask,560)%5-2)*2;
+          if(sv!==0){c.fillStyle=_rgba(sv>0?255:0,sv>0?255:0,sv>0?255:0,0.02);c.fillRect((bx+off)|0+1,by+1,blockW-2,blockH-2);}
+        }
       }
-      // Vine/leaf inlay
-      c.fillStyle=_rgba(...accentRgb,0.18);
+      // Vine/leaf inlay — finer, more delicate
+      c.fillStyle=_rgba(...accentRgb,0.16);
       const vx=16,vy=16;
-      _px(c,vx-1,vy-6,1,12);
-      _px(c,vx-3,vy-4,2,1);_px(c,vx-4,vy-3,1,1);
-      _px(c,vx+1,vy-2,2,1);_px(c,vx+2,vy-1,1,1);
-      _px(c,vx-3,vy+2,2,1);_px(c,vx+1,vy+4,2,1);
-      // Magical luminescence
-      c.fillStyle=_rgba(...accentRgb,0.03);c.fillRect(4,4,TS-8,TS-8);
+      _px(c,vx,vy-5,1,10);
+      _px(c,vx-2,vy-3,1,1);_px(c,vx-1,vy-4,1,1);
+      _px(c,vx+1,vy-2,1,1);_px(c,vx+2,vy-1,1,1);
+      _px(c,vx-2,vy+1,1,1);_px(c,vx-1,vy+2,1,1);
+      _px(c,vx+1,vy+3,1,1);_px(c,vx+2,vy+4,1,1);
+      // Magical luminescence — per-pixel shimmer
+      for(let sx=2;sx<TS-2;sx+=3){
+        for(let sy=2;sy<TS-2;sy+=3){
+          if(_h(sx,sy,mask+570)%9<1){c.fillStyle=_rgba(...accentRgb,0.04);_px(c,sx,sy,1,1);}
+        }
+      }
       // Edge treatments
       if(!hasN){
         c.fillStyle=_rgba(...light,0.25);c.fillRect(0,0,TS,1);
-        c.fillStyle=_rgba(...accentRgb,0.1);c.fillRect(0,1,TS,1);
-        c.fillStyle=_rgba(...accentRgb,0.08);_px(c,8,2,2,1);_px(c,22,2,2,1);
+        c.fillStyle=_rgba(...accentRgb,0.08);for(let ex=2;ex<TS;ex+=4)_px(c,ex,1,1,1);
       }
       if(!hasS){
-        c.fillStyle=_rgba(...dark,0.2);c.fillRect(0,TS-2,TS,2);
-        c.fillStyle=_rgba(...accentRgb,0.06);c.fillRect(0,TS-1,TS,1);
+        c.fillStyle=_rgba(...dark,0.2);c.fillRect(0,TS-1,TS,1);
+        c.fillStyle=_rgba(...accentRgb,0.05);c.fillRect(0,TS-1,TS,1);
       }
       if(!hasE){
-        c.fillStyle=_rgba(...light,0.15);c.fillRect(TS-2,0,1,TS);
-        c.fillStyle=_rgba(...dark,0.15);c.fillRect(TS-1,0,1,TS);
+        c.fillStyle=_rgba(...light,0.12);c.fillRect(TS-1,0,1,TS);
       }
       if(!hasW){
-        c.fillStyle=_rgba(...dark,0.15);c.fillRect(0,0,1,TS);
-        c.fillStyle=_rgba(...light,0.15);c.fillRect(1,0,1,TS);
+        c.fillStyle=_rgba(...dark,0.12);c.fillRect(0,0,1,TS);
       }
-      // Corner flourish
-      if(!hasN&&!hasW){c.fillStyle=_rgba(...accentRgb,0.15);_px(c,2,2,3,1);_px(c,2,3,1,2);}
-      if(!hasN&&!hasE){c.fillStyle=_rgba(...accentRgb,0.15);_px(c,TS-5,2,3,1);_px(c,TS-3,3,1,2);}
+      // Corner flourish — 1px filigree
+      if(!hasN&&!hasW){c.fillStyle=_rgba(...accentRgb,0.15);_px(c,1,1,2,1);_px(c,1,2,1,1);}
+      if(!hasN&&!hasE){c.fillStyle=_rgba(...accentRgb,0.15);_px(c,TS-3,1,2,1);_px(c,TS-2,2,1,1);}
       tiles.push(cv);
     }
     return tiles;
@@ -5924,44 +5952,46 @@ const TilesetEngine=(()=>{
       c.imageSmoothingEnabled=false;
       const hasN=mask&1,hasE=mask&2,hasS=mask&4,hasW=mask&8;
       c.fillStyle=_rgb(...base);c.fillRect(0,0,TS,TS);
-      // Large ashlar blocks (11×8)
-      const blockW=11,blockH=8;
+      // Fine ashlar blocks (6×4)
+      const blockW=6,blockH=4;
       for(let by=0;by<TS;by+=blockH){
         const off=(Math.floor(by/blockH)%2)?blockW/2:0;
-        c.fillStyle=_rgba(0,0,0,0.22);c.fillRect(0,by,TS,1);
+        c.fillStyle=_rgba(0,0,0,0.20);c.fillRect(0,by,TS,1);
         for(let bx=-blockW;bx<TS+blockW;bx+=blockW){
           const sx=(bx+off)|0;
-          c.fillRect(sx,by,1,blockH);
-          const sv=(_h(by,sx+mask,520)%7-3)*3;
+          c.fillStyle=_rgba(0,0,0,0.20);c.fillRect(sx,by,1,blockH);
+          const sv=(_h(by,sx+mask,520)%9-4)*2;
           c.fillStyle=_rgb(..._shade(base,sv));c.fillRect(sx+1,by+1,blockW-2,blockH-2);
-          c.fillStyle=_rgba(255,255,255,0.06);c.fillRect(sx+1,by+1,blockW-2,1);
-          c.fillStyle=_rgba(0,0,0,0.08);c.fillRect(sx+1,by+blockH-2,blockW-2,1);
-          c.fillStyle=_rgba(0,0,0,0.22);
+          c.fillStyle=_rgba(255,255,255,0.05);c.fillRect(sx+1,by+1,blockW-2,1);
+          c.fillStyle=_rgba(0,0,0,0.06);c.fillRect(sx+1,by+blockH-2,blockW-2,1);
         }
       }
-      // Iron reinforcement band
-      c.fillStyle=_rgba(...iron,0.4);c.fillRect(0,15,TS,2);
+      // Iron reinforcement band — thinner, 1px
+      c.fillStyle=_rgba(...iron,0.4);c.fillRect(0,15,TS,1);c.fillRect(0,16,TS,1);
+      // Iron rivets — 1px dots
       c.fillStyle=_rgba(iron[0]+20,iron[1]+20,iron[2]+25,0.5);
-      _px(c,4,15,2,2);_px(c,14,15,2,2);_px(c,24,15,2,2);
-      c.fillStyle=_rgba(255,255,255,0.12);
-      _px(c,4,15,1,1);_px(c,14,15,1,1);_px(c,24,15,1,1);
-      // White Tree motif on fully surrounded walls
+      for(let rx=3;rx<TS;rx+=5){_px(c,rx,15,1,1);}
+      c.fillStyle=_rgba(255,255,255,0.10);
+      for(let rx=3;rx<TS;rx+=5){_px(c,rx,15,1,1);}
+      // White Tree motif — finer, 1px strokes
       if(mask===15){
-        c.fillStyle=_rgba(...accentRgb,0.06);
-        _px(c,15,20,2,8);_px(c,12,18,3,1);_px(c,17,18,3,1);
-        _px(c,10,16,2,1);_px(c,20,16,2,1);_px(c,11,14,10,2);
+        c.fillStyle=_rgba(...accentRgb,0.07);
+        _px(c,15,22,1,6);_px(c,16,22,1,6);
+        _px(c,13,20,1,1);_px(c,14,19,1,1);_px(c,17,19,1,1);_px(c,18,20,1,1);
+        _px(c,12,18,1,1);_px(c,19,18,1,1);
+        _px(c,13,17,6,1);
       }
       // Edge treatments
       if(!hasN){
-        c.fillStyle=_rgba(...light,0.2);c.fillRect(0,0,TS,2);
-        c.fillStyle=_rgba(0,0,0,0.15);_px(c,6,0,4,2);_px(c,18,0,4,2);
+        c.fillStyle=_rgba(...light,0.2);c.fillRect(0,0,TS,1);
+        c.fillStyle=_rgba(0,0,0,0.15);for(let ex=3;ex<TS;ex+=6)_px(c,ex,0,2,1);
       }
-      if(!hasS){c.fillStyle=_rgba(0,0,0,0.2);c.fillRect(0,TS-2,TS,2);}
-      if(!hasE){c.fillStyle=_rgba(0,0,0,0.18);c.fillRect(TS-2,0,2,TS);}
-      if(!hasW){c.fillStyle=_rgba(0,0,0,0.18);c.fillRect(0,0,2,TS);}
-      // Corner reinforcement plates
-      if(hasN&&hasW){c.fillStyle=_rgba(...iron,0.25);c.fillRect(0,0,5,5);c.fillStyle=_rgba(255,255,255,0.06);_px(c,1,1,1,1);}
-      if(hasN&&hasE){c.fillStyle=_rgba(...iron,0.25);c.fillRect(TS-5,0,5,5);}
+      if(!hasS){c.fillStyle=_rgba(0,0,0,0.2);c.fillRect(0,TS-1,TS,1);}
+      if(!hasE){c.fillStyle=_rgba(0,0,0,0.18);c.fillRect(TS-1,0,1,TS);}
+      if(!hasW){c.fillStyle=_rgba(0,0,0,0.18);c.fillRect(0,0,1,TS);}
+      // Corner reinforcement plates — smaller
+      if(hasN&&hasW){c.fillStyle=_rgba(...iron,0.25);c.fillRect(0,0,3,3);c.fillStyle=_rgba(255,255,255,0.06);_px(c,1,1,1,1);}
+      if(hasN&&hasE){c.fillStyle=_rgba(...iron,0.25);c.fillRect(TS-3,0,3,3);}
       tiles.push(cv);
     }
     return tiles;
@@ -5979,38 +6009,47 @@ const TilesetEngine=(()=>{
       c.imageSmoothingEnabled=false;
       const hasN=mask&1,hasE=mask&2,hasS=mask&4,hasW=mask&8;
       c.fillStyle=_rgb(...base);c.fillRect(0,0,TS,TS);
-      // Irregular volcanic rock blocks
-      const numBlocks=5+(mask%3);
+      // Fine irregular volcanic rock — more, smaller blocks (3-6px)
+      const numBlocks=8+(mask%4);
       for(let i=0;i<numBlocks;i++){
-        const bx=(_h(mask,i,530)%24)+2,by=(_h(mask,i,531)%24)+2;
-        const bw=6+(_h(mask,i,532)%6),bh=5+(_h(mask,i,533)%5);
-        const sv=(_h(mask,i,534)%9-4)*3;
+        const bx=(_h(mask,i,530)%28)+1,by=(_h(mask,i,531)%28)+1;
+        const bw=3+(_h(mask,i,532)%4),bh=3+(_h(mask,i,533)%3);
+        const sv=(_h(mask,i,534)%11-5)*2;
         c.fillStyle=_rgb(..._shade(base,sv));c.fillRect(bx,by,bw,bh);
         c.fillStyle=_rgba(255,255,255,0.04);c.fillRect(bx,by,bw,1);
-        c.fillStyle=_rgba(0,0,0,0.2);c.fillRect(bx,by+bh,bw,1);
+        c.fillStyle=_rgba(0,0,0,0.18);c.fillRect(bx,by+bh,bw,1);
+        // Per-pixel roughness
+        for(let px=bx;px<bx+bw;px+=2){
+          const n=_h(px,by,mask+536)%5;
+          if(n<1){c.fillStyle=_rgba(0,0,0,0.06);_px(c,px,by+1,1,1);}
+        }
       }
-      // Lava cracks
-      c.fillStyle=_rgba(...lava,0.35);
+      // Lava cracks — finer, more branches
       const crackSeed=mask*17+100;
       const cx1=(_h(mask,0,crackSeed)%20)+6;
       const cy1=(_h(mask,0,crackSeed+1)%20)+6;
-      _line(c,cx1,0,cx1+4,cy1,_rgba(...lava,0.3));
-      _line(c,cx1+4,cy1,cx1-2,TS,_rgba(...lava,0.25));
-      c.fillStyle=_rgba(...lava,0.06);c.fillRect(cx1-1,cy1-2,6,4);
-      // Obsidian shards
-      if(mask%4===0){c.fillStyle=_rgba(...light,0.25);_px(c,8,20,3,2);c.fillStyle=_rgba(255,255,255,0.1);_px(c,8,20,1,1);}
-      if(mask%4===2){c.fillStyle=_rgba(...light,0.2);_px(c,22,8,2,3);c.fillStyle=_rgba(255,255,255,0.08);_px(c,22,8,1,1);}
-      // Ash deposits
-      c.fillStyle=_rgba(0,0,0,0.06);c.fillRect(0,TS-6,TS,6);
-      // Edge treatments — jagged
+      _line(c,cx1,0,cx1+2,cy1,_rgba(...lava,0.28));
+      _line(c,cx1+2,cy1,cx1-1,TS,_rgba(...lava,0.22));
+      // Branch cracks
+      _line(c,cx1+2,cy1,cx1+6,cy1+4,_rgba(...lava,0.15));
+      _line(c,cx1-1,cy1+8,cx1-4,cy1+12,_rgba(...lava,0.12));
+      // Glow around crack junction — smaller
+      c.fillStyle=_rgba(...lava,0.05);c.fillRect(cx1,cy1-1,3,2);
+      // Obsidian shards — smaller, 1px glint
+      if(mask%4===0){c.fillStyle=_rgba(...light,0.25);_px(c,8,20,2,1);c.fillStyle=_rgba(255,255,255,0.12);_px(c,8,20,1,1);}
+      if(mask%4===2){c.fillStyle=_rgba(...light,0.2);_px(c,22,8,1,2);c.fillStyle=_rgba(255,255,255,0.10);_px(c,22,8,1,1);}
+      if(mask%4===1){c.fillStyle=_rgba(...light,0.18);_px(c,14,26,2,1);c.fillStyle=_rgba(255,255,255,0.08);_px(c,14,26,1,1);}
+      // Ash deposits — finer gradient
+      for(let ay=TS-4;ay<TS;ay++){c.fillStyle=_rgba(0,0,0,0.02*(ay-TS+5));c.fillRect(0,ay,TS,1);}
+      // Edge treatments — finer jagged
       if(!hasN){
         c.fillStyle=_rgba(0,0,0,0.3);
-        for(let x=0;x<TS;x+=4){const jag=(_h(mask,x,540)%3);c.fillRect(x,0,4,jag+1);}
-        c.fillStyle=_rgba(...lava,0.08);c.fillRect(0,0,TS,2);
+        for(let x=0;x<TS;x+=2){const jag=(_h(mask,x,540)%2);c.fillRect(x,0,2,jag+1);}
+        c.fillStyle=_rgba(...lava,0.06);c.fillRect(0,0,TS,1);
       }
-      if(!hasS){c.fillStyle=_rgba(0,0,0,0.25);for(let x=0;x<TS;x+=4){const jag=(_h(mask,x,541)%3);c.fillRect(x,TS-jag-1,4,jag+1);}}
-      if(!hasE){c.fillStyle=_rgba(0,0,0,0.25);c.fillRect(TS-3,0,3,TS);c.fillStyle=_rgba(...lava,0.06);c.fillRect(TS-1,4,1,TS-8);}
-      if(!hasW){c.fillStyle=_rgba(0,0,0,0.25);c.fillRect(0,0,3,TS);c.fillStyle=_rgba(...lava,0.06);c.fillRect(0,4,1,TS-8);}
+      if(!hasS){c.fillStyle=_rgba(0,0,0,0.25);for(let x=0;x<TS;x+=2){const jag=(_h(mask,x,541)%2);c.fillRect(x,TS-jag-1,2,jag+1);}}
+      if(!hasE){c.fillStyle=_rgba(0,0,0,0.25);c.fillRect(TS-2,0,2,TS);c.fillStyle=_rgba(...lava,0.05);c.fillRect(TS-1,4,1,TS-8);}
+      if(!hasW){c.fillStyle=_rgba(0,0,0,0.25);c.fillRect(0,0,2,TS);c.fillStyle=_rgba(...lava,0.05);c.fillRect(0,4,1,TS-8);}
       tiles.push(cv);
     }
     return tiles;
