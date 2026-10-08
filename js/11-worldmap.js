@@ -474,6 +474,8 @@ function walkTo(worldX,worldY){
   _walkIdx=1;
   _walking=true;
   _tx=path[1].x; _ty=path[1].y;
+  // Reset manual pan so camera follows player
+  _panOffX=0;_panOffY=0;
 }
 
 function _updateWalk(dt){
@@ -632,9 +634,9 @@ function draw(cvEl){
   ctx.clearRect(0,0,screenW,screenH);
   ctx.imageSmoothingEnabled=false;
 
-  // Camera follows player
-  _camX=_px-screenW/(2*_wmZoom);
-  _camY=_py-screenH/(2*_wmZoom);
+  // Camera follows player + manual pan offset
+  _camX=_px-screenW/(2*_wmZoom)+_panOffX;
+  _camY=_py-screenH/(2*_wmZoom)+_panOffY;
   // Clamp camera
   _camX=Math.max(0,Math.min(_camX,W_PX-screenW/_wmZoom));
   _camY=Math.max(0,Math.min(_camY,H_PX-screenH/_wmZoom));
@@ -750,6 +752,12 @@ function draw(cvEl){
 //  INPUT HANDLING
 // ══════════════════════════════════════════════════════
 
+// Manual pan offset (drag-to-look); resets when walking
+let _panOffX=0, _panOffY=0;
+let _dragging=false, _dragStartX=0, _dragStartY=0, _panStartX=0, _panStartY=0;
+let _lastPinch=0;
+let _inputBound=false;
+
 function _screenToWorld(sx,sy){
   return{
     x:sx/_wmZoom+_camX,
@@ -762,21 +770,103 @@ function handleTap(screenX,screenY){
   // Check if tapping a region node
   for(const btn of (WM._nameBtns||[])){
     if(w.x>=btn.x&&w.x<=btn.x+btn.w&&w.y>=btn.y&&w.y<=btn.y+btn.h){
-      if(isRegionVisible(btn.region)&&isRegionAccessible(btn.region)){
-        // Walk to the region center, then open panel on arrival
+      if(isRegionVisible(btn.region)){
         const ct=_rToTile(btn.region.x,btn.region.y);
-        walkTo(ct.c*T+T/2, ct.r*T+T/2);
+        // If already at this region, open panel directly
+        const pr=Math.floor(_py/T), pc=Math.floor(_px/T);
+        if(Math.abs(pc-ct.c)<=3&&Math.abs(pr-ct.r)<=3){
+          if(isRegionAccessible(btn.region)&&typeof wmShowCountryPanel==='function'){
+            wmShowCountryPanel(btn.region);
+          }
+          return true;
+        }
+        // Otherwise walk there (panel opens on arrival)
+        if(isRegionAccessible(btn.region)){
+          _panOffX=0;_panOffY=0; // reset pan when walking
+          walkTo(ct.c*T+T/2, ct.r*T+T/2);
+        }
         return true;
       }
     }
   }
   // Otherwise walk to tapped location
+  _panOffX=0;_panOffY=0;
   walkTo(w.x,w.y);
   return true;
 }
 
 function zoom(delta){
   _wmZoom=Math.max(0.75,Math.min(3.0,_wmZoom+delta));
+}
+
+function _bindInput(){
+  if(_inputBound) return;
+  const cv=document.getElementById('worldMapCanvas');
+  if(!cv) return;
+  _inputBound=true;
+
+  // ── Mouse ──
+  cv.addEventListener('mousedown',e=>{
+    _dragging=true;
+    _dragStartX=e.clientX;_dragStartY=e.clientY;
+    _panStartX=_panOffX;_panStartY=_panOffY;
+  });
+  cv.addEventListener('mousemove',e=>{
+    if(!_dragging) return;
+    _panOffX=_panStartX-(e.clientX-_dragStartX)/_wmZoom;
+    _panOffY=_panStartY-(e.clientY-_dragStartY)/_wmZoom;
+  });
+  cv.addEventListener('mouseup',e=>{
+    const moved=Math.hypot(e.clientX-_dragStartX,e.clientY-_dragStartY);
+    _dragging=false;
+    if(moved<8){
+      const rect=cv.getBoundingClientRect();
+      handleTap(e.clientX-rect.left, e.clientY-rect.top);
+    }
+  });
+  // ── Wheel zoom ──
+  cv.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?0.2:-0.2);},{passive:false});
+  // ── Touch ──
+  cv.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(e.touches.length===1){
+      _dragging=true;
+      _dragStartX=e.touches[0].clientX;_dragStartY=e.touches[0].clientY;
+      _panStartX=_panOffX;_panStartY=_panOffY;
+    }
+    if(e.touches.length===2){
+      _lastPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                            e.touches[0].clientY-e.touches[1].clientY);
+    }
+  },{passive:false});
+  cv.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    if(e.touches.length===1&&_dragging){
+      _panOffX=_panStartX-(e.touches[0].clientX-_dragStartX)/_wmZoom;
+      _panOffY=_panStartY-(e.touches[0].clientY-_dragStartY)/_wmZoom;
+    }
+    if(e.touches.length===2){
+      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                            e.touches[0].clientY-e.touches[1].clientY);
+      if(_lastPinch>0){
+        const factor=dist/_lastPinch;
+        _wmZoom=Math.max(0.75,Math.min(3.0,_wmZoom*factor));
+      }
+      _lastPinch=dist;
+    }
+  },{passive:false});
+  cv.addEventListener('touchend',e=>{
+    if(e.changedTouches.length===1&&e.touches.length===0){
+      const dx=e.changedTouches[0].clientX-_dragStartX;
+      const dy=e.changedTouches[0].clientY-_dragStartY;
+      if(Math.hypot(dx,dy)<12){
+        const rect=cv.getBoundingClientRect();
+        handleTap(e.changedTouches[0].clientX-rect.left,
+                  e.changedTouches[0].clientY-rect.top);
+      }
+    }
+    _dragging=false;_lastPinch=0;
+  },{passive:false});
 }
 
 // ══════════════════════════════════════════════════════
@@ -790,6 +880,9 @@ function activate(){
   if(!_generated){generate();_initPlayerPos();}
   _active=true;
   _lastT=performance.now();
+  _panOffX=0;_panOffY=0;
+  // Ensure input listeners are bound (idempotent)
+  setTimeout(_bindInput,60);
 }
 
 function deactivate(){
