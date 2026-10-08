@@ -27111,7 +27111,7 @@ function startVilWalk(){
     _vilCamX=clamp(_vilWalkState.px-vw/2,0,W-vw);
     _vilCamY=clamp(_vilWalkState.py-vh/2,0,H-vh);
   }else{_vilCamX=0;_vilCamY=0;}
-  cv.onclick=vilTap; cv.ontouchstart=vilTap;
+  cv.onclick=vilTap; cv.ontouchstart=vilTap; cv.onmousemove=_vilHoverMove; cv.onmouseleave=()=>{_vilHover=null;cv.style.cursor='';};
   stopVilWalk();
   _vilWalkAnimId=setInterval(tickVilWalk,50);
 }
@@ -27525,6 +27525,93 @@ function openCollectorTap(){
   npcDialogue(npc.ico,npc.name,menuText,npc.color,actions);
 }
 
+// ── Village hit-testing ───────────────────────────────────────────────
+// Returns the interactive thing under a world point, or null (= walk there).
+// Circles are sized to the sprite they belong to (they used to be 60px, which caught
+// clicks well outside the object); buildings and fenced plots use their drawn rectangle.
+const VIL_R={storage:26,npc:20,hero:18,workshop:30,collector:24,stall:30,hobbit:24};
+function _vilHitTest(tx,ty,W,H){
+  const s=_vilWalkState;if(!s)return null;
+  const circ=(p,r,label,act)=>(p&&Math.hypot(tx-p.x,ty-p.y)<r)?{shape:'c',x:p.x,y:p.y,r,label,act}:null;
+  let h;
+  if(GS.quests&&GS.quests.pumpkin_quest&&!GS.quests.pumpkin_quest.completed){
+    if((h=circ({x:s.px+60,y:s.py-20},VIL_R.hobbit,'Hobbit',handleVillageNPCTap)))return h;
+  }
+  const _MX=Math.floor(W*.06), _MY=Math.floor(H*.06);
+  const _uW=W-_MX*2, _uH=H-_MY*2;
+  const _GX=Math.floor(_uW*.04), _GY=Math.floor(_uH*.08);
+  const _rW=Math.floor((_uW-_GX*2)/3), _rH=Math.floor((_uH-_GY)/2);
+  const _r2Y=_MY+_rH+_GY;
+  if(GS.quests&&GS.quests.pumpkin_quest&&GS.quests.pumpkin_quest.completed){
+    if((h=circ({x:_MX+_rW*.35,y:_r2Y+_rH*.55},VIL_R.stall,'Pumpkin Merchant',handleVillageNPCTap)))return h;
+  }
+  const SP=_vilStoragePos;
+  if((h=circ(SP.graveyard||{x:_MX+_rW*.22,y:_MY+_rH*.72},VIL_R.storage,'Bone Vault',openBoneVault)))return h;
+  if((h=circ(SP.forest||{x:_MX+(_rW+_GX)*2+_rW*.78,y:_MY+_rH*.68},VIL_R.storage,'Wood Storage',openWoodStorage)))return h;
+  if((h=circ(SP.orchard||{x:_MX+_rW*.8,y:_r2Y+_rH*.65},VIL_R.storage,'Herb Storage',openHerbStorage)))return h;
+  if((h=circ(SP.mining||{x:_MX+(_rW+_GX)*2+_rW*.22,y:_r2Y+_rH*.68},VIL_R.storage,'Gold Coffer',openCoffer)))return h;
+  if((h=circ(SP.workshop,VIL_R.workshop,'Workshop',openCrafting)))return h;
+  if((h=circ(SP.collector,VIL_R.collector,'Finrod the Collector',openCollectorTap)))return h;
+  if(s._roomsPos){
+    for(const rm of s._roomsPos){
+      if(!(tx>=rm.x&&tx<=rm.x+rm.w&&ty>=rm.y&&ty<=rm.y+rm.h))continue;
+      const rect=(label,act)=>({shape:'r',x:rm.x,y:rm.y,w:rm.w,h:rm.h,label,act});
+      if(rm.id==='merchant'){
+        if((h=circ(SP.boneMerchant,VIL_R.npc,'Rattlejaw the Bone Merchant',openBoneMerchantTap)))return h;
+        if(GS.quests?.gandalf_quest?.completed&&(h=circ(SP.shopGandalf,VIL_R.npc,'Gandalf',_openGandalfShopDialogue)))return h;
+        return rect("Merchant's Shop",()=>{if(Date.now()>_vilAssignCooldown)openShop();});
+      }
+      if(rm.id==='pub'){
+        if((h=circ(SP.tavernKeeper,VIL_R.npc,'Morwen the Tavern Keeper',openTavernKeeperTap)))return h;
+        if((h=circ(SP.bartender,VIL_R.npc,'Bartender',()=>{
+          const bDialogues=['Another round? Coming right up!','This mug ain\'t gonna clean itself...','Finest bone broth in the village!','You look like you need a drink, boss.','Tips appreciated. Bones accepted.','The dead drink free on Tuesdays.','I\'ve been dead 200 years. Still working.','Try the Skull Shaker — house special!'];
+          npcDialogue('💀','Bartender',bDialogues[Math.floor(Math.random()*bDialogues.length)],'#9ca3af');})))return h;
+        if(SP.pubHeroes){
+          for(const ph of SP.pubHeroes){
+            if(ph&&(h=circ(ph,VIL_R.hero,(typeof HERO_DEFS!=='undefined'&&HERO_DEFS[ph.id]&&HERO_DEFS[ph.id].name)||'Hero',()=>openHeroDetailModal(ph.id))))return h;
+          }
+        }
+        return rect('The Bone Flagon',()=>{
+          if(Date.now()<=_vilAssignCooldown)return;
+          const uh=[...(GS.heroes?.unlocked||[])];
+          if(uh.length){openHeroDetailModal(uh[0]);}
+          else{showToast('🍺 The pub awaits heroes… Exchange Dev Codes to recruit!');}
+        });
+      }
+      return rect(rm.name+' · assign workers',()=>{if(Date.now()>_vilAssignCooldown)openAssign(rm.id);});
+    }
+  }
+  return null;
+}
+let _vilHover=null;
+function _vilHoverMove(e){
+  if(!_vilWalkState){_vilHover=null;return;}
+  const cv=document.getElementById('vilCanvas');if(!cv)return;
+  const rect=cv.getBoundingClientRect();
+  const W=parseInt(cv.style.width)||rect.width, H=parseInt(cv.style.height)||rect.height;
+  const sx=(e.clientX-rect.left)*(W/rect.width), sy=(e.clientY-rect.top)*(H/rect.height);
+  const tx=GAME_ZOOM>1 ? _vilCamX + sx/GAME_ZOOM : sx;
+  const ty=GAME_ZOOM>1 ? _vilCamY + sy/GAME_ZOOM : sy;
+  let hit=null;try{hit=_vilHitTest(tx,ty,W,H);}catch(er){}
+  _vilHover=hit;cv.style.cursor=hit?'pointer':'';
+}
+// Drawn in world space at the end of the village frame
+function _vilDrawHover(c){
+  const h=_vilHover;if(!h||!_vilWalkState)return;
+  const pulse=.55+.25*Math.sin(Date.now()/180);
+  c.save();
+  c.lineWidth=1.5;c.strokeStyle='rgba(253,230,138,'+pulse+')';c.shadowColor='rgba(253,230,138,.8)';c.shadowBlur=6;
+  let lx,ly;
+  if(h.shape==='c'){c.beginPath();c.arc(h.x,h.y,h.r,0,Math.PI*2);c.stroke();lx=h.x;ly=h.y-h.r-5;}
+  else{c.strokeRect(h.x+1,h.y+1,h.w-2,h.h-2);lx=h.x+h.w/2;ly=h.y+12;}
+  c.shadowBlur=0;
+  c.font='bold 8px "Almendra","Cinzel",serif';c.textAlign='center';c.textBaseline='alphabetic';
+  const tw=c.measureText(h.label).width+10;
+  c.fillStyle='rgba(8,4,16,.88)';c.fillRect(Math.round(lx-tw/2),Math.round(ly-9),Math.round(tw),12);
+  c.strokeStyle='rgba(253,230,138,.7)';c.lineWidth=.5;c.strokeRect(Math.round(lx-tw/2)+.25,Math.round(ly-9)+.25,Math.round(tw)-.5,11.5);
+  c.fillStyle='#fde68a';c.fillText(h.label,lx,ly);
+  c.restore();
+}
 function vilTap(e){
   e.preventDefault();
   if(!_vilWalkState)return;
@@ -27539,111 +27626,9 @@ function vilTap(e){
   const ty=GAME_ZOOM>1 ? _vilCamY + sy/GAME_ZOOM : sy;
   const s=_vilWalkState;
   
-  // Hobbit NPC tap detection in village gate
-  if(GS.quests&&!GS.quests.pumpkin_quest.completed){
-    const npcX=s.px+60,npcY=s.py-20;
-    if(Math.hypot(tx-npcX,ty-npcY)<32){
-      handleVillageNPCTap();
-      return;
-    }
-  }
-  
-  // Pumpkin merchant stall tap detection (Herb Garden)
-  if(GS.quests&&GS.quests.pumpkin_quest&&GS.quests.pumpkin_quest.completed){
-    const _MX2=Math.floor(W*.06), _MY2=Math.floor(H*.06);
-    const _uW2=W-_MX2*2, _uH2=H-_MY2*2;
-    const _GX2=Math.floor(_uW2*.04), _GY2=Math.floor(_uH2*.08);
-    const _rW2=Math.floor((_uW2-_GX2*2)/3), _rH2=Math.floor((_uH2-_GY2)/2);
-    const _r2Y2=_MY2+_rH2+_GY2;
-    const orchardX=_MX2, orchardY=_r2Y2;
-    const pmx=orchardX+_rW2*.35, pmy=orchardY+_rH2*.55;
-    if(Math.hypot(tx-pmx,ty-pmy)<40){
-      handleVillageNPCTap();
-      return;
-    }
-  }
-
-  // Compute room layout fresh (same formula as drawVilCanvas)
-  const _MX=Math.floor(W*.06), _MY=Math.floor(H*.06);
-  const _uW=W-_MX*2, _uH=H-_MY*2;
-  const _GX=Math.floor(_uW*.04), _GY=Math.floor(_uH*.08);
-  const _rW=Math.floor((_uW-_GX*2)/3), _rH=Math.floor((_uH-_GY)/2);
-  const _r2Y=_MY+_rH+_GY;
-
-  // Storage sprite tap — use live positions written by drawVilCanvas each frame
-  const _tR=60;
-  const _graveyardSP=_vilStoragePos.graveyard||{x:_MX+_rW*.22,              y:_MY+_rH*.72};
-  const _forestSP   =_vilStoragePos.forest   ||{x:_MX+(_rW+_GX)*2+_rW*.78, y:_MY+_rH*.68};
-  const _orchardSP  =_vilStoragePos.orchard  ||{x:_MX+_rW*.8,               y:_r2Y+_rH*.65};
-  const _miningSP   =_vilStoragePos.mining   ||{x:_MX+(_rW+_GX)*2+_rW*.22, y:_r2Y+_rH*.68};
-
-  if(Math.hypot(tx-_graveyardSP.x,ty-_graveyardSP.y)<_tR){openBoneVault();return;}
-  if(Math.hypot(tx-_forestSP.x,   ty-_forestSP.y)   <_tR){openWoodStorage();return;}
-  if(Math.hypot(tx-_orchardSP.x,  ty-_orchardSP.y)  <_tR){openHerbStorage();return;}
-  if(Math.hypot(tx-_miningSP.x,   ty-_miningSP.y)   <_tR){openCoffer();return;}
-
-  // Workshop tap (in forest zone)
-  const _wkSP=_vilStoragePos.workshop;
-  if(_wkSP&&Math.hypot(tx-_wkSP.x,ty-_wkSP.y)<40){openCrafting();return;}
-
-  // Room tap — open panel immediately when any room area is clicked
-  if(s._roomsPos && Date.now()>_vilAssignCooldown){
-    for(const rm of s._roomsPos){
-      if(tx>=rm.x&&tx<=rm.x+rm.w&&ty>=rm.y&&ty<=rm.y+rm.h){
-        if(rm.id==='merchant'){
-          // Bone Merchant (Rattlejaw) click in shop
-          const bmSP=_vilStoragePos.boneMerchant;
-          if(bmSP&&Math.hypot(tx-bmSP.x,ty-bmSP.y)<28){
-            openBoneMerchantTap();
-            return;
-          }
-          // Gandalf NPC click in shop (if quest completed)
-          const gdSP=_vilStoragePos.shopGandalf;
-          if(gdSP&&GS.quests?.gandalf_quest?.completed&&Math.hypot(tx-gdSP.x,ty-gdSP.y)<28){
-            _openGandalfShopDialogue();
-            return;
-          }
-          openShop();return;
-        }
-        if(rm.id==='pub'){
-          // Tavern Keeper Morwen click detection
-          const mkSP=_vilStoragePos.tavernKeeper;
-          if(mkSP&&Math.hypot(tx-mkSP.x,ty-mkSP.y)<28){
-            openTavernKeeperTap();
-            return;
-          }
-          // Bartender click detection
-          const btp=_vilStoragePos.bartender;
-          if(btp&&Math.hypot(tx-(rm.x+rm.w/2+btp.x-btp.x),ty-btp.y)<30){
-            const bDialogues=['Another round? Coming right up!','This mug ain\'t gonna clean itself...','Finest bone broth in the village!','You look like you need a drink, boss.','Tips appreciated. Bones accepted.','The dead drink free on Tuesdays.','I\'ve been dead 200 years. Still working.','Try the Skull Shaker — house special!'];
-            npcDialogue('💀','Bartender',bDialogues[Math.floor(Math.random()*bDialogues.length)],'#9ca3af');
-            return;
-          }
-          // Individual hero click detection in pub
-          if(_vilStoragePos.pubHeroes){
-            for(const ph of _vilStoragePos.pubHeroes){
-              if(ph&&Math.hypot(tx-ph.x,ty-ph.y)<24){
-                openHeroDetailModal(ph.id);
-                return;
-              }
-            }
-          }
-          const uh=[...(GS.heroes?.unlocked||[])];
-          if(uh.length){openHeroDetailModal(uh[0]);}
-          else{showToast('🍺 The pub awaits heroes… Exchange Dev Codes to recruit!');}
-          return;
-        }
-        openAssign(rm.id);return;
-      }
-    }
-  }
-
-  // Wandering Collector (Finrod) tap detection on path
-  const colSP=_vilStoragePos.collector;
-  if(colSP&&Math.hypot(tx-colSP.x,ty-colSP.y)<32){
-    openCollectorTap();
-    return;
-  }
+  // One hit-test serves taps and hover, so what highlights is exactly what a click does
+  const hit=_vilHitTest(tx,ty,W,H);
+  if(hit){hit.act();return;}
 
   // Move player
   s.tx=clamp(tx,10,W-10);s.ty=clamp(ty,10,H-10);
@@ -28111,7 +28096,7 @@ function drawVilCanvas(){
           const gdShopX=cxR-bw*.18, gdShopY=ctrY+ctrH+14;
           const gdBob=Math.sin(_vilFrame*.04+2)*1.2;
           const gdSway=Math.sin(_vilFrame*.025)*0.04;
-          c.save();c.translate(gdShopX,gdShopY+gdBob);c.rotate(gdSway);c.scale(.38,.38);
+          c.save();c.translate(gdShopX,gdShopY+gdBob);c.rotate(gdSway);c.scale(.45,.45);
           try{drawSprite(c,'gandalf_npc',0,0,1,1,_vilFrame*.07,Math.sin(_vilFrame*.035)*0.15);}catch(e){}
           c.restore();
           // Staff glow
@@ -28336,7 +28321,7 @@ function drawVilCanvas(){
 
           // Draw hero sprite
           const sway3=Math.sin(_vilFrame*0.04+hi2*2.5)*0.06;
-          c.save();c.translate(hx2,hy2);c.rotate(isWalking?0:sway3);c.scale(0.42,0.42);
+          c.save();c.translate(hx2,hy2);c.rotate(isWalking?0:sway3);c.scale(0.45,0.45);
           try{if(SPR[hdef2.spriteKey])SPR[hdef2.spriteKey](c,_vilFrame*0.05,isWalking?Math.sin(_vilFrame*.08+hi2):Math.sin(_vilFrame*0.03+hi2)*0.25);}catch(e2){}
           c.restore();
 
@@ -28381,7 +28366,7 @@ function drawVilCanvas(){
         // ── Skeleton Bartender (always present)
         const btX=cxR-bw*.06, btY=barY-12;
         const btBob=Math.sin(_vilFrame*.04)*1;
-        c.save();c.translate(btX,btY+btBob);c.scale(.4,.4);
+        c.save();c.translate(btX,btY+btBob);c.scale(.45,.45);
         try{drawSprite(c,'skeleton',0,0,1,1,_vilFrame*.06,Math.sin(_vilFrame*.03)*0.2);}catch(e){}
         c.restore();
         // Washing mug animation
@@ -28931,6 +28916,7 @@ function drawVilCanvas(){
     else _vws.nearGate=null;
   }
 
+  try{_vilDrawHover(c);}catch(e){}
   // ── Draw player necromancer
   if(_vilWalkState){
     const s=_vilWalkState;
@@ -28964,16 +28950,16 @@ function _updateVilStorageOverlay(W, H) {
   const op=_vilStoragePos.orchard||{x:_MX+_rW*.8, y:_r2Y+_rH*.65};
   const mp=_vilStoragePos.mining||{x:_MX+(_rW+_GX)*2+_rW*.22, y:_r2Y+_rH*.68};
   const storageSpts = [
-    {x:gp.x, y:gp.y, fn:'openBoneVault',   w:60, h:60, cls:'vil-storage-btn'},
-    {x:fp.x, y:fp.y, fn:'openWoodStorage', w:60, h:60, cls:'vil-storage-btn'},
-    {x:op.x, y:op.y, fn:'openHerbStorage', w:60, h:60, cls:'vil-storage-btn'},
-    {x:mp.x, y:mp.y, fn:'openCoffer',      w:60, h:60, cls:'vil-storage-btn'},
+    {x:gp.x, y:gp.y, fn:'openBoneVault',   w:52, h:52, cls:'vil-storage-btn', label:'Bone Vault'},
+    {x:fp.x, y:fp.y, fn:'openWoodStorage', w:52, h:52, cls:'vil-storage-btn', label:'Wood Storage'},
+    {x:op.x, y:op.y, fn:'openHerbStorage', w:52, h:52, cls:'vil-storage-btn', label:'Herb Storage'},
+    {x:mp.x, y:mp.y, fn:'openCoffer',      w:52, h:52, cls:'vil-storage-btn', label:'Gold Coffer'},
   ];
   // Workshop button (in forest zone)
   const wsp=_vilStoragePos.workshop;
-  if(wsp){storageSpts.push({x:wsp.x, y:wsp.y, fn:'openCrafting', w:wsp.w||40, h:wsp.h||40, cls:'vil-storage-btn'});}
+  if(wsp){storageSpts.push({x:wsp.x, y:wsp.y, fn:'openCrafting', w:wsp.w||40, h:wsp.h||40, cls:'vil-storage-btn', label:'Workshop'});}
   const signSpts = [
-    {x:_cgX-_spW/2, y:_cgBoardTop, fn:'_vilGoToCastle', w:_spW, h:_spH, cls:'vil-sign-btn', useTopLeft:true},
+    {x:_cgX-_spW/2, y:_cgBoardTop, fn:'_vilGoToCastle', w:_spW, h:_spH, cls:'vil-sign-btn', useTopLeft:true, label:'To the Castle'},
   ];
   const allSpts = [...storageSpts, ...signSpts];
   const existing = overlay.querySelectorAll('.vil-overlay-btn');
@@ -28988,19 +28974,20 @@ function _updateVilStorageOverlay(W, H) {
     });
   }
   const btns = overlay.querySelectorAll('.vil-overlay-btn');
+  // Buttons live in screen space; the village is drawn in world space. Convert through the
+  // camera and zoom so the click area always sits on the sprite (it used to drift when zoomed).
+  const _z=GAME_ZOOM>1?GAME_ZOOM:1, _cx=GAME_ZOOM>1?_vilCamX:0, _cy=GAME_ZOOM>1?_vilCamY:0;
   allSpts.forEach((sp, i) => {
     const btn = btns[i];
-    btn.style.width  = sp.w + 'px';
-    btn.style.height = sp.h + 'px';
-    if (sp.useTopLeft) {
-      btn.style.left = sp.x + 'px';
-      btn.style.top  = sp.y + 'px';
-      btn.style.transform = '';
-    } else {
-      btn.style.left = sp.x + 'px';
-      btn.style.top  = sp.y + 'px';
-      btn.style.transform = 'translate(-50%,-50%)';
-    }
+    const cxW=sp.useTopLeft?sp.x+sp.w/2:sp.x, cyW=sp.useTopLeft?sp.y+sp.h/2:sp.y;
+    btn.style.width  = (sp.w*_z) + 'px';
+    btn.style.height = (sp.h*_z) + 'px';
+    btn.style.left = ((cxW-_cx)*_z) + 'px';
+    btn.style.top  = ((cyW-_cy)*_z) + 'px';
+    btn.style.transform = 'translate(-50%,-50%)';
+    if(!btn._hov){btn._hov=1;
+      btn.onmouseleave=()=>{if(_vilHover&&_vilHover._btn===btn)_vilHover=null;};}
+    btn.onmouseenter=()=>{_vilHover={shape:'c',x:cxW,y:cyW,r:Math.max(sp.w,sp.h)/2,label:sp.label||'',_btn:btn,act:()=>{}};};
   });
 }
 function _vilGoToCastle(){stopVilWalk();renderHub();openCastle_fromHub();}
