@@ -18567,10 +18567,12 @@ function toggleAuto(){
   }
 
   function _handleSwipe(dx,dy){
-    // (was calling _isMobile(), which is scoped to the joystick IIFE → ReferenceError on every touch release)
-    if(!(('ontouchstart' in window)||gameW()<1024))return false;
-    // A panel drag is not a swipe
-    if(typeof _DRAG!=='undefined'&&(_DRAG.suppressClick||Date.now()-(_DRAG.lastDragAt||0)<250))return false;
+    // Swipe-to-close / swipe-between-panels has never run: it called _isMobile(), which is scoped to the
+    // joystick IIFE, so every touch release threw a ReferenceError. Kept inert (without the error) because
+    // enabling it makes a fast scroll inside Settings close the panel. See Asana follow-up before reviving.
+    if(typeof _isMobile!=='function')return false;
+    if(!_isMobile())return false;
+    if(typeof _DRAG!=='undefined'&&(_DRAG.suppressClick||Date.now()-(_DRAG.lastDragAt||0)<250))return false; // a panel drag is not a swipe
     const absDx=Math.abs(dx),absDy=Math.abs(dy);
     if(absDx<SWIPE_MIN&&absDy<SWIPE_MIN)return false;
     const raidEl=document.getElementById('raid');
