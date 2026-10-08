@@ -1,7 +1,7 @@
 // Netlify Function: Analytics API
 // Privacy-first player behavior tracking — no PII, aggregate only, opt-in
 // Uses Netlify Blobs for persistent storage
-const { getStore } = require("@netlify/blobs");
+const { getStore, connectLambda } = require("@netlify/blobs");
 
 // Event categories we accept
 const VALID_EVENTS = [
@@ -43,6 +43,8 @@ function mergeAgg(existing, incoming) {
 }
 
 exports.handler = async (event) => {
+  // Lambda-style handlers must hand the event to Blobs before getStore()
+  try { connectLambda(event); } catch (e) { /* fall through: getStore reports the error */ }
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',

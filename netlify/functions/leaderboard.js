@@ -1,7 +1,7 @@
 // Netlify Function: Leaderboard API
 // Uses Netlify Blobs for persistent storage
 // Endpoints via query param ?action=submit|get|weekly-reset
-const { getStore } = require("@netlify/blobs");
+const { getStore, connectLambda } = require("@netlify/blobs");
 
 const CATEGORIES = [
   'prestige', 'regions', 'hellbridge', 'boss_clears',
@@ -25,6 +25,8 @@ function validateScore(category, score, playerData) {
 }
 
 exports.handler = async (event) => {
+  // Lambda-style handlers must hand the event to Blobs before getStore()
+  try { connectLambda(event); } catch (e) { /* fall through: getStore reports the error */ }
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',

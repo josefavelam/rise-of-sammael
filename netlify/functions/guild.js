@@ -1,7 +1,7 @@
 // Netlify Function: Guild System API
 // Uses Netlify Blobs for persistent guild storage
 // Actions: create, get, browse, join, leave, promote, demote, kick, chat, contribute, level-info, raid-start, raid-complete, update-settings
-const { getStore } = require("@netlify/blobs");
+const { getStore, connectLambda } = require("@netlify/blobs");
 
 const MAX_MEMBERS = 20;
 const MAX_CHAT_MSGS = 100;
@@ -44,6 +44,8 @@ function memberCap(guildLevel) {
 }
 
 exports.handler = async (event) => {
+  // Lambda-style handlers must hand the event to Blobs before getStore()
+  try { connectLambda(event); } catch (e) { /* fall through: getStore reports the error */ }
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
