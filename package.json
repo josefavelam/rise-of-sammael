@@ -1,0 +1,8 @@
+{
+  "name": "rise-of-sammael",
+  "private": true,
+  "description": "Rise of Samma'el - single-file HTML5 game. Dependencies here are only for the Netlify Functions in netlify/functions.",
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0"
+  }
+}
