@@ -30140,9 +30140,8 @@ function drawCastleRoom() {
     if(isNear){
       const gr=obj.tapR||22;
       // Proximity glow circles removed — keep only text label
-      c.font='bold 6px "Almendra","Cinzel",monospace';c.textAlign='center';
-      c.fillStyle='rgba(0,0,0,.88)';c.fillRect(op.x-40,op.y-gr-12,80,14);
-      c.fillStyle=obj.color;c.fillText('▶ '+obj.label,op.x,op.y-gr-2);
+      // Label is drawn after the necromancer (below) so his health bar can never cover it
+      CR._nearLabel={x:op.x,y:op.y-gr-2,txt:'▶ '+obj.label,col:obj.color};
     }
   });
 
@@ -30168,6 +30167,15 @@ function drawCastleRoom() {
       c.fillStyle='rgba(0,0,0,.55)';c.fillRect(CR.px-15,CR.py-30,30,3);
       c.fillStyle=hpPct>.5?'#22c55e':hpPct>.25?'#f59e0b':'#ef4444';
       c.fillRect(CR.px-15,CR.py-30,30*hpPct,3);
+    }
+    if(CR._nearLabel){
+      const L=CR._nearLabel;CR._nearLabel=null;
+      c.font='bold 7px "Almendra","Cinzel",monospace';c.textAlign='center';c.textBaseline='alphabetic';
+      // keep clear of the necromancer's head and health bar when he stands right under the label
+      let ly=L.y;if(Math.abs(L.x-CR.px)<60&&ly>CR.py-52&&ly<CR.py+6)ly=CR.py-40;
+      const tw=Math.ceil(c.measureText(L.txt).width)+10;
+      c.fillStyle='rgba(0,0,0,.88)';c.fillRect(Math.round(L.x-tw/2),Math.round(ly-10),tw,14);
+      c.fillStyle=L.col;c.fillText(L.txt,L.x,ly);
     }
   }
   c.textAlign='left';
@@ -30205,11 +30213,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       c.fillStyle=`rgba(124,58,237,${0.10+mg})`;c.beginPath();c.ellipse(mx2,cy,12,18,0,0,Math.PI*2);c.fill();
       c.fillStyle=`rgba(200,180,255,${0.15+mg*.5})`;c.beginPath();c.ellipse(mx2-3,cy-4,4,8,-.3,0,Math.PI*2);c.fill();
       c.font='9px serif';c.fillStyle=PALETTE.frameGlow;c.textAlign='center';icoD(c,'🪞',mx2,cy+3,9);
-      if(mirrorNear){
-        c.fillStyle='rgba(0,0,0,.88)';c.fillRect(mx2-38,cy-34,76,14);
-        c.fillStyle=PALETTE.frameGlow;c.font='bold 5px "Almendra","Cinzel",monospace';c.textAlign='center';
-        c.fillText('▶ Hero Panel',mx2,cy-24);
-      }
+      // (the mirror's second, hard-coded label was removed — the shared object label above already names it)
       // Gold Coffer (bottom-center of bedroom) — tile sprite from TilesetEngine
       const cfx=b.x+b.w*.5, cfy=b.y+b.h*.75;
       const cofferNear=CR&&Math.hypot(CR.px-cfx,CR.py-cfy)<46;
