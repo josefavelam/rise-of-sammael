@@ -1,0 +1,71 @@
+/* Skill bar: stone slots with gold bevel, key badge, clockwise dark cooldown sweep */
+#activeSpells{gap:4px;padding:5px 6px;background:linear-gradient(180deg,rgba(38,30,22,.92),rgba(14,10,8,.94));border:1px solid #0a0705;border-radius:6px;box-shadow:0 0 0 1px #6f5a36,0 0 0 2px #0a0705,0 4px 14px rgba(0,0,0,.7)}
+.asp-btn{width:52px;height:52px;min-width:52px;padding:3px 2px 2px;justify-content:center;border-radius:4px;border:1px solid #0a0705;background:radial-gradient(ellipse at 50% 35%,#3a3148 0%,#15101c 80%);box-shadow:inset 0 0 0 1px #8a7446,inset 0 0 0 2px #1a1410,0 1px 0 rgba(255,255,255,.06)}
+.asp-btn.ready{border-color:#0a0705;box-shadow:inset 0 0 0 1px #d9b76a,inset 0 0 0 2px #1a1410,0 0 8px rgba(217,183,106,.25)}
+.asp-btn.oncd{opacity:1;border-color:#0a0705;box-shadow:inset 0 0 0 1px #4a4132,inset 0 0 0 2px #1a1410}
+.asp-btn.oncd .asp-ico{filter:grayscale(.7) brightness(.7)}
+.asp-btn:hover{box-shadow:inset 0 0 0 1px #fde68a,inset 0 0 0 2px #1a1410,0 0 10px rgba(253,230,138,.4)}
+.asp-btn[data-q]{box-shadow:inset 0 0 0 2px #fde68a,0 0 12px rgba(253,230,138,.8);animation:gwQ .5s ease-in-out infinite}
+@keyframes gwQ{50%{box-shadow:inset 0 0 0 2px #fff,0 0 18px rgba(253,230,138,1)}}
+.asp-ico{font-size:22px}.asp-ico .px-ico{width:24px;height:24px}
+.asp-name{font-size:10px;max-width:48px;color:#cbb994}
+.asp-cd{font-size:12px;font-weight:bold;color:#fff;text-shadow:0 1px 2px #000,0 0 4px #000;position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center}
+.asp-cd-sweep{border-radius:3px;background:conic-gradient(from 0deg,rgba(0,0,0,0) var(--cd-fill,0%),rgba(4,3,8,.74) var(--cd-fill,0%))}
+/* Health bar: GW1 deep-red gradient with quarter marks */
+#hudHPBar{width:232px;height:24px;border:1px solid #0a0705;border-radius:4px;padding:0;background:#120a0a;box-shadow:0 0 0 1px #6f5a36,0 0 0 2px #0a0705,0 3px 10px rgba(0,0,0,.6)}
+#hudHPFill{left:0;top:0;bottom:0;border-radius:3px;background:linear-gradient(180deg,#f0564e 0%,#c81e1e 38%,#8f1010 70%,#5c0808 100%)}
+#hudHPBar::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(90deg,transparent calc(25% - 1px),rgba(0,0,0,.55) calc(25% - 1px),rgba(0,0,0,.55) 25%,transparent 25%,transparent calc(50% - 1px),rgba(0,0,0,.55) calc(50% - 1px),rgba(0,0,0,.55) 50%,transparent 50%,transparent calc(75% - 1px),rgba(0,0,0,.55) calc(75% - 1px),rgba(0,0,0,.55) 75%,transparent 75%),linear-gradient(180deg,rgba(255,255,255,.22),transparent 45%)}
+#hudHPText{z-index:2;font-size:13px;font-weight:bold}
+/* Target frame */
+#kbTargetHUD{top:10px!important;flex-direction:row!important;align-items:center!important;gap:8px!important;padding:5px 12px 5px 5px!important;min-width:230px!important;border-radius:6px!important;border:1px solid #0a0705!important;background:linear-gradient(180deg,rgba(38,30,22,.92),rgba(14,10,8,.94))!important;box-shadow:0 0 0 1px #6f5a36,0 0 0 2px #0a0705,0 4px 14px rgba(0,0,0,.7)}
+#kbTargetHUD .gw-port{width:44px;height:44px;flex:0 0 44px;border-radius:4px;background:radial-gradient(ellipse at 50% 70%,#4a2a2a,#160c0c);box-shadow:inset 0 0 0 1px #8a7446;image-rendering:pixelated}
+#kbTargetHUD .gw-tcol{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+#kbTargetName{font-size:13px!important;text-align:left!important;color:#fde68a!important;text-shadow:0 1px 0 #000!important;letter-spacing:.3px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#kbTargetBarWrap{width:100%!important;height:11px!important;border-radius:3px!important;border:1px solid #0a0705!important;background:#120a0a!important}
+#kbTargetBarFill{border-radius:2px!important;background:linear-gradient(180deg,#f0564e,#8f1010)!important}
+#kbTargetHP{font-size:11px!important;text-align:left!important;margin:0!important;display:flex;gap:8px;align-items:center}
+.gw-cond{display:inline-flex;gap:3px}.gw-cond span{font-size:10px;padding:0 5px;border-radius:2px;background:#5b2a86;color:#f3e8ff}
+/* keep toasts clear of the target frame during combat */
+#raid.active~#toast{top:84px}
+/* Combat log */
+#gwLog{display:none;position:fixed;left:8px;bottom:8px;z-index:21;width:300px;max-width:42vw;flex-direction:column;align-items:flex-start;gap:2px;font-family:'Almendra','Cinzel',serif;font-size:13px;line-height:1.35;color:#e8dcc8;pointer-events:none;text-shadow:0 1px 2px #000}
+#gwLogHd{-webkit-appearance:none;pointer-events:auto;cursor:pointer;font-family:inherit;font-size:11px;line-height:1;padding:3px 8px;border-radius:4px;color:#cbb994;border:1px solid #0a0705;background:linear-gradient(180deg,rgba(38,30,22,.95),rgba(14,10,8,.96));box-shadow:inset 0 0 0 1px #6f5a36}
+#gwLogHd:hover{box-shadow:inset 0 0 0 1px #fde68a}
+#gwLogBody{align-self:stretch;max-height:132px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(180deg,rgba(10,8,14,.0),rgba(10,8,14,.62) 22%);border-radius:6px;padding:6px 9px;pointer-events:auto}
+#gwLogBody:hover{overflow-y:auto;background:rgba(10,8,14,.82);max-height:240px;justify-content:flex-start}
+#gwLog.collapsed #gwLogBody{display:none}
+#gwLog .ln{opacity:.95}#gwLog .ln.kill{color:#fca5a5}#gwLog .ln.sys{color:#c4b5fd}#gwLog .ln.old{opacity:.55}
+/* Shortcut key badges on HUD buttons */
+.gw-key{position:absolute;top:1px;right:2px;font-family:'Almendra','Cinzel',serif;font-size:9px;line-height:11px;color:#fde68a;background:rgba(0,0,0,.72);border-radius:2px;padding:0 3px;pointer-events:none}
+#autoToggle button,#bottomRight button,#hudSkelBtn{position:relative}
+/* Minimap stays top-left and the menu buttons top-right in every preset (José, 2026-10-08) */
+/* Summon command buttons: left of the health bar, which stays centered */
+#gwCmd{position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);display:flex;gap:3px;pointer-events:auto}
+#gwCmd button{position:relative;-webkit-appearance:none;font-family:'Almendra','Cinzel',serif;font-size:11px;line-height:1;min-width:46px;height:24px;padding:0 6px;border-radius:4px;cursor:pointer;color:#cbb994;border:1px solid #0a0705;background:linear-gradient(180deg,rgba(38,30,22,.95),rgba(14,10,8,.96));box-shadow:inset 0 0 0 1px #6f5a36}
+#gwCmd button.on{color:#1a1208;background:linear-gradient(180deg,#fde68a,#d9b76a);box-shadow:inset 0 0 0 1px #fff3c4}
+#gwCmd button:hover{box-shadow:inset 0 0 0 1px #fde68a}
+#gwCmd .gw-key{top:-7px;right:-3px}
+/* Party frames: under the minimap */
+#gwParty{display:none;position:fixed;left:8px;top:170px;z-index:21;width:150px;flex-direction:column;gap:3px;font-family:'Almendra','Cinzel',serif;pointer-events:auto;cursor:pointer}
+#gwParty .pf{position:relative;height:22px;border-radius:3px;border:1px solid #0a0705;background:#120a0a;box-shadow:0 0 0 1px #6f5a36;overflow:hidden}
+#gwParty .pf i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(180deg,#4f9a5a,#2f6b3a 60%,#1d4526);transition:width .2s}
+#gwParty .pf.low i{background:linear-gradient(180deg,#f0564e,#8f1010)}
+#gwParty .pf.dead i{width:0!important}#gwParty .pf.dead{opacity:.55}
+#gwParty .pf b{position:absolute;left:6px;right:6px;top:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;font-weight:normal;color:#f3ead8;text-shadow:0 1px 2px #000;white-space:nowrap;overflow:hidden}
+#gwParty .pf b span:first-child{overflow:hidden;text-overflow:ellipsis}
+#gwParty .pf b span:last-child{font-size:11px;color:#e8dcc8;flex:0 0 auto}
+/* HUD edit mode */
+body.hud-edit .gw-hud-el{outline:2px dashed #fde68a;outline-offset:3px;cursor:move!important}
+body.hud-edit .gw-hud-el *{pointer-events:none!important}
+body.hud-edit .gw-hud-el{pointer-events:auto!important}
+#gwLayout{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:215;width:min(340px,calc(100vw - 16px));font-family:'Almendra','Cinzel',serif;background:radial-gradient(ellipse at 50% 0%,#17102a 0%,#07040d 85%);border:1px solid rgba(245,158,11,.55);border-radius:10px;box-shadow:0 12px 48px rgba(0,0,0,.85);color:var(--bone)}
+#gwLayout .hd{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(245,158,11,.35);cursor:grab}
+#gwLayout .hd b{font-size:16px;color:#fcd34d}
+#gwLayout .hd button{margin-left:auto}
+#gwLayout .bd{padding:10px 14px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+#gwLayout label{display:flex;align-items:center;gap:8px;cursor:pointer}
+#gwLayout .row{display:flex;gap:6px;flex-wrap:wrap}
+#gwLayout .gb{font-family:inherit;font-size:13px;padding:6px 12px;border-radius:4px;cursor:pointer;-webkit-appearance:none;border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.12);color:#fcd34d}
+#gwLayout .gb.on{background:#fcd34d;color:#1a1208}
+#gwLayout .sub{font-size:12px;color:var(--dim)}
+@media (max-width:700px){#gwLog{width:200px;font-size:12px;bottom:74px}#gwLogBody{max-height:84px}#gwCmd{position:static;transform:none;margin:0 0 3px;justify-content:center}#gwParty{width:120px}.asp-btn{width:46px;height:46px;min-width:46px}#hudHPBar{width:190px}}
