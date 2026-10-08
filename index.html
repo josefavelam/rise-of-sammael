@@ -191,7 +191,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
 .hud-bone{color:var(--gold)}.hud-hp{color:#f87171}.hud-gold{color:var(--gold)}.hud-skel{color:#86efac}
 
 /* ── BOTTOM-LEFT: minimap cluster ── */
-#minimapCluster{position:fixed;top:8px;left:8px;z-index:25;pointer-events:auto;display:none;flex-direction:column;align-items:stretch;gap:4px;width:max-content}
+#minimapCluster{position:fixed;top:8px;left:8px;z-index:25;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch;gap:4px;width:max-content}
 #mmAreaLabel{font-family:'Press Start 2P',monospace;font-size:6px;color:var(--bone);background:rgba(8,2,24,.92);border:2px solid #5b3cc4;border-radius:2px;padding:3px 6px;letter-spacing:0;pointer-events:none;white-space:nowrap;text-align:center;width:100%;box-sizing:border-box;box-shadow:inset 0 0 0 1px #2d1b69}
 #minimap{display:contents}/* legacy */
 #minimapCanvas{display:block;border-radius:6px;box-shadow:0 0 12px rgba(0,0,0,.7);width:100%;aspect-ratio:1;height:auto}
@@ -874,6 +874,19 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
         </div>
       </div>
       <div class="set-row" style="padding:8px 10px">
+        <div class="set-ico" style="font-size:16px;width:22px">🔍</div>
+        <div class="set-body">
+          <div class="set-label" style="font-size:10px">HUD Scale</div>
+          <div class="set-desc" style="font-size:8px">Size of HP bar, minimap, spells &amp; buttons</div>
+        </div>
+        <div class="set-ctrl">
+          <div class="range-wrap">
+            <input type="range" id="rng_hudScale" min="50" max="200" step="10" value="100" oninput="setSetting('hudScale',this.value)">
+            <span class="range-val" id="rng_hudScale_val">100%</span>
+          </div>
+        </div>
+      </div>
+      <div class="set-row" style="padding:8px 10px">
         <div class="set-ico" style="font-size:16px;width:22px">🌧️</div>
         <div class="set-body">
           <div class="set-label" style="font-size:10px">Weather Effects</div>
@@ -892,6 +905,17 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
         <div class="set-ctrl">
           <button class="toggle on" id="tog_haptics" onclick="toggleSetting('haptics');if(SETTINGS.haptics&&navigator.vibrate)navigator.vibrate(10);"></button>
         </div>
+      </div>
+      <div class="set-row" style="padding:8px 10px;border-top:1px solid rgba(124,58,237,.2);flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px;width:100%">
+          <div class="set-ico" style="font-size:16px;width:22px">⌨️</div>
+          <div class="set-body">
+            <div class="set-label" style="font-size:10px">Key Bindings</div>
+            <div class="set-desc" style="font-size:8px">Click a key to rebind, then press new key</div>
+          </div>
+          <button class="danger-btn" style="background:rgba(124,58,237,.15);border-color:rgba(124,58,237,.5);color:#c4b5fd;font-size:7px;padding:4px 8px;flex-shrink:0" onclick="_kbResetBindings()">Reset</button>
+        </div>
+        <div id="keybindGrid" style="display:grid;grid-template-columns:1fr auto;gap:3px 8px;font-family:'Press Start 2P',monospace;font-size:6px;color:#9d79cc;width:100%;padding:4px 0"></div>
       </div>
       <div class="set-row set-danger" style="padding:8px 10px">
         <div class="set-ico" style="font-size:16px;width:22px">🗑️</div>
@@ -1411,7 +1435,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
   </div>
 
   <!-- ── TOP-RIGHT: auto toggle ── -->
-  <div id="autoToggle"><button class="manual" onclick="toggleMinimapPopup()" id="mapBtn"><span style="font-size:16px;line-height:1">🗺</span><span>Map</span></button><button id="returnBtn" onclick="promptRetreat()"><span style="font-size:16px;line-height:1">🏠</span><span>Retreat</span></button><button class="manual" onclick="openSettings()"><span style="font-size:16px;line-height:1">⚙</span><span>Settings</span></button><button class="manual" id="autoBtn" onclick="toggleAuto()"><span style="font-size:16px;line-height:1">🤖</span><span>AUTO: OFF</span></button></div>
+  <div id="autoToggle"><button class="manual auto" onclick="toggleMinimapPopup()" id="mapBtn"><span style="font-size:16px;line-height:1">🗺</span><span>Map</span></button><button id="returnBtn" onclick="promptRetreat()"><span style="font-size:16px;line-height:1">🏠</span><span>Retreat</span></button><button class="manual" onclick="openSettings()"><span style="font-size:16px;line-height:1">⚙</span><span>Settings</span></button><button class="manual" id="autoBtn" onclick="toggleAuto()"><span style="font-size:16px;line-height:1">🤖</span><span>AUTO: OFF</span></button></div>
 
   <!-- ── RETREAT CONFIRMATION MODAL ── -->
   <div id="retreatConfirmModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:950;background:radial-gradient(ellipse at 50% 0%,#1a0540 0%,#050208 80%);border:1px solid rgba(168,85,247,.5);border-radius:18px;width:90%;max-width:380px;padding:24px;box-shadow:0 0 60px rgba(168,85,247,.3);text-align:center;pointer-events:all" onclick="event.stopPropagation()">
@@ -16046,7 +16070,37 @@ function loadGame(){
 // ═══════════════════════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
-var SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click',weather:true,haptics:true};
+var SETTINGS={sfx:true,sfxVol:80,musicVol:40,ambVol:50,autoDefault:false,autoSave:true,movement:'click',weather:true,haptics:true,hudScale:100};
+var KB_DEFAULT={moveUp:'w',moveDown:'s',moveLeft:'a',moveRight:'d',engage:' ',cycleTarget:'tab',disengage:'escape',spell1:'1',spell2:'2',spell3:'3',spell4:'4',risePanel:'6',ascension:'7',grid:'g',spellbook:'alt'};
+var KB_MAP={};
+function _loadKeyMap(){try{const s=JSON.parse(localStorage.getItem('necro_keybinds')||'{}');KB_MAP={...KB_DEFAULT,...s};}catch(e){KB_MAP={...KB_DEFAULT};}}
+function _saveKeyMap(){try{localStorage.setItem('necro_keybinds',JSON.stringify(KB_MAP));}catch(e){}}
+function _keyAction(key){for(const[act,k]of Object.entries(KB_MAP)){if(k===key)return act;}return null;}
+_loadKeyMap();
+var _kbRebinding=null;
+const _KB_LABELS={moveUp:'Move Up',moveDown:'Move Down',moveLeft:'Move Left',moveRight:'Move Right',engage:'Engage',cycleTarget:'Cycle Target',disengage:'Disengage',spell1:'Spell 1',spell2:'Spell 2',spell3:'Spell 3',spell4:'Spell 4',risePanel:'Rise Panel',ascension:'Ascension',grid:'Tactical Grid',spellbook:'Spellbook'};
+function _kbKeyLabel(k){if(k===' ')return'Space';if(k==='tab')return'Tab';if(k==='escape')return'Esc';if(k==='alt')return'Alt';if(k==='control')return'Ctrl';return k.toUpperCase();}
+function _kbRenderBindings(){
+  const g=document.getElementById('keybindGrid');if(!g)return;g.innerHTML='';
+  for(const[act,label] of Object.entries(_KB_LABELS)){
+    const lbl=document.createElement('span');lbl.textContent=label;lbl.style.color='#c4b5fd';
+    const btn=document.createElement('button');
+    btn.textContent=_kbRebinding===act?'press key...':_kbKeyLabel(KB_MAP[act]);
+    btn.style.cssText='font-family:"Press Start 2P",monospace;font-size:6px;padding:3px 8px;border-radius:2px;border:1px solid rgba(124,58,237,.5);background:'+((_kbRebinding===act)?'rgba(168,85,247,.4)':'rgba(0,0,0,.5)')+';color:#e9d5ff;cursor:pointer;min-width:50px;text-align:center';
+    btn.onclick=()=>{_kbRebinding=act;_kbRenderBindings();};
+    g.appendChild(lbl);g.appendChild(btn);
+  }
+}
+function _kbResetBindings(){KB_MAP={...KB_DEFAULT};_saveKeyMap();_kbRenderBindings();}
+document.addEventListener('keydown',function _kbRebindListener(e){
+  if(!_kbRebinding)return;
+  e.preventDefault();e.stopPropagation();
+  const key=e.key.toLowerCase();
+  if(key==='escape'){_kbRebinding=null;_kbRenderBindings();return;}
+  KB_MAP[_kbRebinding]=key;
+  _kbRebinding=null;
+  _saveKeyMap();_kbRenderBindings();
+},true);
 function loadSettings(){try{const s=JSON.parse(localStorage.getItem('necro_settings')||'{}');Object.assign(SETTINGS,s);}catch(e){}syncSettingsUI();}
 function saveSettings(){try{localStorage.setItem('necro_settings',JSON.stringify(SETTINGS));}catch(e){}}
 function syncSettingsUI(){
@@ -16065,12 +16119,23 @@ function syncSettingsUI(){
   if(t('rng_sfx')){t('rng_sfx').value=SETTINGS.sfxVol;t('rng_sfx_val').textContent=SETTINGS.sfxVol;}
   if(t('rng_music')){t('rng_music').value=SETTINGS.musicVol;t('rng_music_val').textContent=SETTINGS.musicVol;}
   if(t('rng_amb')){t('rng_amb').value=SETTINGS.ambVol;t('rng_amb_val').textContent=SETTINGS.ambVol;}
+  if(t('rng_hudScale')){t('rng_hudScale').value=SETTINGS.hudScale;t('rng_hudScale_val').textContent=SETTINGS.hudScale+'%';}
+  _applyHudScale();
+  _kbRenderBindings();
   try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');if(s.savedAt){const d=new Date(s.savedAt);if(t('lastSaveLabel'))t('lastSaveLabel').textContent='Last save: '+d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}}catch(e){}
   if(t('analyticsToggle'))t('analyticsToggle').checked=!!(GS.analyticsConsent);
 }
 function toggleSetting(k){SETTINGS[k]=!SETTINGS[k];saveSettings();syncSettingsUI();}
 function toggleMovement(){SETTINGS.movement=SETTINGS.movement==='click'?'joystick':'click';saveSettings();syncSettingsUI();_updateJoystickVisibility();}
-function setSetting(k,v){SETTINGS[k]=parseInt(v);saveSettings();syncSettingsUI();if(k==='sfxVol')setVolume('sfx',v);if(k==='musicVol')setVolume('music',v);if(k==='ambVol')setVolume('ambient',v);}
+function setSetting(k,v){SETTINGS[k]=parseInt(v);saveSettings();syncSettingsUI();if(k==='sfxVol')setVolume('sfx',v);if(k==='musicVol')setVolume('music',v);if(k==='ambVol')setVolume('ambient',v);if(k==='hudScale')_applyHudScale();}
+function _applyHudScale(){
+  const s=(SETTINGS.hudScale||100)/100;
+  ['spellArea','bottomRight','minimapCluster','autoToggle'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.style.transform=s===1?'':'scale('+s+')';
+    el.style.transformOrigin=id==='spellArea'?'bottom right':id==='bottomRight'?'top right':id==='minimapCluster'?'top left':'top right';
+  });
+}
 function _updateJoystickVisibility(){
   if(window._updateJoystickDisplay)window._updateJoystickDisplay();
 }
@@ -16910,14 +16975,7 @@ let sbTab='summon';
 let sbCat='all';
 function stopCatRoom(){if(typeof _catAnimId!=='undefined'){clearInterval(_catAnimId);_catAnimId=null;}}
 function showScreen(id){if(id!=='village')stopVilCanvas();if(id!=='castle')stopCastleRoom();if(id!=='catacombs')stopCatRoom();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=document.getElementById(id);if(el)el.classList.add('active');
-  // ── Audio scene transitions ──
-  if(id==='castle'){startAmbience('castle');startMusic('menu');}
-  else if(id==='village'){startAmbience('village');startMusic('village');}
-  else if(id==='worldMapScreen'){startAmbience('castle');startMusic('worldmap');}
-  else if(id==='nwMapScreen'){startAmbience('castle');startMusic('worldmap');}
-  else if(id==='catacombs'){startAmbience('dungeon');startMusic('catacomb');}
-  else if(id==='hellbridge'){startAmbience('hellbridge');startMusic('hellbridge');}
-  else if(id==='hub'||id==='spellbook'||id==='army'||id==='prestigeScreen'||id==='aviary'){startAmbience('castle');startMusic('menu');}
+  // ── Audio scene transitions (disabled — transition sounds removed) ──
 }
 // ── INIT on load ──
 function initGame(){
@@ -18223,7 +18281,7 @@ function initRaid(raidKey,floorNum,opts){
   const _mmal=document.getElementById('mmAreaLabel');
   if(_mmal)_mmal.textContent=`${cfg.ico} ${cfg.name} · F${floorNum}/${cfg.floors}`;
   const _mmc=document.getElementById('minimapCluster');
-  if(_mmc)_mmc.style.display='none'; // closed by default; player opens via Map button
+  if(_mmc)_mmc.style.display='flex'; // open by default
   const _spa=document.getElementById('spellArea');
   if(_spa)_spa.style.display='flex';
   const _br=document.getElementById('bottomRight');
@@ -18319,7 +18377,7 @@ function initRaid(raidKey,floorNum,opts){
   }
   cancelAnimationFrame(animId);
   WeatherSystem.init(cfg);
-  startAmbience('dungeon');startMusic('combat');
+  // startAmbience/startMusic removed — transition sounds disabled
   if(floorNum===1)Analytics.raidStart(cfg.name||raidKey);
   animId=requestAnimationFrame(loop);
 }
@@ -20406,7 +20464,7 @@ function tickNecro(dt,t){
     if(sd<28){
       RS.descending=true;
       if(RS.floorNum<RS.floorTotal){
-        SND.stair();CombatPresentation.floorBanner(`FLOOR ${RS.floorNum+1}`,RS.cfg&&RS.cfg.name?RS.cfg.name.toUpperCase():'','#fcd34d');flash(`🪜 Descending to Floor ${RS.floorNum+1}...`,16,'#fcd34d');
+        /* SND.stair() removed */CombatPresentation.floorBanner(`FLOOR ${RS.floorNum+1}`,RS.cfg&&RS.cfg.name?RS.cfg.name.toUpperCase():'','#fcd34d');flash(`🪜 Descending to Floor ${RS.floorNum+1}...`,16,'#fcd34d');
         // Ascended auto-heal between floors (prestige 16+)
         const _ahPct=GS.prestAutoHealPct();
         if(_ahPct>0){
@@ -22095,7 +22153,7 @@ function spawnBoss(){
   CombatPresentation.bossIntro(bd.name,RS.cfg.ico||'💀',bColor,()=>{
     document.getElementById('bossBar').style.display='flex';
     document.getElementById('bossName').textContent=bd.name.toUpperCase();
-    SND.boss();startAmbience('boss');startMusic('boss');
+    /* SND.boss() + boss ambience removed */
     flash(`${RS.cfg.ico} ${bd.name} AWAKENS!\nSlay the ${bd.name} or perish!`,18,bColor);
   });
 }
@@ -24449,7 +24507,7 @@ function finishRaid(){
   // Horizontal sweep transition back to castle
   TransitionManager.play('hSweep',700,{
     onMid:()=>{
-      RS=null;stopAmbience();startAmbience('castle');startMusic(_wasDefeat?'menu':'victory');if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
+      RS=null;stopAmbience();/* startAmbience/startMusic removed — transition sounds disabled */if(SETTINGS.autoSave)saveGame(false);renderArmy();renderHub();
   if(typeof checkPendingASI==='function')checkPendingASI();
       const kbHUD=document.getElementById('kbTargetHUD');if(kbHUD)kbHUD.style.display='none';
       if(_wasDefeat)CR=null;
@@ -28966,9 +29024,7 @@ function drawCastleRoom() {
     const isNear=CR&&CR.nearObj&&CR.nearObj.id===obj.id;
     if(isNear){
       const gr=obj.tapR||22;
-      c.fillStyle=`rgba(255,255,255,${0.05+Math.sin(t_now*.007)*.04})`;
-      c.beginPath();c.arc(op.x,op.y,gr,0,Math.PI*2);c.fill();
-      c.strokeStyle=obj.color;c.lineWidth=1.5;c.beginPath();c.arc(op.x,op.y,gr,0,Math.PI*2);c.stroke();
+      // Proximity glow circles removed — keep only text label
       c.font='bold 6px "Press Start 2P",monospace';c.textAlign='center';
       c.fillStyle='rgba(0,0,0,.88)';c.fillRect(op.x-40,op.y-gr-12,80,14);
       c.fillStyle=obj.color;c.fillText('▶ '+obj.label,op.x,op.y-gr-2);
@@ -29029,7 +29085,7 @@ function crDrawRoomInterior(c,rm,b,t,fl){
       if(false){
         c.save();c.fillStyle=`rgba(167,139,250,${0.12+mg})`;c.beginPath();c.ellipse(mx2,cy,16,24,0,0,Math.PI*2);c.fill();c.restore();
       }
-      c.strokeStyle=mirrorNear?PALETTE.frameGlow:'#7c3aed';c.lineWidth=mirrorNear?2.5:2;
+      c.strokeStyle='#7c3aed';c.lineWidth=2;
       c.beginPath();c.ellipse(mx2,cy,12,18,0,0,Math.PI*2);c.stroke();
       c.fillStyle=`rgba(124,58,237,${0.10+mg})`;c.beginPath();c.ellipse(mx2,cy,12,18,0,0,Math.PI*2);c.fill();
       c.fillStyle=`rgba(200,180,255,${0.15+mg*.5})`;c.beginPath();c.ellipse(mx2-3,cy-4,4,8,-.3,0,Math.PI*2);c.fill();
@@ -32218,7 +32274,7 @@ function initSurvival() {
   _survCanvas.addEventListener('mousedown', survMouse);
 
   buildSpellBar();
-  startAmbience('dungeon');startMusic('catacomb');
+  /* startAmbience/startMusic removed — transition sounds disabled */
   cancelAnimationFrame(animId);
 
   // Start first wave
@@ -33149,7 +33205,7 @@ function endSurvival(result) {
   devPetGainXP(SV.xpGained);
   GS.necroHP = GS.necroMaxHP; // Full heal on exit
   cancelAnimationFrame(_svAnimId);
-  stopAmbience();startAmbience('castle');startMusic(result==='victory'?'victory':'menu');
+  stopAmbience();/* startAmbience/startMusic removed — transition sounds disabled */
   if(typeof checkPendingASI==='function')checkPendingASI();
 
   // Restore returnBtn to default raid behavior (survival had overridden it)
@@ -33827,7 +33883,7 @@ function initPlatformer(region) {
   _pfCanvas.addEventListener('mouseup',pfMouseUp);
 
   buildSpellBar();
-  startAmbience('dungeon');startMusic('catacomb');
+  /* startAmbience/startMusic removed — transition sounds disabled */
   cancelAnimationFrame(animId);
   // Camera snap to player
   const _pfVW0 = GAME_ZOOM>1 ? W/GAME_ZOOM : W;
@@ -34156,7 +34212,7 @@ function endPlatformer(result){
   devPetGainXP(PF.xpGained);
   GS.necroHP=GS.necroMaxHP;
   cancelAnimationFrame(_pfAnimId);
-  stopAmbience();startAmbience('castle');startMusic(result==='victory'?'victory':'menu');
+  stopAmbience();/* startAmbience/startMusic removed — transition sounds disabled */
   _pfCanvas.removeEventListener('touchstart',pfTouchStart);
   _pfCanvas.removeEventListener('touchend',pfTouchEnd);
   _pfCanvas.removeEventListener('mousedown',pfMouseDown);
@@ -35801,10 +35857,10 @@ function _kbCastSlot(slot){
 function _kbApplyWASD(){
   const eng=_kbGetActiveEngine();if(!eng)return;
   let dx=0,dy=0;
-  if(_KB_KEYS['w']||_KB_KEYS['arrowup'])   dy=-1;
-  if(_KB_KEYS['s']||_KB_KEYS['arrowdown']) dy=+1;
-  if(_KB_KEYS['a']||_KB_KEYS['arrowleft']) dx=-1;
-  if(_KB_KEYS['d']||_KB_KEYS['arrowright'])dx=+1;
+  if(_KB_KEYS[KB_MAP.moveUp]||_KB_KEYS['arrowup'])   dy=-1;
+  if(_KB_KEYS[KB_MAP.moveDown]||_KB_KEYS['arrowdown']) dy=+1;
+  if(_KB_KEYS[KB_MAP.moveLeft]||_KB_KEYS['arrowleft']) dx=-1;
+  if(_KB_KEYS[KB_MAP.moveRight]||_KB_KEYS['arrowright'])dx=+1;
   if(!dx&&!dy)return;
   const step=8; // pixels per frame at 60fps ≈ 480px/s
   // Drunken Staff: invert keyboard direction
@@ -35943,30 +35999,31 @@ const _origTickSurvNecro=tickSurvivalNecro;
 tickSurvivalNecro=function(dt,t){_origTickSurvNecro(dt,t);_kbApplyWASD();_kbTickTargetHUD();};
 
 document.addEventListener('keydown',e=>{
+  if(_kbRebinding)return; // let rebind listener handle it
   // Never intercept when typing in an input/textarea (e.g. co-op code field)
   const tag=(document.activeElement||{}).tagName;
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
   const key=e.key.toLowerCase();
   _KB_KEYS[key]=true;
-  if(['w','a','s','d',' '].includes(key)||e.key==='Tab'||e.key==='Alt')e.preventDefault();
-  switch(key){
-    case ' ':_kbEngageNearest();break;
-    case 'tab':_kbCycleTarget();break;
-    case 'escape':_kbDisengage();break;
+  const _mvKeys=[KB_MAP.moveUp,KB_MAP.moveDown,KB_MAP.moveLeft,KB_MAP.moveRight,KB_MAP.engage,'arrowup','arrowdown','arrowleft','arrowright'];
+  if(_mvKeys.includes(key)||e.key==='Tab'||e.key==='Alt')e.preventDefault();
+  const _act=_keyAction(key);
+  switch(_act||key){
+    case 'engage':_kbEngageNearest();break;
+    case 'cycleTarget':e.preventDefault();_kbCycleTarget();break;
+    case 'disengage':_kbDisengage();break;
     case 'control':{
-      // Show Ctrl overlay only while key is held (no blocking)
       const ov=document.getElementById('kbHelpOverlay');
       if(ov){ov.style.display='flex';ov.style.pointerEvents='none';}
       break;
     }
-    case 'alt':{_kbOpenAltSpellbook();break;}
-    case '1':_kbCastSlot(1);break;
-    case '2':_kbCastSlot(2);break;
-    case '3':_kbCastSlot(3);break;
-    case '4':_kbCastSlot(4);break;
-    case '6':if(RS&&!RS.done&&!SV)toggleRisePanel();break;
-    case '7':if(RS&&!RS.done&&!SV){
-      // Key 7: Ascension form (replaces Lich) — priority: set ascension > Lich
+    case 'spellbook':_kbOpenAltSpellbook();break;
+    case 'spell1':_kbCastSlot(1);break;
+    case 'spell2':_kbCastSlot(2);break;
+    case 'spell3':_kbCastSlot(3);break;
+    case 'spell4':_kbCastSlot(4);break;
+    case 'risePanel':if(RS&&!RS.done&&!SV)toggleRisePanel();break;
+    case 'ascension':if(RS&&!RS.done&&!SV){
       if(_rikkerActive&&GS.necroLv>=20)toggleSeraphForm();
       else if(_meruemActive&&GS.necroLv>=20)toggleHeroOfTimeForm();
       else if(_meltingActive&&GS.necroLv>=20)toggleThundergodForm();
@@ -36855,7 +36912,7 @@ function _checkAllReady() {
 
 // ── Door-open visual ──────────────────────────────────────────────────────────
 function _playDoorOpen() {
-  try { [200,280,360].forEach((f,i) => playTone(f,'sawtooth',0.18,0.28,i*0.1)); } catch (_) {}
+  /* playTone door-open SFX removed */
   const el = document.createElement('div');
   el.style.cssText = 'position:fixed;inset:0;z-index:999;pointer-events:none;background:rgba(129,140,248,0);transition:background .25s ease-in,opacity .35s ease-out .25s';
   document.body.appendChild(el);
