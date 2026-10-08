@@ -194,7 +194,7 @@ button[onclick*="close"],button[onclick*="Close"],button[onclick*="toggle"],butt
 #minimapCluster{position:fixed;top:8px;left:8px;z-index:25;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch;gap:4px;width:max-content}
 #mmAreaLabel{font-family:'Almendra','Cinzel',serif;font-size:6px;color:var(--bone);background:rgba(8,2,24,.92);border:2px solid #5b3cc4;border-radius:2px;padding:3px 6px;letter-spacing:0;pointer-events:none;white-space:nowrap;text-align:center;width:100%;box-sizing:border-box;box-shadow:inset 0 0 0 1px #2d1b69}
 #minimap{display:contents}/* legacy */
-#minimapCanvas{display:block;border-radius:3px;box-shadow:0 0 16px rgba(0,0,0,.8),0 0 30px rgba(168,85,247,.15);width:100%;aspect-ratio:1;height:auto}
+#minimapCanvas{display:block;border-radius:3px;box-shadow:0 0 16px rgba(0,0,0,.8),0 0 30px rgba(168,85,247,.15);width:120px;height:120px;flex:none;align-self:center}
 #returnBtn{font-family:'Almendra','Cinzel',serif;font-size:6px;border-radius:2px;padding:5px 8px;cursor:pointer;-webkit-appearance:none;border:2px solid #166534;background:rgba(0,40,0,.9);color:var(--grn);display:flex;flex-direction:column;align-items:center;gap:1px;min-width:44px;box-shadow:inset 0 0 0 1px #052e16,0 2px 6px rgba(0,0,0,.5)}
 #returnBtn:active{transform:scale(.94)}
 
@@ -3562,7 +3562,20 @@ var TransitionManager=(function(){
     }
   }
 
+  function _drawRaidFade(p,opts){
+    // Clean raid-entry transition: fade to solid black (0→0.4), hold black across the
+    // screen/engine switch (0.4→0.6), then fade the first raid frame in (0.6→1). No flashes.
+    const w=window.innerWidth,h=window.innerHeight;
+    let a=p<0.4?p/0.4:(p<0.6?1:1-(p-0.6)/0.4);
+    a=Math.max(0,Math.min(1,a));
+    a=a*a*(3-2*a); // smoothstep easing
+    _ctx.clearRect(0,0,w,h);
+    _ctx.fillStyle='rgba(0,0,0,'+a+')';
+    _ctx.fillRect(0,0,w,h);
+  }
+
   const EFFECTS={
+    raidFade:_drawRaidFade,
     fadeBlack:_drawFadeBlack,
     battleFlash:_drawBattleFlash,
     irisWipe:_drawIrisWipe,
@@ -3574,14 +3587,31 @@ var TransitionManager=(function(){
   // ── Animation loop ──
   function _tick(ts){
     if(!_cur){_processQueue();return;}
+    const drawFn=EFFECTS[_cur.type];
+    // Hold phase (opts.hold): after onMid has switched screens, stay on the covered midpoint
+    // until the new engine has initialised and is rendering smoothly, so its (blocking) setup
+    // and first frames are never visible. Released after >=160ms of cover once two frames
+    // arrive <50ms apart, with a 3s safety cap.
+    if(_cur.opts.hold&&_cur._midFired&&!_cur._released){
+      const since=ts-_cur._midAt, smooth=(ts-_cur._lastTs)<50;
+      _cur._lastTs=ts;
+      if((since>=160&&smooth)||since>3000){
+        _cur._released=true;
+        _cur.t0=ts-_cur.dur*0.6; // resume at the start of the reveal
+      } else {
+        if(drawFn)drawFn(0.5,_cur.opts);
+        _rafId=requestAnimationFrame(_tick);
+        return;
+      }
+    }
     const elapsed=ts-_cur.t0;
     const p=Math.min(1,elapsed/_cur.dur);
-    const drawFn=EFFECTS[_cur.type];
     if(drawFn)drawFn(p,_cur.opts);
     // Fire onMid callback at midpoint (once)
     if(p>=0.5&&_cur.onMid&&!_cur._midFired){
-      _cur._midFired=true;
+      _cur._midFired=true;_cur._midAt=ts;_cur._lastTs=ts;
       try{_cur.onMid();}catch(e){console.warn('TransitionManager onMid error',e);}
+      if(_cur.opts.hold){_rafId=requestAnimationFrame(_tick);return;}
     }
     if(p>=1){
       _ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
@@ -3606,7 +3636,7 @@ var TransitionManager=(function(){
 
   // ── Public API ──
   function play(type,dur,opts){
-    // type: 'fadeBlack'|'battleFlash'|'irisWipe'|'hSweep'|'deathFade'|'victoryFlash'
+    // type: 'raidFade'|'fadeBlack'|'battleFlash'|'irisWipe'|'hSweep'|'deathFade'|'victoryFlash'
     // dur: duration in ms (default 600)
     // opts: {onMid, onDone, direction, ...}
     if(!EFFECTS[type])return;
@@ -16555,9 +16585,12 @@ function _applyHudScale(){
   // Update minimap canvas resolution to match scale
   const mmCv=document.getElementById('minimapCanvas');
   if(mmCv){
+    // Backing store = 120 logical px x HUD scale x device pixel ratio (integer multiple of 120 keeps frame lines on whole pixels).
+    // CSS size stays fixed at 120px, so changing resolution never changes layout.
     const baseSize=120;
-    const scaledSize=Math.round(baseSize*Math.max(s,1));
-    if(mmCv.width!==scaledSize){mmCv.width=scaledSize;mmCv.height=scaledSize;}
+    const mult=Math.max(1,Math.min(4,Math.ceil(Math.max(s,1)*(window.devicePixelRatio||1))));
+    const scaledSize=baseSize*mult;
+    if(mmCv.width!==scaledSize||mmCv.height!==scaledSize){mmCv.width=scaledSize;mmCv.height=scaledSize;}
   }
 }
 function _updateJoystickVisibility(){
@@ -18139,8 +18172,8 @@ function selectRaid(key){
   const _mods=_ngSelectedMods.size?new Set(_ngSelectedMods):null;
   if(_mods)Analytics.ngPlusStart(_mods);
   closeRaidSelect();
-  // Battle encounter flash (Pokémon-style BW flicker) then fade in
-  TransitionManager.play('battleFlash',500,{
+  // Clean fade-to-black, hold while the raid initialises, then fade in (no flash frames)
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       requestAnimationFrame(()=>requestAnimationFrame(()=>initRaid(key,1,_mods?{ngMods:_mods}:undefined)));
@@ -24119,9 +24152,18 @@ function hpBar(x,y,w,h,ratio,col){
 function drawMinimap(){
   if(!RS)return;
   const mm=mmCtx,W=110,H=110,scale=W/MAP;
-  mm.clearRect(0,0,120,120);
-  mm.fillStyle='#06000f';mm.fillRect(0,0,120,120);
+  const cw=mmCanvas.width,ch=mmCanvas.height;
+  const sc=cw/120; // backing-store pixels per logical minimap pixel
+  // Reset all canvas state every frame so nothing leaks between frames or between raid/survival minimaps
+  mm.setTransform(1,0,0,1,0,0);
+  mm.globalAlpha=1;mm.globalCompositeOperation='source-over';mm.shadowBlur=0;mm.shadowColor='transparent';
+  mm.lineCap='butt';mm.lineJoin='miter';mm.textAlign='start';mm.textBaseline='alphabetic';
+  mm.clearRect(0,0,cw,ch);
+  mm.fillStyle='#06000f';mm.fillRect(0,0,cw,ch);
   const cfg=RS.cfg||RAID_CONFIGS.cemetery;
+  // Map content is drawn in 120x120 logical space, centred inside the frame (110px map + 5px margin)
+  mm.save();
+  mm.scale(sc,sc);mm.translate(5,5);
 
   // Draw tile grid on minimap (floor = dim, wall = dark)
   if(RS.grid){
@@ -24188,55 +24230,67 @@ function drawMinimap(){
       }
     });
   }
-  // ── Elaborate minimap frame ──
-  const cw=mmCanvas.width,ch=mmCanvas.height;
-  const sc=cw/120; // scale factor for frame drawing
+  mm.restore();
+  _drawMinimapFrame(mm,cw,ch,{
+    accent:cfg.accentCol||'#a855f7',glow:'rgba(168,85,247,.25)',flourish:'rgba(252,211,77,.6)',
+    diamonds:true,compass:true,label:`F${RS.floorNum}/${RS.floorTotal}`,labelCol:'rgba(252,211,77,.7)'
+  });
+}
+// Shared ornate minimap frame (raid + survival). Draws in backing-store pixels with every
+// coordinate snapped to whole pixels, inside its own save/restore so no state leaks out.
+function _drawMinimapFrame(mm,cw,ch,o){
+  const sc=cw/120,R=Math.round;
+  mm.save();
+  mm.setTransform(1,0,0,1,0,0);
+  mm.shadowBlur=0;mm.globalAlpha=1;mm.lineCap='butt';mm.lineJoin='miter';
   // Vignette overlay — darkens edges
   const vig=mm.createRadialGradient(cw/2,ch/2,cw*.25,cw/2,ch/2,cw*.72);
   vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(.7,'rgba(0,0,0,0)');vig.addColorStop(1,'rgba(0,0,0,.55)');
   mm.fillStyle=vig;mm.fillRect(0,0,cw,ch);
-  // Inner border glow
-  mm.strokeStyle='rgba(168,85,247,.25)';mm.lineWidth=3*sc;
-  mm.strokeRect(2*sc,2*sc,cw-4*sc,ch-4*sc);
-  // Outer border — ornate double-line
-  mm.strokeStyle=cfg.accentCol||'#a855f7';mm.lineWidth=2*sc;
-  mm.strokeRect(0,0,cw,ch);
-  mm.strokeStyle='rgba(232,220,200,.35)';mm.lineWidth=1*sc;
-  mm.strokeRect(1*sc,1*sc,cw-2*sc,ch-2*sc);
-  // Corner flourishes — small ornate L-brackets
-  const fl=12*sc; // flourish length
-  const fw=1.5*sc; // flourish width
-  mm.strokeStyle='rgba(252,211,77,.6)';mm.lineWidth=fw;mm.lineCap='round';
-  // Top-left
-  mm.beginPath();mm.moveTo(0,fl);mm.lineTo(0,0);mm.lineTo(fl,0);mm.stroke();
-  // Top-right
-  mm.beginPath();mm.moveTo(cw-fl,0);mm.lineTo(cw,0);mm.lineTo(cw,fl);mm.stroke();
-  // Bottom-left
-  mm.beginPath();mm.moveTo(0,ch-fl);mm.lineTo(0,ch);mm.lineTo(fl,ch);mm.stroke();
-  // Bottom-right
-  mm.beginPath();mm.moveTo(cw-fl,ch);mm.lineTo(cw,ch);mm.lineTo(cw,ch-fl);mm.stroke();
-  // Inner corner diamonds
-  const dd=3.5*sc;
-  [[dd,dd],[cw-dd,dd],[dd,ch-dd],[cw-dd,ch-dd]].forEach(([cx,cy])=>{
-    mm.fillStyle='rgba(252,211,77,.45)';
-    mm.beginPath();mm.moveTo(cx,cy-dd*.7);mm.lineTo(cx+dd*.7,cy);mm.lineTo(cx,cy+dd*.7);mm.lineTo(cx-dd*.7,cy);mm.closePath();mm.fill();
+  // Bands are filled rings (not half-clipped strokes), so they never overlap or blur:
+  // 0-2 accent · 2-3 bone line · 3-6 soft glow
+  const ring=(inset,w,col)=>{
+    const i=R(inset*sc),t=Math.max(1,R(w*sc));
+    mm.fillStyle=col;
+    mm.fillRect(i,i,cw-2*i,t);mm.fillRect(i,ch-i-t,cw-2*i,t);
+    mm.fillRect(i,i+t,t,ch-2*i-2*t);mm.fillRect(cw-i-t,i+t,t,ch-2*i-2*t);
+  };
+  ring(3,3,o.glow);
+  ring(0,2,o.accent);
+  ring(2,1,'rgba(232,220,200,.35)');
+  // Corner flourishes — L-brackets drawn over the accent band
+  const fl=R(12*sc),fw=Math.max(1,R(1.5*sc));
+  mm.fillStyle=o.flourish;
+  [[0,0,1,1],[cw,0,-1,1],[0,ch,1,-1],[cw,ch,-1,-1]].forEach(([x,y,dx,dy])=>{
+    mm.fillRect(dx>0?x:x-fl,dy>0?y:y-fw,fl,fw);
+    mm.fillRect(dx>0?x:x-fw,dy>0?y+fw:y-fl,fw,fl-fw);
   });
-  // Compass rose — bottom-right corner
-  const crx=cw-10*sc,cry=ch-10*sc,crs=4*sc;
-  mm.fillStyle='rgba(232,220,200,.45)';mm.strokeStyle='rgba(232,220,200,.3)';mm.lineWidth=.5*sc;
-  // N-S axis
-  mm.beginPath();mm.moveTo(crx,cry-crs);mm.lineTo(crx+crs*.3,cry);mm.lineTo(crx,cry+crs*.65);mm.lineTo(crx-crs*.3,cry);mm.closePath();mm.fill();mm.stroke();
-  // E-W axis
-  mm.beginPath();mm.moveTo(crx+crs,cry);mm.lineTo(crx,cry+crs*.3);mm.lineTo(crx-crs*.65,cry);mm.lineTo(crx,cry-crs*.3);mm.closePath();mm.fill();mm.stroke();
-  // N label
-  mm.font=Math.round(5*sc)+'px "Almendra","Cinzel",serif';mm.fillStyle='rgba(252,211,77,.7)';mm.textAlign='center';
-  mm.fillText('N',crx,cry-crs-1.5*sc);
-  // Floor indicator — bottom-left with ornate styling
-  mm.textAlign='left';
-  mm.font='bold '+Math.round(6*sc)+'px "Almendra","Cinzel",serif';
-  mm.fillStyle='rgba(0,0,0,.6)';mm.fillText(`F${RS.floorNum}/${RS.floorTotal}`,4*sc,ch-4*sc+1*sc);
-  mm.fillStyle='rgba(252,211,77,.7)';mm.fillText(`F${RS.floorNum}/${RS.floorTotal}`,3*sc,ch-4*sc);
-  mm.textAlign='start'; // reset
+  // Inner corner diamonds — sit just inside the glow band, clear of the brackets
+  if(o.diamonds){
+    const dc=R(9*sc),dr=Math.max(2,R(2.5*sc));
+    mm.fillStyle='rgba(252,211,77,.55)';
+    [[dc,dc],[cw-dc,dc],[dc,ch-dc],[cw-dc,ch-dc]].forEach(([cx,cy])=>{
+      mm.beginPath();mm.moveTo(cx,cy-dr);mm.lineTo(cx+dr,cy);mm.lineTo(cx,cy+dr);mm.lineTo(cx-dr,cy);mm.closePath();mm.fill();
+    });
+  }
+  // Compass rose — right edge, above the bottom-right diamond
+  if(o.compass){
+    const crx=R(cw-11*sc),cry=R(ch-24*sc),crs=R(5*sc);
+    mm.fillStyle='rgba(232,220,200,.55)';
+    mm.beginPath();mm.moveTo(crx,cry-crs);mm.lineTo(crx+crs*.3,cry);mm.lineTo(crx,cry+crs*.65);mm.lineTo(crx-crs*.3,cry);mm.closePath();mm.fill();
+    mm.beginPath();mm.moveTo(crx+crs,cry);mm.lineTo(crx,cry+crs*.3);mm.lineTo(crx-crs*.65,cry);mm.lineTo(crx,cry-crs*.3);mm.closePath();mm.fill();
+    mm.font=R(5*sc)+'px "Almendra","Cinzel",serif';mm.fillStyle='rgba(252,211,77,.8)';mm.textAlign='center';mm.textBaseline='alphabetic';
+    mm.fillText('N',crx,cry-crs-R(1.5*sc));
+  }
+  // Label — bottom-left, clear of the corner diamond
+  if(o.label){
+    const lx=R(15*sc),ly=R(ch-8*sc);
+    mm.textAlign='left';mm.textBaseline='alphabetic';
+    mm.font='bold '+R(7*sc)+'px "Almendra","Cinzel",serif';
+    mm.fillStyle='rgba(0,0,0,.7)';mm.fillText(o.label,lx+Math.max(1,R(sc)),ly+Math.max(1,R(sc)));
+    mm.fillStyle=o.labelCol;mm.fillText(o.label,lx,ly);
+  }
+  mm.restore();
 }
 
 // ── HUD UPDATE ──
@@ -26454,7 +26508,7 @@ function startRegionRaid(region, raidDef) {
   closeWorldMap();
   activeRaid = raidDef.key;
   _pendingRegionRaid = {region, raidDef};
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       setTimeout(() => {
@@ -32633,7 +32687,7 @@ let _survCamX = 0, _survCamY = 0; // survival camera (world coords)
 // Survival uses the main game canvas + raid HUD
 function startSurvivalFromCatacombs(){
   stopCatRoom();
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       setTimeout(()=>startSurvival(),80);
@@ -32646,7 +32700,7 @@ function startSurvival() {
     return;
   }
   const m=document.getElementById('castleMenu');if(m)m.style.display='none';
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       setTimeout(initSurvival, 50);
@@ -33517,10 +33571,17 @@ function drawSurvival(t) {
 function drawSurvivalMinimap(){
   const mc=document.getElementById('minimapCanvas');if(!mc||!SV)return;
   const mm=mc.getContext('2d');
-  const W2=120,H2=120;
-  mm.clearRect(0,0,W2,H2);
+  const W2=110,H2=110;
+  const cw2=mc.width,ch2=mc.height,sc2=cw2/120;
+  // Reset all canvas state every frame (this canvas is shared with the raid minimap)
+  mm.setTransform(1,0,0,1,0,0);
+  mm.globalAlpha=1;mm.globalCompositeOperation='source-over';mm.shadowBlur=0;mm.shadowColor='transparent';
+  mm.lineCap='butt';mm.lineJoin='miter';mm.textAlign='start';mm.textBaseline='alphabetic';
+  mm.clearRect(0,0,cw2,ch2);
   // Dark background
-  mm.fillStyle='#100008';mm.fillRect(0,0,W2,H2);
+  mm.fillStyle='#100008';mm.fillRect(0,0,cw2,ch2);
+  mm.save();
+  mm.scale(sc2,sc2);mm.translate(5,5);
   // Proportional scale: SV uses screen coords directly
   const scX=W2/SV.W, scY=H2/SV.H;
   // Hell gate (red left)
@@ -33540,32 +33601,11 @@ function drawSurvivalMinimap(){
     mm.fillStyle='#a855f7';mm.shadowColor='#a855f7';mm.shadowBlur=4;
     mm.beginPath();mm.arc(SV.necro.x*scX,SV.necro.y*scY,4,0,Math.PI*2);mm.fill();mm.shadowBlur=0;
   }
-  // Wave label
-  mm.font='6px "Almendra","Cinzel",monospace';mm.fillStyle='rgba(232,200,200,.6)';
-  // ── Elaborate minimap frame (survival) ──
-  const cw2=mc.width,ch2=mc.height;
-  const sc2=cw2/120;
-  // Vignette overlay
-  const vig2=mm.createRadialGradient(cw2/2,ch2/2,cw2*.25,cw2/2,ch2/2,cw2*.72);
-  vig2.addColorStop(0,'rgba(0,0,0,0)');vig2.addColorStop(.7,'rgba(0,0,0,0)');vig2.addColorStop(1,'rgba(0,0,0,.55)');
-  mm.fillStyle=vig2;mm.fillRect(0,0,cw2,ch2);
-  // Inner glow
-  mm.strokeStyle='rgba(239,68,68,.2)';mm.lineWidth=3*sc2;
-  mm.strokeRect(2*sc2,2*sc2,cw2-4*sc2,ch2-4*sc2);
-  // Outer double border
-  mm.strokeStyle='rgba(239,68,68,.6)';mm.lineWidth=2*sc2;mm.strokeRect(0,0,cw2,ch2);
-  mm.strokeStyle='rgba(232,220,200,.3)';mm.lineWidth=1*sc2;mm.strokeRect(1*sc2,1*sc2,cw2-2*sc2,ch2-2*sc2);
-  // Corner flourishes
-  const fl2=12*sc2,fw2=1.5*sc2;
-  mm.strokeStyle='rgba(239,100,68,.5)';mm.lineWidth=fw2;mm.lineCap='round';
-  mm.beginPath();mm.moveTo(0,fl2);mm.lineTo(0,0);mm.lineTo(fl2,0);mm.stroke();
-  mm.beginPath();mm.moveTo(cw2-fl2,0);mm.lineTo(cw2,0);mm.lineTo(cw2,fl2);mm.stroke();
-  mm.beginPath();mm.moveTo(0,ch2-fl2);mm.lineTo(0,ch2);mm.lineTo(fl2,ch2);mm.stroke();
-  mm.beginPath();mm.moveTo(cw2-fl2,ch2);mm.lineTo(cw2,ch2);mm.lineTo(cw2,ch2-fl2);mm.stroke();
-  // Wave label — styled
-  mm.font='bold '+Math.round(6*sc2)+'px "Almendra","Cinzel",serif';
-  mm.fillStyle='rgba(0,0,0,.6)';mm.fillText(`Wave ${SV.wave}`,4*sc2,ch2-4*sc2+1*sc2);
-  mm.fillStyle='rgba(239,100,68,.7)';mm.fillText(`Wave ${SV.wave}`,3*sc2,ch2-4*sc2);
+  mm.restore();
+  _drawMinimapFrame(mm,cw2,ch2,{
+    accent:'rgba(239,68,68,.75)',glow:'rgba(239,68,68,.2)',flourish:'rgba(252,160,100,.7)',
+    diamonds:true,compass:false,label:`Wave ${SV.wave}`,labelCol:'rgba(252,160,100,.85)'
+  });
 }
 
 // ── SURVIVAL HUD ──────────────────────────────────────────────
@@ -34255,7 +34295,7 @@ function startPlatformerRaid(regionId) {
   const region = WORLD_REGIONS.find(r=>r.id===regionId);
   if(!region||GS.necroLv<region.lv) return;
   closeCastle_menu();
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       setTimeout(()=>initPlatformer(region), 50);
@@ -37111,7 +37151,7 @@ function _guestOnData(data) {
     MP.raidKey = data.raidKey;
     MP.playerIdx = data.playerIdx ?? MP.playerIdx;
     _playDoorOpen();
-    TransitionManager.play('battleFlash',500,{
+    TransitionManager.play('raidFade',700,{hold:true,
       onMid:()=>{
         showScreen('raid');
         _initRaidFromHostData(data);
@@ -37406,7 +37446,7 @@ function _checkAllReady() {
   _playDoorOpen();
 
   // Start raid, then serialize map for guests
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       initRaid(MP.raidKey, 1);
@@ -41960,7 +42000,7 @@ function tauFireRaid(region,diff){
   tauCloseAllPanels();closeTauriMap();
   activeRaid=rdKey;
   _pendingRegionRaid={region:{...region},raidDef:{key:rdKey,diff,diffStyle:diff,floors:cfg.floors||3,scale:1.0,minLv:region.lv,name:cfg.name,ico:cfg.ico,bossKey:cfg.bossKey}};
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       setTimeout(()=>{initRaid(rdKey,1,{regionId:region.id,diff});},50);
@@ -43723,7 +43763,7 @@ function swFireRaid(region,diff){
   swCloseAllPanels();closeStarWarsMap();
   activeRaid=rdKey;
   _pendingRegionRaid={region:{...region,id:ck},raidDef:{key:rdKey,diff,diffStyle:diff,floors:cfg.floors||3,scale:1.0,minLv:region.lv,name:cfg.name,ico:cfg.ico,bossKey:cfg.bossKey}};
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       setTimeout(()=>{initRaid(rdKey,1,{regionId:ck,diff});},50);
@@ -44279,7 +44319,7 @@ function nwFireRaid(region,diff){
   nwCloseAllPanels();closeNetherworldMap();
   activeRaid=rdKey;
   _pendingRegionRaid={region:{...region,id:ck},raidDef:{key:rdKey,diff,diffStyle:diff,floors:cfg.floors||3,scale:1.0,minLv:region.lv,name:cfg.name,ico:cfg.ico,bossKey:cfg.bossKey}};
-  TransitionManager.play('battleFlash',500,{
+  TransitionManager.play('raidFade',700,{hold:true,
     onMid:()=>{
       showScreen('raid');
       setTimeout(()=>{initRaid(rdKey,1,{regionId:ck,diff});},50);
