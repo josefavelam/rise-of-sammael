@@ -1,3 +1,5 @@
 .netlify/
-*.patch  
+*.patch
 index.html.bak.*
+contact-sheet.png
+sm_*.png
